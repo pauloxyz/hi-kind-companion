@@ -55,7 +55,7 @@ function Page() {
   const [hasEmailOnly, setHasEmailOnly] = useState(false);
   const [hideApplied, setHideApplied] = useState(false);
   const [minWage, setMinWage] = useState("");
-  const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage">("fresh");
+  const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage" | "quality">("quality");
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
