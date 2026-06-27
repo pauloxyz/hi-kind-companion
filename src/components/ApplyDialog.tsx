@@ -1,11 +1,14 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Loader2, Mail, Sparkles, Send, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
+import { sendApplicationEmail } from "@/lib/gmail.functions";
 import { detectFraud } from "@/lib/score";
 import type { Database } from "@/integrations/supabase/types";
 
@@ -20,14 +23,25 @@ interface Props {
 
 export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
   const [letter, setLetter] = useState("");
+  const [subject, setSubject] = useState("");
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
   const [attachedMediaIds, setAttachedMediaIds] = useState<string[]>([]);
   const [attachedVideoId, setAttachedVideoId] = useState<string | null>(null);
   const gen = useServerFn(generateCoverLetter);
   const record = useServerFn(recordApplication);
+  const sendEmail = useServerFn(sendApplicationEmail);
 
   const fraud = job ? detectFraud(job.job_title, job.employer_name, job.employer_address) : { isSuspicious: false, reasons: [] };
+
+  // Pre-fill subject when the job changes
+  useEffect(() => {
+    if (job && open) {
+      const title = job.job_title ?? "H-2A position";
+      const caseRef = job.external_case_number ? ` (Case ${job.external_case_number})` : "";
+      setSubject(`H-2A Application — ${title}${caseRef}`);
+    }
+  }, [job, open]);
 
   async function handleGenerate() {
     if (!job) return;
@@ -45,15 +59,25 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
     if (!job || !letter.trim()) return;
     setSending(true);
     try {
+      if (job.recruitment_email) {
+        await sendEmail({
+          data: {
+            jobId: job.id,
+            to: job.recruitment_email,
+            subject: subject.trim() || `Application for ${job.job_title ?? "H-2A position"}`,
+            body: letter,
+          },
+        });
+        toast.success("Email enviado pelo seu Gmail");
+      } else {
+        toast.message("Sem email do empregador — só registrando candidatura");
+      }
       await record({ data: { jobId: job.id, coverLetterEn: letter, contactMethod: "email", attachedMediaIds, attachedVideoId } });
-      const subject = encodeURIComponent(`Application for ${job.job_title ?? "H-2A position"} (Case ${job.external_case_number ?? ""})`);
-      const body = encodeURIComponent(letter);
-      if (job.recruitment_email) window.location.href = `mailto:${job.recruitment_email}?subject=${subject}&body=${body}`;
       toast.success("Candidatura registrada. Follow-up em 2 dias.");
       onOpenChange(false);
-      setLetter(""); setAttachedMediaIds([]); setAttachedVideoId(null);
+      setLetter(""); setSubject(""); setAttachedMediaIds([]); setAttachedVideoId(null);
       onSent?.();
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Erro ao registrar"); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Erro ao enviar"); }
     finally { setSending(false); }
   }
 
@@ -83,14 +107,31 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
               📎 Anexado automaticamente: {attachedVideoId ? "vídeo de apresentação" : ""}{attachedVideoId && attachedMediaIds.length ? " + " : ""}{attachedMediaIds.length ? `${attachedMediaIds.length} mídia(s) em destaque` : ""}
             </div>
           )}
-          <Textarea value={letter} onChange={(e) => setLetter(e.target.value)} placeholder="Sua carta em inglês aparecerá aqui…" className="min-h-[300px] font-mono text-sm" />
+          {job?.recruitment_email && (
+            <div className="space-y-1">
+              <Label htmlFor="email-subject" className="text-xs">Assunto do email (em inglês)</Label>
+              <Input
+                id="email-subject"
+                value={subject}
+                onChange={(e) => setSubject(e.target.value)}
+                placeholder="H-2A Application — Job Title"
+                className="text-sm"
+              />
+            </div>
+          )}
+          <Textarea value={letter} onChange={(e) => setLetter(e.target.value)} placeholder="Sua carta em inglês aparecerá aqui…" className="min-h-[280px] font-mono text-sm" />
           {!job?.recruitment_email && (<p className="text-xs text-yellow-600">⚠️ Sem e-mail. Use telefone ({job?.recruitment_phone ?? "—"}) ou site.</p>)}
+          {job?.recruitment_email && (
+            <p className="text-xs text-muted-foreground">
+              📧 Será enviado pelo seu Gmail conectado. Resposta do empregador chega na sua caixa de entrada normal.
+            </p>
+          )}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSend} disabled={!letter.trim() || sending}>
             {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
-            Abrir e-mail e registrar
+            {job?.recruitment_email ? "Enviar pelo Gmail" : "Registrar candidatura"}
           </Button>
         </DialogFooter>
       </DialogContent>
