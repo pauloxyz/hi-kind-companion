@@ -295,6 +295,81 @@ function Page() {
     [enriched, compareIds],
   );
 
+  function alertMatchesJob(a: JobAlert, e: typeof enriched[number]) {
+    const j = e.job;
+    if (a.state && (j.worksite_state ?? "").toUpperCase() !== a.state.toUpperCase()) return false;
+    if (a.category && a.category !== "all" && e.category !== a.category) return false;
+    if (a.min_wage != null && !(j.wage_offered && j.wage_offered >= a.min_wage)) return false;
+    if (a.min_match != null && e.score < a.min_match) return false;
+    return true;
+  }
+
+  const alertMatches = useMemo(() => {
+    const map = new Map<string, { total: number; fresh: number }>();
+    for (const a of alerts) {
+      const seen = new Date(a.last_seen_at).getTime();
+      let total = 0, fresh = 0;
+      for (const e of enriched) {
+        if (!alertMatchesJob(a, e)) continue;
+        total++;
+        const pd = e.job.posted_date ? new Date(e.job.posted_date).getTime() : 0;
+        if (pd > seen) fresh++;
+      }
+      map.set(a.id, { total, fresh });
+    }
+    return map;
+  }, [alerts, enriched]);
+
+  const totalFreshAlerts = useMemo(
+    () => Array.from(alertMatches.values()).reduce((s, x) => s + x.fresh, 0),
+    [alertMatches],
+  );
+
+  async function createAlert() {
+    if (!newAlert.name.trim()) { toast.error("Dê um nome ao alerta"); return; }
+    const { data: u } = await supabase.auth.getUser();
+    if (!u.user) return;
+    const payload = {
+      owner_id: u.user.id,
+      name: newAlert.name.trim(),
+      state: newAlert.state || null,
+      category: newAlert.category && newAlert.category !== "all" ? newAlert.category : null,
+      min_wage: newAlert.min_wage ? parseFloat(newAlert.min_wage) : null,
+      min_match: newAlert.min_match ? parseInt(newAlert.min_match) : null,
+    };
+    const { error } = await supabase.from("job_alerts").insert(payload);
+    if (error) { toast.error("Falha ao criar alerta: " + error.message); return; }
+    toast.success("Alerta criado");
+    setNewAlert({ name: "", state: "", category: "all", min_wage: "", min_match: "" });
+    await load();
+  }
+
+  async function deleteAlert(id: string) {
+    const { error } = await supabase.from("job_alerts").delete().eq("id", id);
+    if (error) { toast.error("Falha ao remover"); return; }
+    setAlerts((prev) => prev.filter((a) => a.id !== id));
+  }
+
+  async function markAlertSeen(id: string) {
+    const now = new Date().toISOString();
+    const { error } = await supabase.from("job_alerts").update({ last_seen_at: now }).eq("id", id);
+    if (error) { toast.error("Falha ao marcar como visto"); return; }
+    setAlerts((prev) => prev.map((a) => a.id === id ? { ...a, last_seen_at: now } : a));
+  }
+
+  function applyAlertAsFilter(a: JobAlert) {
+    setStateFilter(a.state ?? "");
+    setCategoryFilter((a.category as any) ?? "all");
+    setMinWage(a.min_wage != null ? String(a.min_wage) : "");
+    setStartAfter("");
+    setSearch("");
+    setHasEmailOnly(false); setHideApplied(false); setSavedOnly(false);
+    setSortBy("fresh");
+    setAlertsOpen(false);
+    toast.success(`Filtros do alerta "${a.name}" aplicados`);
+  }
+
+
   async function runBulk() {
     const targets = filtered.filter(({ job: j, isSuspicious }) =>
       selected.has(j.id) && j.recruitment_email && !appliedJobIds.has(j.id) && !isSuspicious,
