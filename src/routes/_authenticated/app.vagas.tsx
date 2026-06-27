@@ -124,6 +124,10 @@ function Page() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
+  const MAX_COMPARE = 3;
 
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const importFn = useServerFn(triggerDolImport);
