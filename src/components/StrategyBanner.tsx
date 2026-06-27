@@ -14,8 +14,8 @@ export function StrategyBanner() {
 export function FraudBanner() {
   const { t } = useI18n();
   return (
-    <div className="mb-3 flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-medium text-red-900 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200">
-      <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+    <div className="mt-8 flex items-start gap-2 border-t pt-3 text-[11px] text-muted-foreground">
+      <AlertTriangle className="mt-0.5 size-3 shrink-0" />
       <p className="leading-snug">{t("fraud_banner")}</p>
     </div>
   );
