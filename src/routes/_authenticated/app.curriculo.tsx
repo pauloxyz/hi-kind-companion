@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Plus, Trash2, Download, Save } from "lucide-react";
+import { Loader2, Sparkles, Plus, Trash2, Download, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
+import { importResumeFromPdf } from "@/lib/resume-import.functions";
 import { pdf } from "@react-pdf/renderer";
 import { ResumePdfDocument, type ResumePdfData } from "@/components/ResumePdfDocument";
 
