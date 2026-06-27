@@ -42,6 +42,35 @@ function matchBadge(score: number) {
   return <Badge variant="outline">Match {score}%</Badge>;
 }
 
+type JobCategory = "machine" | "harvest" | "livestock" | "irrigation" | "supervisor" | "nursery" | "construction" | "general" | "other";
+
+const CATEGORY_LABELS: Record<JobCategory, string> = {
+  machine: "🚜 Operador de máquina",
+  harvest: "🍓 Colheita / Picker",
+  livestock: "🐄 Pecuária / Laticínios",
+  irrigation: "💧 Irrigação",
+  supervisor: "👷 Supervisor / Crew leader",
+  nursery: "🌱 Viveiro / Nursery",
+  construction: "🔨 Construção / Fence",
+  general: "🌾 Farm worker (geral)",
+  other: "❓ Outros",
+};
+
+function classifyJob(title: string | null): JobCategory {
+  const t = (title ?? "").toLowerCase();
+  if (!t) return "other";
+  if (/(equipment|machine|tractor|combine|forklift|operator|driver|cdl|mechanic)/.test(t)) return "machine";
+  if (/(supervisor|crew\s*leader|foreman|manager|coordinator)/.test(t)) return "supervisor";
+  if (/(dairy|livestock|cattle|cow|herd|milker|ranch|sheep|goat|hog|swine|poultry|chicken)/.test(t)) return "livestock";
+  if (/(irrigation|sprinkler)/.test(t)) return "irrigation";
+  if (/(nursery|greenhouse|transplant|propagation)/.test(t)) return "nursery";
+  if (/(fence|construction|builder)/.test(t)) return "construction";
+  if (/(harvest|picker|picking|pruner|pruning|packer|packing|sorter|detasseler|detassel)/.test(t)) return "harvest";
+  if (/(farm\s*worker|farmworker|laborer|general\s*farm|agricultural\s*worker|field\s*worker)/.test(t)) return "general";
+  return "other";
+}
+
+
 function QualityMedal({ q }: { q: JobQuality }) {
   if (!q.level) return null;
   const cfg = {
@@ -84,9 +113,11 @@ function Page() {
   const [hideApplied, setHideApplied] = useState(false);
   const [minWage, setMinWage] = useState("");
   const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage" | "quality">("quality");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | JobCategory>("all");
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
+
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const importFn = useServerFn(triggerDolImport);
   const genFn = useServerFn(generateCoverLetter);
@@ -129,17 +160,25 @@ function Page() {
       const isSuspicious = fraud.isSuspicious || empFlag;
       const score = matchScore(j, profile, resume);
       const quality = jobQuality(j, isSuspicious);
-      return { job: j, score, isSuspicious, fraudReasons: fraud.reasons, employerFlagged: empFlag, quality };
+      const category = classifyJob(j.job_title);
+      return { job: j, score, isSuspicious, fraudReasons: fraud.reasons, employerFlagged: empFlag, quality, category };
     });
   }, [jobs, profile, resume, suspiciousEmployers]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of enriched) counts[e.category] = (counts[e.category] ?? 0) + 1;
+    return counts;
+  }, [enriched]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const st = stateFilter.trim().toLowerCase();
     const w = parseFloat(minWage) || 0;
-    let arr = enriched.filter(({ job: j }) => {
+    let arr = enriched.filter(({ job: j, category }) => {
       if (hasEmailOnly && !j.recruitment_email) return false;
       if (hideApplied && appliedJobIds.has(j.id)) return false;
+      if (categoryFilter !== "all" && category !== categoryFilter) return false;
       if (st && !(j.worksite_state ?? "").toLowerCase().includes(st)) return false;
       if (w && !(j.wage_offered && j.wage_offered >= w)) return false;
       if (s) {
@@ -153,7 +192,18 @@ function Page() {
     else if (sortBy === "quality") arr = [...arr].sort((a, b) => b.quality.score - a.quality.score);
     else arr = [...arr].sort((a, b) => (daysAgo(a.job.posted_date) ?? 9999) - (daysAgo(b.job.posted_date) ?? 9999));
     return arr;
-  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, appliedJobIds]);
+  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, categoryFilter, appliedJobIds]);
+
+  const filtersActive =
+    search !== "" || stateFilter !== "" || minWage !== "" ||
+    hasEmailOnly || hideApplied || categoryFilter !== "all" || sortBy !== "quality";
+
+  function resetFilters() {
+    setSearch(""); setStateFilter(""); setMinWage("");
+    setHasEmailOnly(false); setHideApplied(false);
+    setCategoryFilter("all"); setSortBy("quality");
+  }
+
 
   function toggleSelect(id: string) {
     setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -213,36 +263,61 @@ function Page() {
       </div>
 
       <Card>
-        <CardContent className="pt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Input placeholder="Buscar título / empregador / cidade" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Input placeholder="Estado (ex: FLORIDA)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
-          <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
-          <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>
-              <SelectItem value="fresh">Mais novas</SelectItem>
-              <SelectItem value="match">Maior match</SelectItem>
-              <SelectItem value="wage">Maior salário</SelectItem>
-            </SelectContent>
-          </Select>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={hasEmailOnly} onChange={(e) => setHasEmailOnly(e.target.checked)} />
-            Apenas com e-mail
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={hideApplied} onChange={(e) => setHideApplied(e.target.checked)} />
-            Esconder já candidatadas
-          </label>
+        <CardContent className="pt-4 space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Input placeholder="Buscar título / empregador / cidade" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Estado (ex: FLORIDA)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
+            <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
+            <Select value={categoryFilter} onValueChange={(v: any) => setCategoryFilter(v)}>
+              <SelectTrigger><SelectValue placeholder="Tipo de vaga" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos ({enriched.length})</SelectItem>
+                {(Object.keys(CATEGORY_LABELS) as JobCategory[])
+                  .filter((k) => (categoryCounts[k] ?? 0) > 0)
+                  .sort((a, b) => (categoryCounts[b] ?? 0) - (categoryCounts[a] ?? 0))
+                  .map((k) => (
+                    <SelectItem key={k} value={k}>{CATEGORY_LABELS[k]} ({categoryCounts[k]})</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>
+                <SelectItem value="fresh">Mais novas</SelectItem>
+                <SelectItem value="match">Maior match</SelectItem>
+                <SelectItem value="wage">Maior salário</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={hasEmailOnly} onChange={(e) => setHasEmailOnly(e.target.checked)} />
+                Apenas com e-mail
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={hideApplied} onChange={(e) => setHideApplied(e.target.checked)} />
+                Esconder candidatadas
+              </label>
+            </div>
+          </div>
+          <div className="flex items-center justify-between border-t pt-2">
+            <div className="text-xs text-muted-foreground">
+              {filtersActive ? "Filtros ativos" : "Nenhum filtro ativo"}
+            </div>
+            <Button variant="ghost" size="sm" onClick={resetFilters} disabled={!filtersActive}>
+              <RefreshCw className="mr-2 h-3.5 w-3.5" /> Resetar filtros
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
 
       <div className="text-sm text-muted-foreground">
         {loading ? "Carregando…" : `${filtered.length} vagas · ${appliedJobIds.size} já candidatado(s)`}
       </div>
 
       <div className="grid gap-3">
-        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality }) => {
+        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality, category }) => {
           const applied = appliedJobIds.has(j.id);
           return (
             <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""}`}>
@@ -256,6 +331,7 @@ function Page() {
                     <div>
                       <CardTitle className="text-base">{j.job_title ?? "Sem título"}</CardTitle>
                       <div className="text-sm text-muted-foreground">{j.employer_name ?? "—"}</div>
+                      <Badge variant="secondary" className="mt-1 text-xs">{CATEGORY_LABELS[category]}</Badge>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -263,6 +339,7 @@ function Page() {
                     {matchBadge(score)}
                     {freshnessBadge(j.posted_date)}
                     {applied && <Badge variant="outline">✓ Candidatado</Badge>}
+
                   </div>
                 </div>
               </CardHeader>
