@@ -8,6 +8,10 @@ function publicClient() {
   });
 }
 
+export type PublicMedia = { id: string; type: string; caption: string | null; url: string };
+export type PublicExperience = { id: string; job_title: string | null; employer_name: string | null; start_date: string | null; end_date: string | null; description: string | null };
+export type PublicSkill = { id: string; skill_name: string | null; category: string | null };
+
 export type PublicProfilePayload = {
   profile: {
     full_name: string | null;
@@ -17,9 +21,9 @@ export type PublicProfilePayload = {
     has_prior_h2_experience: boolean | null;
     phone: string | null;
   };
-  experiences: Array<{ id: string; role: string | null; employer_name: string | null; start_date: string | null; end_date: string | null; description: string | null }>;
-  skills: Array<{ id: string; skill: string; level: string | null }>;
-  media: Array<{ id: string; type: string; caption: string | null; url: string }>;
+  experiences: PublicExperience[];
+  skills: PublicSkill[];
+  media: PublicMedia[];
   video: { id: string; url: string } | null;
 } | null;
 
@@ -37,16 +41,15 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
 
     const ownerId = profile.owner_id;
     const [exps, skills, mediaRows, videoRow] = await Promise.all([
-      sb.from("resume_experiences").select("id,role,employer_name,start_date,end_date,description").eq("owner_id", ownerId).order("start_date", { ascending: false }),
-      sb.from("resume_skills").select("id,skill,level").eq("owner_id", ownerId),
+      sb.from("resume_experiences").select("id,job_title,employer_name,start_date,end_date,description_en,description_pt").eq("owner_id", ownerId).order("start_date", { ascending: false }),
+      sb.from("resume_skills").select("id,skill_name,category").eq("owner_id", ownerId),
       sb.from("work_media").select("id,media_url,media_type,caption").eq("owner_id", ownerId).eq("is_featured", true).order("uploaded_at", { ascending: false }).limit(8),
       sb.from("intro_video").select("id,video_url").eq("owner_id", ownerId).eq("is_active", true).order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
-    // Sign storage URLs with service-grade publishable client (buckets are private; we use admin to sign briefly)
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const EXPIRES = 60 * 60; // 1h - regenerated each page load
-    const media: PublicProfilePayload extends infer T ? (T extends null ? never : T["media"]) : never = [];
+    const EXPIRES = 60 * 60; // 1h, regenerated each load
+    const media: PublicMedia[] = [];
     for (const m of mediaRows.data ?? []) {
       const { data: s } = await supabaseAdmin.storage.from("work-media").createSignedUrl(m.media_url, EXPIRES);
       if (s) media.push({ id: m.id, type: m.media_type ?? "photo", caption: m.caption, url: s.signedUrl });
@@ -57,6 +60,15 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
       if (s) video = { id: videoRow.data.id, url: s.signedUrl };
     }
 
+    const experiences: PublicExperience[] = (exps.data ?? []).map((e) => ({
+      id: e.id,
+      job_title: e.job_title,
+      employer_name: e.employer_name,
+      start_date: e.start_date,
+      end_date: e.end_date,
+      description: e.description_en ?? e.description_pt ?? null,
+    }));
+
     return {
       profile: {
         full_name: profile.full_name,
@@ -66,7 +78,7 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
         has_prior_h2_experience: profile.has_prior_h2_experience,
         phone: profile.phone,
       },
-      experiences: exps.data ?? [],
+      experiences,
       skills: skills.data ?? [],
       media,
       video,

@@ -1,6 +1,6 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useEffect } from "react";
-import { getPublicProfileBySlug, trackProfileView } from "@/lib/public-profile.functions";
+import { getPublicProfileBySlug, trackProfileView, type PublicSkill, type PublicExperience, type PublicMedia } from "@/lib/public-profile.functions";
 
 export const Route = createFileRoute("/v/$slug")({
   loader: async ({ params }) => {
@@ -73,7 +73,7 @@ function PublicProfilePage() {
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Skills</h2>
             <div className="flex flex-wrap gap-2">
-              {skills.map((s) => (
+              {skills.map((s: PublicSkill) => (
                 <span key={s.id} className="px-3 py-1.5 rounded-full bg-card border text-sm">
                   {s.skill}
                   {s.level && <span className="ml-1 text-xs text-muted-foreground">· {s.level}</span>}
@@ -88,7 +88,7 @@ function PublicProfilePage() {
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Experience</h2>
             <div className="space-y-3">
-              {experiences.map((e) => (
+              {experiences.map((e: PublicExperience) => (
                 <div key={e.id} className="rounded-lg border bg-card p-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <div className="font-semibold">{e.role ?? "Worker"}</div>
@@ -109,7 +109,7 @@ function PublicProfilePage() {
           <section>
             <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-3">Work samples</h2>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {media.map((m) => (
+              {media.map((m: PublicMedia) => (
                 <figure key={m.id} className="rounded-lg overflow-hidden bg-muted aspect-square relative group">
                   {m.type === "video" ? (
                     <video src={m.url} controls playsInline className="w-full h-full object-cover" />
