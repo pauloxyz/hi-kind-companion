@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { StrategyBanner, FraudBanner } from "./StrategyBanner";
+import { FraudBanner } from "./StrategyBanner";
 
 type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean };
 const items: NavItem[] = [
@@ -87,9 +87,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <span className="font-semibold">VaiPraLá</span>
         </header>
         <div className="mx-auto max-w-6xl p-4 lg:p-6">
-          <FraudBanner />
-          <StrategyBanner />
           {children ?? <Outlet />}
+          <FraudBanner />
         </div>
       </main>
     </div>
