@@ -224,13 +224,26 @@ function PerfilPage() {
             )}
           </div>
           <div className="space-y-1">
-            <Label>Frase de apresentação (uma linha em inglês)</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>Frase de apresentação (uma linha em inglês)</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateHeadline}
+                disabled={generatingHeadline}
+              >
+                {generatingHeadline ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                Gerar com IA
+              </Button>
+            </div>
             <Input
               value={form.public_headline}
               onChange={(e) => setForm({ ...form, public_headline: e.target.value })}
               placeholder="Hard-working farmhand from Brazil, 3 seasons of strawberry harvest, available March-Nov."
               maxLength={160}
             />
+            <p className="text-xs text-muted-foreground">A IA usa seu currículo (experiências, habilidades, resumo) para criar uma frase que chame atenção do empregador. Revise antes de salvar.</p>
           </div>
           <div className="rounded-md bg-muted/40 p-3 text-sm">
             <span className="font-semibold">{viewCount ?? "…"}</span> visualização(ões) registrada(s) na sua página.
