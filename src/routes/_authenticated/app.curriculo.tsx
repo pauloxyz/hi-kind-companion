@@ -368,6 +368,44 @@ function Page() {
         Escreva em português; a IA traduz para inglês. O PDF gerado é em inglês, estilo trabalho manual americano (ATS-friendly).
       </p>
 
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Já tem um currículo pronto? Importe com IA
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Envie um PDF, Word ou foto do seu currículo. A IA lê e preenche os campos abaixo automaticamente (em português e inglês). Você revisa antes de salvar.
+          </p>
+          <div className="flex items-center gap-2">
+            <Input
+              id="resume-import-file"
+              type="file"
+              accept="application/pdf,.pdf,.doc,.docx,image/*"
+              disabled={importing}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleImportPdf(f);
+                e.target.value = "";
+              }}
+              className="cursor-pointer"
+            />
+            {importing && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lendo…
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            <Upload className="inline h-3 w-3 mr-1" />
+            Máx 10 MB. Os dados existentes não são apagados — novas experiências são adicionadas.
+          </p>
+        </CardContent>
+      </Card>
+
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">1. Resumo profissional</CardTitle>
