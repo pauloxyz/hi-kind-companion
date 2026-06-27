@@ -130,6 +130,16 @@ function Page() {
   const [compareOpen, setCompareOpen] = useState(false);
   const MAX_COMPARE = 3;
 
+  type JobAlert = {
+    id: string; name: string; state: string | null; category: string | null;
+    min_wage: number | null; min_match: number | null; last_seen_at: string;
+  };
+  const [alerts, setAlerts] = useState<JobAlert[]>([]);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [newAlert, setNewAlert] = useState<{ name: string; state: string; category: string; min_wage: string; min_match: string }>(
+    { name: "", state: "", category: "all", min_wage: "", min_match: "" },
+  );
+
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const importFn = useServerFn(triggerDolImport);
   const genFn = useServerFn(generateCoverLetter);
