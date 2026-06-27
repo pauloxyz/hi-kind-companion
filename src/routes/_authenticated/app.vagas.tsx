@@ -122,6 +122,7 @@ function Page() {
     });
     if (sortBy === "match") arr = [...arr].sort((a, b) => b.score - a.score);
     else if (sortBy === "wage") arr = [...arr].sort((a, b) => (b.job.wage_offered ?? 0) - (a.job.wage_offered ?? 0));
+    else if (sortBy === "quality") arr = [...arr].sort((a, b) => b.quality.score - a.quality.score);
     else arr = [...arr].sort((a, b) => (daysAgo(a.job.posted_date) ?? 9999) - (daysAgo(b.job.posted_date) ?? 9999));
     return arr;
   }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, appliedJobIds]);
