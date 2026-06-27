@@ -75,8 +75,8 @@ function PublicProfilePage() {
             <div className="flex flex-wrap gap-2">
               {skills.map((s: PublicSkill) => (
                 <span key={s.id} className="px-3 py-1.5 rounded-full bg-card border text-sm">
-                  {s.skill}
-                  {s.level && <span className="ml-1 text-xs text-muted-foreground">· {s.level}</span>}
+                  {s.skill_name}
+                  {s.category && <span className="ml-1 text-xs text-muted-foreground">· {s.category}</span>}
                 </span>
               ))}
             </div>
@@ -91,7 +91,7 @@ function PublicProfilePage() {
               {experiences.map((e: PublicExperience) => (
                 <div key={e.id} className="rounded-lg border bg-card p-4">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <div className="font-semibold">{e.role ?? "Worker"}</div>
+                    <div className="font-semibold">{e.job_title ?? "Worker"}</div>
                     <div className="text-xs text-muted-foreground">
                       {e.start_date ?? "?"} – {e.end_date ?? "present"}
                     </div>
