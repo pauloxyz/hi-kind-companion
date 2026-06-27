@@ -242,7 +242,7 @@ function Page() {
       </div>
 
       <div className="grid gap-3">
-        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged }) => {
+        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality }) => {
           const applied = appliedJobIds.has(j.id);
           return (
             <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""}`}>
