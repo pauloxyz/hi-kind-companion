@@ -78,26 +78,36 @@ ${expLines || "(no prior experience listed)"}
       throw new Error("Falha ao gerar carta: " + msg);
     }
 
-    // Build signed-URL attachment footer (30-day TTL)
+    // Build attachment footer. Prefer the public profile URL when available — one short link beats raw signed Storage URLs.
     const EXPIRES = 60 * 60 * 24 * 30;
     const footer: string[] = [];
     const attachedMediaIds: string[] = [];
     let attachedVideoId: string | null = null;
 
-    if (video) {
-      const { data: signed } = await supabase.storage.from("intro-videos").createSignedUrl(video.video_url, EXPIRES);
-      if (signed) { footer.push(`Intro video (English): ${signed.signedUrl}`); attachedVideoId = video.id; }
-    }
-    if (featuredMedia && featuredMedia.length) {
-      const mediaLines: string[] = [];
-      for (const m of featuredMedia) {
-        const { data: signed } = await supabase.storage.from("work-media").createSignedUrl(m.media_url, EXPIRES);
-        if (signed) {
-          mediaLines.push(`- ${m.caption ?? "Work sample"}: ${signed.signedUrl}`);
-          attachedMediaIds.push(m.id);
-        }
+    if (profile?.public_slug && profile?.public_page_enabled) {
+      const { getRequestHost } = await import("@tanstack/react-start/server");
+      let host = "";
+      try { host = getRequestHost(); } catch { host = ""; }
+      const origin = host ? `https://${host}` : "";
+      footer.push(`Full candidate profile (video + photos + experience): ${origin}/v/${profile.public_slug}`);
+      if (video) attachedVideoId = video.id;
+      for (const m of featuredMedia ?? []) attachedMediaIds.push(m.id);
+    } else {
+      if (video) {
+        const { data: signed } = await supabase.storage.from("intro-videos").createSignedUrl(video.video_url, EXPIRES);
+        if (signed) { footer.push(`Intro video (English): ${signed.signedUrl}`); attachedVideoId = video.id; }
       }
-      if (mediaLines.length) { footer.push("Work photos / videos:"); footer.push(...mediaLines); }
+      if (featuredMedia && featuredMedia.length) {
+        const mediaLines: string[] = [];
+        for (const m of featuredMedia) {
+          const { data: signed } = await supabase.storage.from("work-media").createSignedUrl(m.media_url, EXPIRES);
+          if (signed) {
+            mediaLines.push(`- ${m.caption ?? "Work sample"}: ${signed.signedUrl}`);
+            attachedMediaIds.push(m.id);
+          }
+        }
+        if (mediaLines.length) { footer.push("Work photos / videos:"); footer.push(...mediaLines); }
+      }
     }
 
     const finalText = footer.length ? `${letter}\n\n---\nReferences:\n${footer.join("\n")}` : letter;
