@@ -130,7 +130,7 @@ function Page() {
                 {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleFile} disabled={uploading} className="max-w-xs" />
+            <Input ref={fileRef} type="file" accept="image/*,video/*" multiple onChange={handleFile} disabled={uploading} className="max-w-xs" />
             {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
           </div>
           <p className="text-xs text-muted-foreground">
