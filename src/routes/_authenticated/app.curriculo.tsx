@@ -184,7 +184,7 @@ function Page() {
         setExperiences((prev) => {
           const existingEmpty = prev.length === 1 && !prev[0].job_title.trim();
           const base = existingEmpty ? [] : prev;
-          return [...base, ...imported.experiences.map((e) => ({ ...e }))];
+          return [...base, ...imported.experiences.map((e) => ({ ...e, job_title_en: (e as { job_title_en?: string }).job_title_en ?? "" }))];
         });
       }
       if (imported.full_name || imported.phone || imported.country) {
