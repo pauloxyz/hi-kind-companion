@@ -8,7 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { StrategyBanner, FraudBanner } from "./StrategyBanner";
+import { FraudBanner } from "./StrategyBanner";
 
 type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean };
 const items: NavItem[] = [
