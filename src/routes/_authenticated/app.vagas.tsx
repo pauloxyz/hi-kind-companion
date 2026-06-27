@@ -113,9 +113,11 @@ function Page() {
   const [hideApplied, setHideApplied] = useState(false);
   const [minWage, setMinWage] = useState("");
   const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage" | "quality">("quality");
+  const [categoryFilter, setCategoryFilter] = useState<"all" | JobCategory>("all");
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
+
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const importFn = useServerFn(triggerDolImport);
   const genFn = useServerFn(generateCoverLetter);
