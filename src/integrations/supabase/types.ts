@@ -187,6 +187,42 @@ export type Database = {
         }
         Relationships: []
       }
+      job_alerts: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          last_seen_at: string
+          min_match: number | null
+          min_wage: number | null
+          name: string
+          owner_id: string
+          state: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          min_match?: number | null
+          min_wage?: number | null
+          name: string
+          owner_id: string
+          state?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          last_seen_at?: string
+          min_match?: number | null
+          min_wage?: number | null
+          name?: string
+          owner_id?: string
+          state?: string | null
+        }
+        Relationships: []
+      }
       jobs: {
         Row: {
           employer_address: string | null
