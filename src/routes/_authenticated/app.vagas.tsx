@@ -42,6 +42,31 @@ function matchBadge(score: number) {
   return <Badge variant="outline">Match {score}%</Badge>;
 }
 
+function QualityMedal({ q }: { q: JobQuality }) {
+  if (!q.level) return null;
+  const cfg = {
+    gold: { emoji: "🥇", label: "Top Pick", cls: "bg-yellow-500 hover:bg-yellow-500 text-black border-yellow-600" },
+    silver: { emoji: "🥈", label: "Recomendada", cls: "bg-slate-300 hover:bg-slate-300 text-black border-slate-400" },
+    bronze: { emoji: "🥉", label: "Boa opção", cls: "bg-amber-700 hover:bg-amber-700 text-white border-amber-800" },
+  }[q.level];
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge className={`cursor-help border ${cfg.cls}`}>{cfg.emoji} {cfg.label}</Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <div className="text-xs space-y-1">
+            <div className="font-semibold">Por que recomendamos ({q.score}/100):</div>
+            <ul className="list-disc pl-4 space-y-0.5">
+              {q.reasons_pt.map((r, i) => (<li key={i}>{r}</li>))}
+            </ul>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+
 function Page() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [profile, setProfile] = useState<any>(null);
