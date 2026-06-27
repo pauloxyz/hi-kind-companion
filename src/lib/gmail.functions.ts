@@ -52,15 +52,16 @@ export const sendApplicationEmail = createServerFn({ method: "POST" })
       throw new Error("Gmail não está conectado. Reconecte em Configurações.");
     }
 
-    // Pull profile for From name + Reply-To
+    // Pull profile for From name + Reply-To (email comes from auth claims)
     const { data: profile } = await supabase
       .from("my_profile")
-      .select("full_name, email, phone")
+      .select("full_name, phone")
       .eq("owner_id", userId)
       .maybeSingle();
 
+    const claims = context.claims as { email?: string } | undefined;
     const fromName = profile?.full_name ?? null;
-    const replyTo = profile?.email ?? null;
+    const replyTo = claims?.email ?? null;
 
     // Add a polite signature if we have data
     const signatureLines: string[] = [];
