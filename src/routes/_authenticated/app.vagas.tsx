@@ -736,6 +736,120 @@ function Page() {
           )}
         </DialogContent>
       </Dialog>
+
+      <Dialog open={alertsOpen} onOpenChange={setAlertsOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Bell className="h-5 w-5" /> Meus alertas de vagas</DialogTitle>
+            <DialogDescription>
+              Configure critérios e veja, ao abrir o app, quantas vagas novas combinam com você.
+              Por enquanto os avisos aparecem aqui dentro (em breve por e-mail).
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              {alerts.length === 0 && (
+                <div className="text-sm text-muted-foreground text-center py-4">
+                  Nenhum alerta criado. Crie um abaixo.
+                </div>
+              )}
+              {alerts.map((a) => {
+                const m = alertMatches.get(a.id) ?? { total: 0, fresh: 0 };
+                return (
+                  <Card key={a.id}>
+                    <CardContent className="pt-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <div className="font-semibold">{a.name}</div>
+                          <div className="text-xs text-muted-foreground flex flex-wrap gap-x-3 gap-y-0.5 mt-1">
+                            {a.state && <span>📍 {a.state}</span>}
+                            {a.category && <span>{CATEGORY_LABELS[a.category as JobCategory] ?? a.category}</span>}
+                            {a.min_wage != null && <span>💵 ≥ ${a.min_wage}/hr</span>}
+                            {a.min_match != null && <span>🎯 match ≥ {a.min_match}%</span>}
+                            {!a.state && !a.category && a.min_wage == null && a.min_match == null && <span>Sem filtros</span>}
+                          </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                          {m.fresh > 0 ? (
+                            <Badge className="bg-red-600 hover:bg-red-600">{m.fresh} nova(s)</Badge>
+                          ) : (
+                            <Badge variant="outline">sem novidades</Badge>
+                          )}
+                          <span className="text-[10px] text-muted-foreground">{m.total} no total</span>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <Button size="sm" variant="default" onClick={() => applyAlertAsFilter(a)}>
+                          <Eye className="mr-2 h-3.5 w-3.5" /> Ver vagas
+                        </Button>
+                        {m.fresh > 0 && (
+                          <Button size="sm" variant="outline" onClick={() => markAlertSeen(a.id)}>
+                            Marcar como visto
+                          </Button>
+                        )}
+                        <Button size="sm" variant="ghost" className="text-destructive" onClick={() => deleteAlert(a.id)}>
+                          <Trash2 className="mr-2 h-3.5 w-3.5" /> Remover
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-base flex items-center gap-2"><Plus className="h-4 w-4" /> Novo alerta</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1 sm:col-span-2">
+                    <Label className="text-xs">Nome</Label>
+                    <Input placeholder="ex.: Colheita na Califórnia" value={newAlert.name}
+                      onChange={(e) => setNewAlert((p) => ({ ...p, name: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Estado</Label>
+                    <Select value={newAlert.state || "any"} onValueChange={(v) => setNewAlert((p) => ({ ...p, state: v === "any" ? "" : v }))}>
+                      <SelectTrigger><SelectValue placeholder="Qualquer" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="any">Qualquer estado</SelectItem>
+                        {availableStates.map(([st]) => (<SelectItem key={st} value={st}>{st}</SelectItem>))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Categoria</Label>
+                    <Select value={newAlert.category} onValueChange={(v) => setNewAlert((p) => ({ ...p, category: v }))}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">Qualquer tipo</SelectItem>
+                        {(Object.keys(CATEGORY_LABELS) as JobCategory[]).map((k) => (
+                          <SelectItem key={k} value={k}>{CATEGORY_LABELS[k]}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Salário mín ($/hr)</Label>
+                    <Input type="number" placeholder="ex.: 16" value={newAlert.min_wage}
+                      onChange={(e) => setNewAlert((p) => ({ ...p, min_wage: e.target.value }))} />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Match mínimo (%)</Label>
+                    <Input type="number" placeholder="ex.: 60" value={newAlert.min_match}
+                      onChange={(e) => setNewAlert((p) => ({ ...p, min_match: e.target.value }))} />
+                  </div>
+                </div>
+                <Button onClick={createAlert} className="w-full">
+                  <Plus className="mr-2 h-4 w-4" /> Criar alerta
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
