@@ -22,6 +22,7 @@ import { Route as AuthenticatedAppFollowupsRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_authenticated/app.empregadores'
 import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
+import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -91,6 +92,12 @@ const AuthenticatedAppCandidaturasRoute =
     path: '/app/candidaturas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const ApiPublicHooksImportDolFeedRoute =
+  ApiPublicHooksImportDolFeedRouteImport.update({
+    id: '/api/public/hooks/import-dol-feed',
+    path: '/api/public/hooks/import-dol-feed',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -105,6 +112,7 @@ export interface FileRoutesByFullPath {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -119,6 +127,7 @@ export interface FileRoutesByTo {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -135,6 +144,7 @@ export interface FileRoutesById {
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
   '/_authenticated/app/visto': typeof AuthenticatedAppVistoRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/app/'
+    | '/api/public/hooks/import-dol-feed'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -165,6 +176,7 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/app'
+    | '/api/public/hooks/import-dol-feed'
   id:
     | '__root__'
     | '/'
@@ -180,12 +192,14 @@ export interface FileRouteTypes {
     | '/_authenticated/app/video'
     | '/_authenticated/app/visto'
     | '/_authenticated/app/'
+    | '/api/public/hooks/import-dol-feed'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -281,6 +295,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCandidaturasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/api/public/hooks/import-dol-feed': {
+      id: '/api/public/hooks/import-dol-feed'
+      path: '/api/public/hooks/import-dol-feed'
+      fullPath: '/api/public/hooks/import-dol-feed'
+      preLoaderRoute: typeof ApiPublicHooksImportDolFeedRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -317,6 +338,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
