@@ -40,10 +40,21 @@ function emptyExp(): Experience {
   };
 }
 
+const AVAIL_OPTIONS: Array<{ value: string; labelPt: string; labelEn: string; descPt: string }> = [
+  { value: "full_season", labelPt: "Temporada inteira", labelEn: "Full season (entire H-2A contract)", descPt: "Disponível do início ao fim do contrato (geralmente 6-10 meses)." },
+  { value: "half_season", labelPt: "Meia temporada", labelEn: "Half season", descPt: "Disponível para aproximadamente metade do contrato." },
+  { value: "peak_harvest", labelPt: "Apenas pico da colheita", labelEn: "Peak harvest only (short-term)", descPt: "Disponível para o período mais intenso de colheita (curto prazo)." },
+  { value: "year_round", labelPt: "O ano todo (vários contratos)", labelEn: "Year-round / Multiple contracts", descPt: "Disposto a encadear contratos H-2A consecutivos." },
+  { value: "flexible", labelPt: "Flexível / Conforme necessário", labelEn: "Flexible / As needed", descPt: "Aberto a qualquer período que o empregador precisar." },
+  { value: "custom_dates", labelPt: "Datas específicas", labelEn: "Specific dates", descPt: "Quero informar datas exatas abaixo." },
+];
+
+
 function Page() {
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [summaryPt, setSummaryPt] = useState("");
   const [summaryEn, setSummaryEn] = useState("");
+  const [availType, setAvailType] = useState<string>("");
   const [availStart, setAvailStart] = useState("");
   const [availEnd, setAvailEnd] = useState("");
   const [experiences, setExperiences] = useState<Experience[]>([emptyExp()]);
@@ -87,6 +98,7 @@ function Page() {
         setResumeId(r.id);
         setSummaryPt(r.summary_pt ?? "");
         setSummaryEn(r.summary_en ?? "");
+        setAvailType((r as { availability_type?: string | null }).availability_type ?? "");
         setAvailStart(r.availability_start ?? "");
         setAvailEnd(r.availability_end ?? "");
 
@@ -225,7 +237,7 @@ function Page() {
     if (summaryEn.trim()) pts += 25;
     if (experiences.some((e) => e.job_title && e.description_en)) pts += 35;
     if (skills.length >= 3) pts += 20;
-    if (availStart && availEnd) pts += 20;
+    if (availType || (availStart && availEnd)) pts += 20;
     return pts;
   }
 
@@ -241,6 +253,7 @@ function Page() {
         owner_id: userId,
         summary_pt: summaryPt,
         summary_en: summaryEn,
+        availability_type: availType || null,
         availability_start: availStart || null,
         availability_end: availEnd || null,
         template_style: "manual_labor",
@@ -309,7 +322,13 @@ function Page() {
         email: profile.email,
         phone: profile.phone,
         country: profile.country,
-        availability: availStart && availEnd ? `${availStart} → ${availEnd}` : undefined,
+        availability: (() => {
+          const preset = AVAIL_OPTIONS.find((o) => o.value === availType && o.value !== "custom_dates");
+          if (preset) return preset.labelEn;
+          if (availStart && availEnd) return `${availStart} → ${availEnd}`;
+          if (availStart) return `From ${availStart}`;
+          return undefined;
+        })(),
         summaryEn,
         experiences: experiences
           .filter((e) => e.job_title.trim())
@@ -527,15 +546,50 @@ function Page() {
         <CardHeader>
           <CardTitle className="text-base">4. Disponibilidade</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-2 sm:grid-cols-2">
+        <CardContent className="space-y-3">
           <div>
-            <Label>De</Label>
-            <Input type="date" value={availStart} onChange={(e) => setAvailStart(e.target.value)} />
+            <Label className="text-sm">Qual é a sua disponibilidade para trabalhar?</Label>
+            <p className="text-xs text-muted-foreground mb-2">
+              Escolha em português — no currículo final aparece em inglês, no padrão usado por empregadores H-2A.
+            </p>
+            <div className="grid gap-2">
+              {AVAIL_OPTIONS.map((opt) => (
+                <label
+                  key={opt.value}
+                  className={`flex cursor-pointer items-start gap-2 rounded-md border p-2 text-sm transition ${
+                    availType === opt.value ? "border-primary bg-primary/5" : "hover:bg-muted/40"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="avail-type"
+                    value={opt.value}
+                    checked={availType === opt.value}
+                    onChange={() => setAvailType(opt.value)}
+                    className="mt-1"
+                  />
+                  <div className="flex-1">
+                    <div className="font-medium">{opt.labelPt}</div>
+                    <div className="text-xs text-muted-foreground">{opt.descPt}</div>
+                    <div className="text-[11px] text-muted-foreground italic mt-0.5">EN: {opt.labelEn}</div>
+                  </div>
+                </label>
+              ))}
+            </div>
           </div>
-          <div>
-            <Label>Até</Label>
-            <Input type="date" value={availEnd} onChange={(e) => setAvailEnd(e.target.value)} />
-          </div>
+
+          {availType === "custom_dates" && (
+            <div className="grid gap-2 sm:grid-cols-2 pt-2 border-t">
+              <div>
+                <Label>De</Label>
+                <Input type="date" value={availStart} onChange={(e) => setAvailStart(e.target.value)} />
+              </div>
+              <div>
+                <Label>Até</Label>
+                <Input type="date" value={availEnd} onChange={(e) => setAvailEnd(e.target.value)} />
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 

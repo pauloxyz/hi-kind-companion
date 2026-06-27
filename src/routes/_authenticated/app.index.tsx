@@ -31,7 +31,7 @@ function Dashboard() {
       const todayIso = today.toISOString();
       const [apps, resumes, exps, media, video, jobsNew, followsDue] = await Promise.all([
         supabase.from("applications").select("status,follow_up_sent_at,follow_up_due_at,responded_at,sent_at"),
-        supabase.from("resumes").select("summary_pt,summary_en,availability_start,availability_end").limit(1).maybeSingle(),
+        supabase.from("resumes").select("summary_pt,summary_en,availability_type,availability_start,availability_end").limit(1).maybeSingle(),
         supabase.from("resume_experiences").select("id"),
         supabase.from("work_media").select("category"),
         supabase.from("intro_video").select("id").eq("is_active", true).limit(1).maybeSingle(),
@@ -52,7 +52,7 @@ function Dashboard() {
       const score = computeScore({
         hasResumeSummaryPt: !!resumes.data?.summary_pt,
         hasResumeSummaryEn: !!resumes.data?.summary_en,
-        hasAvailabilityDates: !!resumes.data?.availability_start && !!resumes.data?.availability_end,
+        hasAvailabilityDates: !!(resumes.data as { availability_type?: string | null } | null)?.availability_type || (!!resumes.data?.availability_start && !!resumes.data?.availability_end),
         experiencesCount: exps.data?.length ?? 0,
         mediaByCategory, hasActiveIntroVideo: !!video.data,
       });

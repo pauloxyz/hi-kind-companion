@@ -429,6 +429,7 @@ export type Database = {
         Row: {
           availability_end: string | null
           availability_start: string | null
+          availability_type: string | null
           id: string
           owner_id: string
           pdf_url: string | null
@@ -440,6 +441,7 @@ export type Database = {
         Insert: {
           availability_end?: string | null
           availability_start?: string | null
+          availability_type?: string | null
           id?: string
           owner_id: string
           pdf_url?: string | null
@@ -451,6 +453,7 @@ export type Database = {
         Update: {
           availability_end?: string | null
           availability_start?: string | null
+          availability_type?: string | null
           id?: string
           owner_id?: string
           pdf_url?: string | null

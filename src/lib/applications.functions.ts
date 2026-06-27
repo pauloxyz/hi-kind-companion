@@ -35,8 +35,20 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
       profile?.phone && `Phone: ${profile.phone}`,
       profile?.has_prior_h2_experience && "Previous H-2 visa experience: yes",
       profile?.languages?.length ? `Languages: ${profile.languages.join(", ")}` : null,
-      resume?.availability_start && `Available from ${resume.availability_start}`,
-      resume?.availability_end && `until ${resume.availability_end}`,
+      (() => {
+        const t = (resume as { availability_type?: string | null } | null)?.availability_type;
+        const map: Record<string, string> = {
+          full_season: "Availability: Full season (entire H-2A contract)",
+          half_season: "Availability: Half season",
+          peak_harvest: "Availability: Peak harvest only (short-term)",
+          year_round: "Availability: Year-round / open to multiple contracts",
+          flexible: "Availability: Flexible / as needed",
+        };
+        if (t && map[t]) return map[t];
+        if (resume?.availability_start && resume?.availability_end) return `Available from ${resume.availability_start} until ${resume.availability_end}`;
+        if (resume?.availability_start) return `Available from ${resume.availability_start}`;
+        return null;
+      })(),
       resume?.summary_en && `Summary: ${resume.summary_en}`,
     ].filter(Boolean).join("\n");
 
