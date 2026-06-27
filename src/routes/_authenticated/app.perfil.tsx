@@ -50,6 +50,21 @@ function PerfilPage() {
   const [viewCount, setViewCount] = useState<number | null>(null);
   const [langInput, setLangInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [generatingHeadline, setGeneratingHeadline] = useState(false);
+  const genHeadline = useServerFn(generateHeadline);
+
+  const handleGenerateHeadline = async () => {
+    setGeneratingHeadline(true);
+    try {
+      const { headline } = await genHeadline();
+      setForm((f) => ({ ...f, public_headline: headline }));
+      toast.success("Frase gerada — revise e salve");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar");
+    } finally {
+      setGeneratingHeadline(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
