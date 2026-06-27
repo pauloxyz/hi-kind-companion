@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-export const Route = createFileRoute("/_authenticated/video")({ component: Page });
+export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
 function Page() {
   return (
     <div className="space-y-4">

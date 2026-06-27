@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/perfil")({
+export const Route = createFileRoute("/_authenticated/app/perfil")({
   component: PerfilPage,
 });
 

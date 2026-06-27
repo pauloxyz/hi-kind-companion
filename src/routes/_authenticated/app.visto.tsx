@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ExternalLink } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/visto")({
+export const Route = createFileRoute("/_authenticated/app/visto")({
   component: VistoPage,
 });
 

@@ -6,7 +6,7 @@ import { Progress } from "@/components/ui/progress";
 import { useI18n } from "@/lib/i18n";
 import { computeScore } from "@/lib/score";
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/_authenticated/app/")({
   component: Dashboard,
 });
 

@@ -9,38 +9,201 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
+import { Route as AuthenticatedAppVistoRouteImport } from './routes/_authenticated/app.visto'
+import { Route as AuthenticatedAppVideoRouteImport } from './routes/_authenticated/app.video'
+import { Route as AuthenticatedAppVagasRouteImport } from './routes/_authenticated/app.vagas'
+import { Route as AuthenticatedAppPerfilRouteImport } from './routes/_authenticated/app.perfil'
+import { Route as AuthenticatedAppMidiaRouteImport } from './routes/_authenticated/app.midia'
+import { Route as AuthenticatedAppFollowupsRouteImport } from './routes/_authenticated/app.followups'
+import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_authenticated/app.empregadores'
+import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
+import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
+  id: '/_authenticated',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
+  id: '/app/',
+  path: '/app/',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppVistoRoute = AuthenticatedAppVistoRouteImport.update({
+  id: '/app/visto',
+  path: '/app/visto',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppVideoRoute = AuthenticatedAppVideoRouteImport.update({
+  id: '/app/video',
+  path: '/app/video',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppVagasRoute = AuthenticatedAppVagasRouteImport.update({
+  id: '/app/vagas',
+  path: '/app/vagas',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppPerfilRoute = AuthenticatedAppPerfilRouteImport.update({
+  id: '/app/perfil',
+  path: '/app/perfil',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppMidiaRoute = AuthenticatedAppMidiaRouteImport.update({
+  id: '/app/midia',
+  path: '/app/midia',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAppFollowupsRoute =
+  AuthenticatedAppFollowupsRouteImport.update({
+    id: '/app/followups',
+    path: '/app/followups',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppEmpregadoresRoute =
+  AuthenticatedAppEmpregadoresRouteImport.update({
+    id: '/app/empregadores',
+    path: '/app/empregadores',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppCurriculoRoute =
+  AuthenticatedAppCurriculoRouteImport.update({
+    id: '/app/curriculo',
+    path: '/app/curriculo',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAppCandidaturasRoute =
+  AuthenticatedAppCandidaturasRouteImport.update({
+    id: '/app/candidaturas',
+    path: '/app/candidaturas',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
+  '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
+  '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
+  '/app/followups': typeof AuthenticatedAppFollowupsRoute
+  '/app/midia': typeof AuthenticatedAppMidiaRoute
+  '/app/perfil': typeof AuthenticatedAppPerfilRoute
+  '/app/vagas': typeof AuthenticatedAppVagasRoute
+  '/app/video': typeof AuthenticatedAppVideoRoute
+  '/app/visto': typeof AuthenticatedAppVistoRoute
+  '/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
+  '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
+  '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
+  '/app/followups': typeof AuthenticatedAppFollowupsRoute
+  '/app/midia': typeof AuthenticatedAppMidiaRoute
+  '/app/perfil': typeof AuthenticatedAppPerfilRoute
+  '/app/vagas': typeof AuthenticatedAppVagasRoute
+  '/app/video': typeof AuthenticatedAppVideoRoute
+  '/app/visto': typeof AuthenticatedAppVistoRoute
+  '/app': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
+  '/auth': typeof AuthRoute
+  '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
+  '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
+  '/_authenticated/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
+  '/_authenticated/app/followups': typeof AuthenticatedAppFollowupsRoute
+  '/_authenticated/app/midia': typeof AuthenticatedAppMidiaRoute
+  '/_authenticated/app/perfil': typeof AuthenticatedAppPerfilRoute
+  '/_authenticated/app/vagas': typeof AuthenticatedAppVagasRoute
+  '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
+  '/_authenticated/app/visto': typeof AuthenticatedAppVistoRoute
+  '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/app/candidaturas'
+    | '/app/curriculo'
+    | '/app/empregadores'
+    | '/app/followups'
+    | '/app/midia'
+    | '/app/perfil'
+    | '/app/vagas'
+    | '/app/video'
+    | '/app/visto'
+    | '/app/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/app/candidaturas'
+    | '/app/curriculo'
+    | '/app/empregadores'
+    | '/app/followups'
+    | '/app/midia'
+    | '/app/perfil'
+    | '/app/vagas'
+    | '/app/video'
+    | '/app/visto'
+    | '/app'
+  id:
+    | '__root__'
+    | '/'
+    | '/_authenticated'
+    | '/auth'
+    | '/_authenticated/app/candidaturas'
+    | '/_authenticated/app/curriculo'
+    | '/_authenticated/app/empregadores'
+    | '/_authenticated/app/followups'
+    | '/_authenticated/app/midia'
+    | '/_authenticated/app/perfil'
+    | '/_authenticated/app/vagas'
+    | '/_authenticated/app/video'
+    | '/_authenticated/app/visto'
+    | '/_authenticated/app/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
+  AuthRoute: typeof AuthRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated': {
+      id: '/_authenticated'
+      path: ''
+      fullPath: '/'
+      preLoaderRoute: typeof AuthenticatedRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +211,112 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/app/': {
+      id: '/_authenticated/app/'
+      path: '/app'
+      fullPath: '/app/'
+      preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/visto': {
+      id: '/_authenticated/app/visto'
+      path: '/app/visto'
+      fullPath: '/app/visto'
+      preLoaderRoute: typeof AuthenticatedAppVistoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/video': {
+      id: '/_authenticated/app/video'
+      path: '/app/video'
+      fullPath: '/app/video'
+      preLoaderRoute: typeof AuthenticatedAppVideoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/vagas': {
+      id: '/_authenticated/app/vagas'
+      path: '/app/vagas'
+      fullPath: '/app/vagas'
+      preLoaderRoute: typeof AuthenticatedAppVagasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/perfil': {
+      id: '/_authenticated/app/perfil'
+      path: '/app/perfil'
+      fullPath: '/app/perfil'
+      preLoaderRoute: typeof AuthenticatedAppPerfilRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/midia': {
+      id: '/_authenticated/app/midia'
+      path: '/app/midia'
+      fullPath: '/app/midia'
+      preLoaderRoute: typeof AuthenticatedAppMidiaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/followups': {
+      id: '/_authenticated/app/followups'
+      path: '/app/followups'
+      fullPath: '/app/followups'
+      preLoaderRoute: typeof AuthenticatedAppFollowupsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/empregadores': {
+      id: '/_authenticated/app/empregadores'
+      path: '/app/empregadores'
+      fullPath: '/app/empregadores'
+      preLoaderRoute: typeof AuthenticatedAppEmpregadoresRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/curriculo': {
+      id: '/_authenticated/app/curriculo'
+      path: '/app/curriculo'
+      fullPath: '/app/curriculo'
+      preLoaderRoute: typeof AuthenticatedAppCurriculoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/app/candidaturas': {
+      id: '/_authenticated/app/candidaturas'
+      path: '/app/candidaturas'
+      fullPath: '/app/candidaturas'
+      preLoaderRoute: typeof AuthenticatedAppCandidaturasRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
+interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
+  AuthenticatedAppCurriculoRoute: typeof AuthenticatedAppCurriculoRoute
+  AuthenticatedAppEmpregadoresRoute: typeof AuthenticatedAppEmpregadoresRoute
+  AuthenticatedAppFollowupsRoute: typeof AuthenticatedAppFollowupsRoute
+  AuthenticatedAppMidiaRoute: typeof AuthenticatedAppMidiaRoute
+  AuthenticatedAppPerfilRoute: typeof AuthenticatedAppPerfilRoute
+  AuthenticatedAppVagasRoute: typeof AuthenticatedAppVagasRoute
+  AuthenticatedAppVideoRoute: typeof AuthenticatedAppVideoRoute
+  AuthenticatedAppVistoRoute: typeof AuthenticatedAppVistoRoute
+  AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+}
+
+const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAppCandidaturasRoute: AuthenticatedAppCandidaturasRoute,
+  AuthenticatedAppCurriculoRoute: AuthenticatedAppCurriculoRoute,
+  AuthenticatedAppEmpregadoresRoute: AuthenticatedAppEmpregadoresRoute,
+  AuthenticatedAppFollowupsRoute: AuthenticatedAppFollowupsRoute,
+  AuthenticatedAppMidiaRoute: AuthenticatedAppMidiaRoute,
+  AuthenticatedAppPerfilRoute: AuthenticatedAppPerfilRoute,
+  AuthenticatedAppVagasRoute: AuthenticatedAppVagasRoute,
+  AuthenticatedAppVideoRoute: AuthenticatedAppVideoRoute,
+  AuthenticatedAppVistoRoute: AuthenticatedAppVistoRoute,
+  AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+}
+
+const AuthenticatedRouteRouteWithChildren =
+  AuthenticatedRouteRoute._addFileChildren(AuthenticatedRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
+  AuthRoute: AuthRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
