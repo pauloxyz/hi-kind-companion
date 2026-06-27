@@ -20,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/app/curriculo")({ componen
 type Experience = {
   id?: string;
   job_title: string;
+  job_title_en: string;
   employer_name: string;
   location: string;
   start_date: string;
@@ -31,6 +32,7 @@ type Experience = {
 function emptyExp(): Experience {
   return {
     job_title: "",
+    job_title_en: "",
     employer_name: "",
     location: "",
     start_date: "",
