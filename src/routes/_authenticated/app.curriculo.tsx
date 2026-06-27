@@ -471,9 +471,14 @@ function Page() {
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Input
-                  placeholder="Cargo (PT, ex: Trabalhador rural)"
+                  placeholder="Cargo em PT (ex: Trabalhador rural)"
                   value={e.job_title}
                   onChange={(ev) => updateExp(i, { job_title: ev.target.value })}
+                />
+                <Input
+                  placeholder="Job title in English (ex: Farm Worker)"
+                  value={e.job_title_en}
+                  onChange={(ev) => updateExp(i, { job_title_en: ev.target.value })}
                 />
                 <Input
                   placeholder="Empregador (ex: Fazenda XYZ)"
