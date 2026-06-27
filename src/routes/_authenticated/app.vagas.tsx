@@ -204,16 +204,31 @@ function Page() {
     return counts;
   }, [enriched]);
 
+  const availableStates = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const { job } of enriched) {
+      const s = (job.worksite_state ?? "").trim().toUpperCase();
+      if (s) counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [enriched]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    const st = stateFilter.trim().toLowerCase();
+    const st = stateFilter.trim().toUpperCase();
     const w = parseFloat(minWage) || 0;
+    const startCutoff = startAfter ? new Date(startAfter).getTime() : 0;
     let arr = enriched.filter(({ job: j, category }) => {
       if (hasEmailOnly && !j.recruitment_email) return false;
       if (hideApplied && appliedJobIds.has(j.id)) return false;
+      if (savedOnly && !savedJobIds.has(j.id)) return false;
       if (categoryFilter !== "all" && category !== categoryFilter) return false;
-      if (st && !(j.worksite_state ?? "").toLowerCase().includes(st)) return false;
+      if (st && (j.worksite_state ?? "").toUpperCase() !== st) return false;
       if (w && !(j.wage_offered && j.wage_offered >= w)) return false;
+      if (startCutoff && j.start_date) {
+        const sd = new Date(j.start_date).getTime();
+        if (!Number.isNaN(sd) && sd < startCutoff) return false;
+      }
       if (s) {
         const hay = `${j.job_title ?? ""} ${j.employer_name ?? ""} ${j.worksite_city ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
@@ -225,17 +240,19 @@ function Page() {
     else if (sortBy === "quality") arr = [...arr].sort((a, b) => b.quality.score - a.quality.score);
     else arr = [...arr].sort((a, b) => (daysAgo(a.job.posted_date) ?? 9999) - (daysAgo(b.job.posted_date) ?? 9999));
     return arr;
-  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, categoryFilter, appliedJobIds]);
+  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, savedOnly, savedJobIds, minWage, startAfter, sortBy, categoryFilter, appliedJobIds]);
 
   const filtersActive =
-    search !== "" || stateFilter !== "" || minWage !== "" ||
-    hasEmailOnly || hideApplied || categoryFilter !== "all" || sortBy !== "quality";
+    search !== "" || stateFilter !== "" || minWage !== "" || startAfter !== "" ||
+    hasEmailOnly || hideApplied || savedOnly || categoryFilter !== "all" || sortBy !== "quality";
 
   function resetFilters() {
-    setSearch(""); setStateFilter(""); setMinWage("");
-    setHasEmailOnly(false); setHideApplied(false);
+    setSearch(""); setStateFilter(""); setMinWage(""); setStartAfter("");
+    setHasEmailOnly(false); setHideApplied(false); setSavedOnly(false);
     setCategoryFilter("all"); setSortBy("quality");
   }
+
+
 
 
   function toggleSelect(id: string) {
