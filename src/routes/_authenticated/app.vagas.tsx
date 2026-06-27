@@ -13,7 +13,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { triggerDolImport } from "@/lib/jobs.functions";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
 import { ApplyDialog } from "@/components/ApplyDialog";
-import { matchScore, detectFraud } from "@/lib/score";
+import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/score";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Database } from "@/integrations/supabase/types";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"];
@@ -41,6 +42,34 @@ function matchBadge(score: number) {
   return <Badge variant="outline">Match {score}%</Badge>;
 }
 
+function QualityMedal({ q }: { q: JobQuality }) {
+  if (!q.level) return null;
+  const cfg = {
+    gold: { emoji: "🥇", label: "Top Pick", cls: "bg-yellow-500 hover:bg-yellow-500 text-black border-yellow-600" },
+    silver: { emoji: "🥈", label: "Recomendada", cls: "bg-slate-300 hover:bg-slate-300 text-black border-slate-400" },
+    bronze: { emoji: "🥉", label: "Boa opção", cls: "bg-amber-700 hover:bg-amber-700 text-white border-amber-800" },
+  }[q.level];
+  return (
+    <TooltipProvider delayDuration={150}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Badge className={`cursor-help border ${cfg.cls}`}>{cfg.emoji} {cfg.label}</Badge>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          <div className="text-xs space-y-1">
+            <div className="font-semibold">Por que recomendamos ({q.score}/100):</div>
+            <ul className="list-disc pl-4 space-y-0.5">
+              {q.reasons_pt.map((r, i) => (<li key={i}>{r}</li>))}
+            </ul>
+          </div>
+        </TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
+  );
+}
+
+
+
 function Page() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [profile, setProfile] = useState<any>(null);
@@ -54,7 +83,7 @@ function Page() {
   const [hasEmailOnly, setHasEmailOnly] = useState(false);
   const [hideApplied, setHideApplied] = useState(false);
   const [minWage, setMinWage] = useState("");
-  const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage">("fresh");
+  const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage" | "quality">("quality");
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -97,8 +126,10 @@ function Page() {
     return jobs.map((j) => {
       const fraud = detectFraud(j.job_title, j.employer_name, j.employer_address);
       const empFlag = j.employer_name ? suspiciousEmployers.has(j.employer_name) : false;
+      const isSuspicious = fraud.isSuspicious || empFlag;
       const score = matchScore(j, profile, resume);
-      return { job: j, score, isSuspicious: fraud.isSuspicious || empFlag, fraudReasons: fraud.reasons, employerFlagged: empFlag };
+      const quality = jobQuality(j, isSuspicious);
+      return { job: j, score, isSuspicious, fraudReasons: fraud.reasons, employerFlagged: empFlag, quality };
     });
   }, [jobs, profile, resume, suspiciousEmployers]);
 
@@ -119,6 +150,7 @@ function Page() {
     });
     if (sortBy === "match") arr = [...arr].sort((a, b) => b.score - a.score);
     else if (sortBy === "wage") arr = [...arr].sort((a, b) => (b.job.wage_offered ?? 0) - (a.job.wage_offered ?? 0));
+    else if (sortBy === "quality") arr = [...arr].sort((a, b) => b.quality.score - a.quality.score);
     else arr = [...arr].sort((a, b) => (daysAgo(a.job.posted_date) ?? 9999) - (daysAgo(b.job.posted_date) ?? 9999));
     return arr;
   }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, appliedJobIds]);
@@ -188,6 +220,7 @@ function Page() {
           <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>
               <SelectItem value="fresh">Mais novas</SelectItem>
               <SelectItem value="match">Maior match</SelectItem>
               <SelectItem value="wage">Maior salário</SelectItem>
@@ -209,7 +242,7 @@ function Page() {
       </div>
 
       <div className="grid gap-3">
-        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged }) => {
+        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality }) => {
           const applied = appliedJobIds.has(j.id);
           return (
             <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""}`}>
@@ -226,6 +259,7 @@ function Page() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
+                    <QualityMedal q={quality} />
                     {matchBadge(score)}
                     {freshnessBadge(j.posted_date)}
                     {applied && <Badge variant="outline">✓ Candidatado</Badge>}

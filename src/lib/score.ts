@@ -93,3 +93,102 @@ export function detectFraud(...texts: Array<string | null | undefined>): { isSus
   for (const p of FRAUD_PATTERNS) if (p.rx.test(blob)) reasons.push(p.pt);
   return { isSuspicious: reasons.length > 0, reasons: Array.from(new Set(reasons)) };
 }
+
+// ---------- Top Pick / Quality medal ----------
+// Avalia a "qualidade" de uma vaga H-2A considerando estado, salário, frescor,
+// porte do empregador (vagas e histórico) e facilidade de contato.
+// Estados com programas H-2A maduros, boa infraestrutura para trabalhadores
+// estrangeiros (housing fiscalizado, transporte, comunidades brasileiras/latinas)
+// e AEWR competitivo.
+const TOP_STATES: Record<string, { tier: 1 | 2; note: string }> = {
+  FLORIDA: { tier: 1, note: "FL: maior programa H-2A do país, housing fiscalizado e forte comunidade BR" },
+  GEORGIA: { tier: 1, note: "GA: 2º maior empregador H-2A, AEWR sólido (~$14-15/h)" },
+  WASHINGTON: { tier: 1, note: "WA: AEWR alto (~$19+/h), maçãs/cerejas, housing regulado" },
+  CALIFORNIA: { tier: 1, note: "CA: AEWR mais alto do país (~$19+/h), fazendas grandes" },
+  "NORTH CAROLINA": { tier: 1, note: "NC: NCGA é referência em housing e organização" },
+  MICHIGAN: { tier: 2, note: "MI: temporada curta de frutas, AEWR razoável" },
+  OREGON: { tier: 2, note: "OR: AEWR alto, frutas vermelhas e maçãs" },
+  KENTUCKY: { tier: 2, note: "KY: tabaco/feno, empregadores estabelecidos" },
+  "NEW YORK": { tier: 2, note: "NY: AEWR alto, maçãs e laticínios" },
+  LOUISIANA: { tier: 2, note: "LA: cana e crawfish, empregadores recorrentes" },
+};
+
+// Empregadores reconhecidos (associações/fazendas grandes que postam ano após ano)
+const RENOWNED_EMPLOYERS = [
+  /north\s+carolina\s+growers/i,
+  /\bncga\b/i,
+  /wafla/i,
+  /zirkle/i,
+  /gebbers/i,
+  /stemilt/i,
+  /dole\b/i,
+  /driscoll/i,
+  /sun[\s-]?belle/i,
+  /\bwonderful\b/i,
+  /\bfresh\s+harvest\b/i,
+  /\bmastronardi\b/i,
+];
+
+export type JobQuality = {
+  level: "gold" | "silver" | "bronze" | null;
+  score: number; // 0-100
+  reasons_pt: string[];
+};
+
+type QualityJob = {
+  worksite_state: string | null;
+  wage_offered: number | null;
+  posted_date: string | null;
+  recruitment_email: string | null;
+  recruitment_phone: string | null;
+  employer_name: string | null;
+  total_openings: number | null;
+  start_date: string | null;
+};
+
+export function jobQuality(job: QualityJob, isSuspicious: boolean): JobQuality {
+  if (isSuspicious) return { level: null, score: 0, reasons_pt: [] };
+
+  let score = 0;
+  const reasons: string[] = [];
+
+  const stateKey = (job.worksite_state ?? "").trim().toUpperCase();
+  const stateInfo = TOP_STATES[stateKey];
+  if (stateInfo) {
+    score += stateInfo.tier === 1 ? 25 : 15;
+    reasons.push(stateInfo.note);
+  }
+
+  if (job.wage_offered != null) {
+    if (job.wage_offered >= 18) { score += 20; reasons.push(`Salário excelente: $${job.wage_offered}/h`); }
+    else if (job.wage_offered >= 15) { score += 12; reasons.push(`Salário acima da média: $${job.wage_offered}/h`); }
+    else if (job.wage_offered >= 13) { score += 6; }
+  }
+
+  if (job.recruitment_email) { score += 15; reasons.push("Contato direto por e-mail (resposta mais rápida)"); }
+  else if (job.recruitment_phone) { score += 5; }
+
+  const emp = job.employer_name ?? "";
+  if (RENOWNED_EMPLOYERS.some((rx) => rx.test(emp))) {
+    score += 20;
+    reasons.push(`Empregador renomado e recorrente no programa H-2A`);
+  }
+
+  if (job.total_openings != null) {
+    if (job.total_openings >= 50) { score += 10; reasons.push(`Operação grande (${job.total_openings} vagas) — estrutura consolidada`); }
+    else if (job.total_openings >= 15) { score += 5; }
+  }
+
+  if (job.posted_date) {
+    const days = (Date.now() - new Date(job.posted_date).getTime()) / 86400000;
+    if (days <= 3) { score += 10; reasons.push("Publicada nos últimos 3 dias"); }
+    else if (days <= 10) { score += 5; }
+  }
+
+  let level: JobQuality["level"] = null;
+  if (score >= 70) level = "gold";
+  else if (score >= 50) level = "silver";
+  else if (score >= 35) level = "bronze";
+
+  return { level, score: Math.min(100, score), reasons_pt: reasons };
+}
