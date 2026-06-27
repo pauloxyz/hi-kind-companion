@@ -10,7 +10,8 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { StrategyBanner, FraudBanner } from "./StrategyBanner";
 
-const items = [
+type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean };
+const items: NavItem[] = [
   { to: "/app", labelKey: "dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/perfil", labelKey: "profile", icon: User },
   { to: "/app/curriculo", labelKey: "resume", icon: FileText },
@@ -21,7 +22,7 @@ const items = [
   { to: "/app/followups", labelKey: "followups", icon: Bell },
   { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
   { to: "/app/visto", labelKey: "visa", icon: Stamp },
-] as const;
+];
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { t, lang, setLang } = useI18n();
