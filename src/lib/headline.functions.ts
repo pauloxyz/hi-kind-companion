@@ -22,7 +22,7 @@ export const generateHeadline = createServerFn({ method: "POST" })
       summary_en: resume?.summary_en ?? "",
       summary_pt: resume?.summary_pt ?? "",
       experiences: (exps ?? []).slice(0, 8),
-      skills: (skills ?? []).map((s: { name: string }) => s.name).slice(0, 20),
+      skills: (skills ?? []).map((s) => s.skill_name).filter(Boolean).slice(0, 20),
     };
 
     const prompt = `Você é um recrutador H-2A escrevendo a frase de apresentação (headline) de UMA LINHA EM INGLÊS para um trabalhador agrícola brasileiro. Será o primeiro contato com o empregador americano.
