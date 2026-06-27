@@ -402,6 +402,15 @@ function Page() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Vagas H-2A</h1>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" onClick={() => setAlertsOpen(true)} className="relative">
+            <Bell className="mr-2 h-4 w-4" />
+            Alertas
+            {totalFreshAlerts > 0 && (
+              <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
+                {totalFreshAlerts}
+              </span>
+            )}
+          </Button>
           <Button variant={bulkMode ? "default" : "outline"} size="sm"
             onClick={() => { setBulkMode((b) => !b); setSelected(new Set()); if (!bulkMode) { setCompareMode(false); setCompareIds(new Set()); } }}>
             {bulkMode ? `Cancelar (${selected.size})` : "Modo seleção"}
