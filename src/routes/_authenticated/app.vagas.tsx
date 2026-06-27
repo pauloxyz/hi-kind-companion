@@ -265,6 +265,23 @@ function Page() {
     setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
 
+  function toggleCompare(id: string) {
+    setCompareIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else {
+        if (next.size >= MAX_COMPARE) { toast.error(`Máx. ${MAX_COMPARE} vagas para comparar`); return prev; }
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  const compareJobs = useMemo(
+    () => enriched.filter((e) => compareIds.has(e.job.id)),
+    [enriched, compareIds],
+  );
+
   async function runBulk() {
     const targets = filtered.filter(({ job: j, isSuspicious }) =>
       selected.has(j.id) && j.recruitment_email && !appliedJobIds.has(j.id) && !isSuspicious,
