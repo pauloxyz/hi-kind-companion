@@ -116,6 +116,9 @@ function Page() {
   const [minWage, setMinWage] = useState("");
   const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage" | "quality">("quality");
   const [categoryFilter, setCategoryFilter] = useState<"all" | JobCategory>("all");
+  const [startAfter, setStartAfter] = useState("");
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -127,12 +130,13 @@ function Page() {
 
   async function load() {
     setLoading(true);
-    const [jobsRes, appsRes, profRes, resRes, empRes] = await Promise.all([
+    const [jobsRes, appsRes, profRes, resRes, empRes, savedRes] = await Promise.all([
       supabase.from("jobs").select("*").order("posted_date", { ascending: false, nullsFirst: false }).limit(500),
       supabase.from("applications").select("job_id"),
       supabase.from("my_profile").select("*").maybeSingle(),
       supabase.from("resumes").select("*").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("employers").select("employer_name").eq("is_flagged_suspicious", true),
+      supabase.from("saved_jobs").select("job_id"),
     ]);
     if (jobsRes.error) toast.error("Erro ao carregar vagas: " + jobsRes.error.message);
     setJobs(jobsRes.data ?? []);
@@ -140,8 +144,35 @@ function Page() {
     setProfile(profRes.data);
     setResume(resRes.data);
     setSuspiciousEmployers(new Set((empRes.data ?? []).map((e) => e.employer_name)));
+    setSavedJobIds(new Set((savedRes.data ?? []).map((s: any) => s.job_id).filter(Boolean) as string[]));
     setLoading(false);
   }
+
+  async function toggleSaved(jobId: string) {
+    const isSaved = savedJobIds.has(jobId);
+    // optimistic
+    setSavedJobIds((prev) => {
+      const n = new Set(prev);
+      if (isSaved) n.delete(jobId); else n.add(jobId);
+      return n;
+    });
+    if (isSaved) {
+      const { error } = await supabase.from("saved_jobs").delete().eq("job_id", jobId);
+      if (error) { toast.error("Falha ao remover favorito"); setSavedJobIds((p) => new Set(p).add(jobId)); }
+    } else {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const { error } = await supabase.from("saved_jobs").insert({ job_id: jobId, owner_id: u.user.id });
+      if (error) {
+        toast.error("Falha ao salvar");
+        setSavedJobIds((p) => { const n = new Set(p); n.delete(jobId); return n; });
+      } else {
+        toast.success("Vaga salva nos favoritos");
+      }
+    }
+  }
+
+
 
   useEffect(() => { void load(); }, []);
 
