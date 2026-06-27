@@ -1,4 +1,5 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,6 +13,17 @@ export const Route = createFileRoute("/_authenticated/app/")({ component: Dashbo
 
 function Dashboard() {
   const { t, lang } = useI18n();
+  const navigate = useNavigate();
+
+  // Redirect first-time users to the onboarding wizard
+  useEffect(() => {
+    supabase.from("my_profile").select("onboarding_completed_at,full_name").maybeSingle().then(({ data }) => {
+      if (data && !data.onboarding_completed_at && !data.full_name) {
+        navigate({ to: "/app/comecar", replace: true });
+      }
+    });
+  }, [navigate]);
+
   const stats = useQuery({
     queryKey: ["dash-stats"],
     queryFn: async () => {
