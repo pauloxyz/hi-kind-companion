@@ -40,9 +40,7 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
       profile?.country && `Country: ${profile.country}`,
       profile?.phone && `Phone: ${profile.phone}`,
       profile?.has_prior_h2_experience && "Previous H-2 visa experience: yes",
-      profile?.availability_start || profile?.languages?.length
-        ? `Languages: ${(profile?.languages ?? []).join(", ")}`
-        : null,
+      profile?.languages?.length ? `Languages: ${profile.languages.join(", ")}` : null,
       resume?.availability_start && `Available from ${resume.availability_start}`,
       resume?.availability_end && `until ${resume.availability_end}`,
       resume?.summary_en && `Summary: ${resume.summary_en}`,
