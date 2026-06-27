@@ -316,7 +316,15 @@ function Page() {
         <CardContent className="pt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <Input placeholder="Buscar título / empregador / cidade" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <Input placeholder="Estado (ex: FLORIDA)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
+            <Select value={stateFilter || "all"} onValueChange={(v) => setStateFilter(v === "all" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados ({enriched.length})</SelectItem>
+                {availableStates.map(([st, n]) => (
+                  <SelectItem key={st} value={st}>{st} ({n})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
             <Select value={categoryFilter} onValueChange={(v: any) => setCategoryFilter(v)}>
               <SelectTrigger><SelectValue placeholder="Tipo de vaga" /></SelectTrigger>
@@ -330,6 +338,10 @@ function Page() {
                   ))}
               </SelectContent>
             </Select>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Começa a partir de</label>
+              <Input type="date" value={startAfter} onChange={(e) => setStartAfter(e.target.value)} />
+            </div>
             <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -339,7 +351,7 @@ function Page() {
                 <SelectItem value="wage">Maior salário</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:col-span-2 lg:col-span-3">
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={hasEmailOnly} onChange={(e) => setHasEmailOnly(e.target.checked)} />
                 Apenas com e-mail
@@ -348,7 +360,12 @@ function Page() {
                 <input type="checkbox" checked={hideApplied} onChange={(e) => setHideApplied(e.target.checked)} />
                 Esconder candidatadas
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} />
+                ⭐ Só favoritas ({savedJobIds.size})
+              </label>
             </div>
+
           </div>
           <div className="flex items-center justify-between border-t pt-2">
             <div className="text-xs text-muted-foreground">
