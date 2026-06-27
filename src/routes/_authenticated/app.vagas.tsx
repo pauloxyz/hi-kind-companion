@@ -259,6 +259,7 @@ function Page() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
+                    <QualityMedal q={quality} />
                     {matchBadge(score)}
                     {freshnessBadge(j.posted_date)}
                     {applied && <Badge variant="outline">✓ Candidatado</Badge>}
