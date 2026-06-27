@@ -58,7 +58,7 @@ function PublicProfilePage() {
             {profile.country && <span>📍 {profile.country}</span>}
             {profile.has_prior_h2_experience && <span>✓ Previous H-2 experience</span>}
             {profile.languages?.length ? (
-              <span>🗣 {profile.languages.map((l) => {
+              <span>🗣 {profile.languages.map((l: string) => {
                 const [code, level] = l.split(":");
                 const levelMap: Record<string, string> = { basic: "Basic", intermediate: "Intermediate", advanced: "Advanced", fluent: "Fluent", native: "Native" };
                 const lvl = level ? levelMap[level] ?? level : null;
