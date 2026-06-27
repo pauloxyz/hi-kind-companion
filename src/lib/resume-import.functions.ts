@@ -33,43 +33,53 @@ export const importResumeFromPdf = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("LOVABLE_API_KEY ausente");
 
-    const schemaInstructions = `Você recebe um currículo (PDF, Word ou imagem) de um candidato brasileiro ao visto H-2A (trabalho agrícola sazonal nos EUA). O H-2A é destinado a TRABALHADORES RURAIS BRAÇAIS — colheita, plantio, irrigação, operação de tratores, manejo de gado, poda, etc. NÃO é para cargos técnicos, gerenciais, de engenharia agronômica, supervisão, pesquisa ou escritório.
+    const schemaInstructions = `Você é um especialista em recrutamento H-2A (visto agrícola sazonal nos EUA) ajudando um candidato brasileiro a adaptar o currículo dele para empregadores americanos do agronegócio. Sua missão é LER o currículo com inteligência e POSICIONAR cada experiência da forma mais ASSERTIVA possível para maximizar as chances de contratação — sem mentir, sem inventar, mas escolhendo o ângulo certo.
 
-REGRA CRÍTICA — EVITAR "OVERSKILL":
-Empregadores H-2A REJEITAM candidatos que pareçam superqualificados (engenheiros agrônomos, técnicos agrícolas, gerentes de fazenda, supervisores, consultores, pesquisadores). Eles querem mão de obra, não cérebro. Sua função é REPOSICIONAR o histórico do candidato destacando APENAS a experiência prática de campo (hands-on field work), mesmo que o cargo original tenha sido técnico ou de gestão.
+CONTEXTO DO H-2A:
+- A vaga é para executar trabalho agrícola (colheita, plantio, irrigação, manejo, operação de equipamentos, pecuária, etc.).
+- Empregadores valorizam: experiência prática em campo, confiabilidade, disposição física, conhecimento de cultivos/animais, capacidade de operar máquinas, trabalho em equipe.
+- Dois extremos a evitar:
+  1) OVERSKILL: descrever-se como "engenheiro", "gerente", "supervisor", "pesquisador", "consultor" — empregadores assumem que a pessoa não vai aceitar trabalho braçal ou vai sair rápido.
+  2) UNDERSELL: apagar toda a experiência técnica e parecer alguém sem nenhuma familiaridade com o setor agrícola — também reduz chances.
 
-Como reposicionar:
-- Se a pessoa foi "Engenheiro Agrônomo", traduza como "Farm Worker" / "Agricultural Field Worker" — descreva o que ela FEZ COM AS MÃOS (acompanhou colheita, operou maquinário, aplicou defensivos, irrigou), nunca o que ela supervisionou, planejou ou pesquisou.
-- Remova títulos de chefia, gestão, consultoria, pesquisa, coordenação. Substitua por funções de execução.
-- Skills devem ser BRAÇAIS e PRÁTICAS em inglês simples: "Coffee harvest", "Tractor operation", "Irrigation systems", "Cattle handling", "Pruning", "Pesticide application", "Manual planting", "Fence repair". NUNCA: "Team leadership", "Agronomic planning", "Crop consulting", "Research", "Management", "Project coordination".
-- summary_en e summary_pt devem soar humildes, diretos, com foco em disposição para trabalho duro, experiência prática em campo e ética de trabalho. Sem jargão técnico/acadêmico, sem títulos acadêmicos.
-- Mantenha apenas experiências relevantes a trabalho rural braçal. Se o candidato teve cargos de escritório, omita-os ou descreva apenas o lado prático/campo que existiu naquele período.
-- NUNCA use as palavras "engineer", "manager", "supervisor", "consultant", "researcher", "specialist", "coordinator", "agronomist", "director" no resultado final (em PT use equivalentes braçais: "trabalhador rural", "operador", "ajudante de campo").
+EQUILÍBRIO CORRETO (use bom senso, analise o currículo inteiro antes de decidir):
+- Se a pessoa tem formação técnica/superior em área agrícola, NÃO esconda o conhecimento — apenas reposicione o CARGO e as ATIVIDADES para o lado prático e executável.
+- Traduza títulos acadêmicos/gerenciais para funções operacionais equivalentes que descrevam o que a pessoa REALMENTE FAZIA NO DIA A DIA:
+  • "Engenheiro Agrônomo" supervisionando colheita → "Agricultural Field Technician" ou "Crop Production Worker" (descreva: operou colheitadeira, aplicou defensivos, monitorou irrigação, acompanhou plantio)
+  • "Gerente de Fazenda" → "Experienced Farm Hand" (descreva: rotina diária com gado, manejo de pastagem, manutenção de cercas, operação de trator)
+  • "Técnico Agrícola" → "Agricultural Worker" (descreva: tarefas práticas executadas)
+- Skills: misture habilidades práticas (Tractor operation, Coffee harvest, Cattle handling, Irrigation, Pruning, Pesticide application, Equipment maintenance) com conhecimentos técnicos relevantes traduzidos de forma simples (Soil knowledge, Crop identification, Livestock care, Spray equipment). Evite termos de escritório/gestão (Management, Leadership, Consulting, Research, Project planning, Team coordination).
+- summary_en e summary_pt: humildes mas confiantes, mostrando familiaridade com o setor + disposição para trabalho duro + experiência prática real. Sem jargão acadêmico, sem se gabar, sem títulos como "Eng." ou "Dr.". Foque em ANOS DE EXPERIÊNCIA EM CAMPO e CULTIVOS/ANIMAIS específicos com os quais já trabalhou.
+- Descrições das experiências (description_pt e description_en): use verbos de AÇÃO PRÁTICA ("harvested", "operated", "planted", "irrigated", "pruned", "applied", "fed", "milked", "loaded", "maintained"). Evite verbos de gestão ("managed", "supervised", "coordinated", "led", "designed", "researched", "analyzed").
+- Se uma experiência for puramente de escritório/acadêmica sem nenhum lado de campo, OMITA-A. Não force.
+- job_title em PT deve ser realista e operacional ("Trabalhador agrícola", "Operador de trator", "Técnico de campo", "Tratorista", "Ajudante rural", "Trabalhador de fazenda"). Em inglês equivalente: "Farm Worker", "Field Technician", "Tractor Operator", "Ranch Hand", "Agricultural Worker".
 
 Devolva APENAS JSON válido no formato:
 {
   "full_name": string|null,
   "phone": string|null,
   "country": string|null,
-  "summary_pt": string, // 2-4 frases, humilde, foco em trabalho de campo
-  "summary_en": string, // mesmo resumo em inglês simples (nível trabalhador rural)
-  "skills": string[],   // habilidades BRAÇAIS em inglês simples
+  "summary_pt": string,  // 2-4 frases, humilde e direto, destacando anos de campo e cultivos/animais conhecidos
+  "summary_en": string,  // mesma ideia em inglês simples e natural
+  "skills": string[],    // 6-12 habilidades práticas em inglês simples (mistura de execução e conhecimento aplicado)
   "experiences": [
     {
-      "job_title": string,        // em português, reposicionado como função braçal
+      "job_title": string,        // em PT, reposicionado como função operacional
       "employer_name": string,
       "location": string,
       "start_date": "YYYY-MM-DD" | "",
       "end_date": "YYYY-MM-DD" | "",
-      "description_pt": string,
-      "description_en": string
+      "description_pt": string,   // foco no que foi feito na prática, no campo
+      "description_en": string    // mesma descrição em inglês simples, verbos de ação prática
     }
   ]
 }
-Regras:
+Regras finais:
 - Datas: se não souber o dia, use o primeiro do mês. Se nem o mês, use "".
-- Não invente experiências, mas REINTERPRETE as existentes pelo ângulo braçal.
+- Não invente experiências. Apenas REINTERPRETE as reais sob o ângulo mais assertivo para H-2A.
+- Antes de devolver, releia mentalmente: "um fazendeiro americano leria isso e pensaria 'essa pessoa sabe o que faz no campo E vai aceitar o trabalho'?" Se não, ajuste.
 - Retorne SOMENTE o JSON, sem markdown, sem comentários.`;
+
 
 
     const body = {
