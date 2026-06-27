@@ -22,6 +22,7 @@ import { Route as AuthenticatedAppMidiaRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppFollowupsRouteImport } from './routes/_authenticated/app.followups'
 import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_authenticated/app.empregadores'
 import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
+import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 
@@ -92,6 +93,11 @@ const AuthenticatedAppCurriculoRoute =
     path: '/app/curriculo',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppComecarRoute = AuthenticatedAppComecarRouteImport.update({
+  id: '/app/comecar',
+  path: '/app/comecar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppCandidaturasRoute =
   AuthenticatedAppCandidaturasRouteImport.update({
     id: '/app/candidaturas',
@@ -110,6 +116,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
+  '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
+  '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
@@ -144,6 +152,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
+  '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
   '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/_authenticated/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/_authenticated/app/followups': typeof AuthenticatedAppFollowupsRoute
@@ -162,6 +171,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/v/$slug'
     | '/app/candidaturas'
+    | '/app/comecar'
     | '/app/curriculo'
     | '/app/empregadores'
     | '/app/followups'
@@ -178,6 +188,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/v/$slug'
     | '/app/candidaturas'
+    | '/app/comecar'
     | '/app/curriculo'
     | '/app/empregadores'
     | '/app/followups'
@@ -195,6 +206,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/v/$slug'
     | '/_authenticated/app/candidaturas'
+    | '/_authenticated/app/comecar'
     | '/_authenticated/app/curriculo'
     | '/_authenticated/app/empregadores'
     | '/_authenticated/app/followups'
@@ -308,6 +320,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCurriculoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/comecar': {
+      id: '/_authenticated/app/comecar'
+      path: '/app/comecar'
+      fullPath: '/app/comecar'
+      preLoaderRoute: typeof AuthenticatedAppComecarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/candidaturas': {
       id: '/_authenticated/app/candidaturas'
       path: '/app/candidaturas'
@@ -327,6 +346,7 @@ declare module '@tanstack/react-router' {
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
+  AuthenticatedAppComecarRoute: typeof AuthenticatedAppComecarRoute
   AuthenticatedAppCurriculoRoute: typeof AuthenticatedAppCurriculoRoute
   AuthenticatedAppEmpregadoresRoute: typeof AuthenticatedAppEmpregadoresRoute
   AuthenticatedAppFollowupsRoute: typeof AuthenticatedAppFollowupsRoute
@@ -340,6 +360,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppCandidaturasRoute: AuthenticatedAppCandidaturasRoute,
+  AuthenticatedAppComecarRoute: AuthenticatedAppComecarRoute,
   AuthenticatedAppCurriculoRoute: AuthenticatedAppCurriculoRoute,
   AuthenticatedAppEmpregadoresRoute: AuthenticatedAppEmpregadoresRoute,
   AuthenticatedAppFollowupsRoute: AuthenticatedAppFollowupsRoute,
