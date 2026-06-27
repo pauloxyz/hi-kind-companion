@@ -501,11 +501,23 @@ function Page() {
                   value={e.job_title}
                   onChange={(ev) => updateExp(i, { job_title: ev.target.value })}
                 />
-                <Input
-                  placeholder="Job title in English (ex: Farm Worker)"
-                  value={e.job_title_en}
-                  onChange={(ev) => updateExp(i, { job_title_en: ev.target.value })}
-                />
+                <div className="flex gap-1">
+                  <Input
+                    placeholder="Job title in English (ex: Farm Worker)"
+                    value={e.job_title_en}
+                    onChange={(ev) => updateExp(i, { job_title_en: ev.target.value })}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    title="Traduzir cargo com IA"
+                    onClick={() => translateOneTitle(i)}
+                    disabled={translating || !e.job_title.trim()}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
+                </div>
                 <Input
                   placeholder="Empregador (ex: Fazenda XYZ)"
                   value={e.employer_name}
