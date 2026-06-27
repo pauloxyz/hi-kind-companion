@@ -86,7 +86,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <main className="flex-1">
         <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
           <button onClick={() => setOpen(true)}><Menu className="size-5" /></button>
-          <span className="font-semibold">VaiPraLá</span>
+          <img src="/vaiprala-logo.png" alt="VaiPraLá" className="h-6 w-auto" />
         </header>
         <div className="mx-auto max-w-6xl p-4 lg:p-6">
           {children ?? <Outlet />}
