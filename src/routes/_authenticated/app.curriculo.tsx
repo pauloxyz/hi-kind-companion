@@ -58,7 +58,9 @@ function Page() {
   const [translating, setTranslating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [importing, setImporting] = useState(false);
   const translateFn = useServerFn(translateToEnglish);
+  const importFn = useServerFn(importResumeFromPdf);
 
   useEffect(() => {
     void (async () => {
