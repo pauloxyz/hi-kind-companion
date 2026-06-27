@@ -315,13 +315,23 @@ function Page() {
         <h1 className="text-2xl font-bold">Vagas H-2A</h1>
         <div className="flex flex-wrap gap-2">
           <Button variant={bulkMode ? "default" : "outline"} size="sm"
-            onClick={() => { setBulkMode((b) => !b); setSelected(new Set()); }}>
+            onClick={() => { setBulkMode((b) => !b); setSelected(new Set()); if (!bulkMode) { setCompareMode(false); setCompareIds(new Set()); } }}>
             {bulkMode ? `Cancelar (${selected.size})` : "Modo seleção"}
           </Button>
           {bulkMode && (
             <Button size="sm" onClick={runBulk} disabled={selected.size === 0 || bulkRunning}>
               {bulkRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Candidatar em massa ({selected.size})
+            </Button>
+          )}
+          <Button variant={compareMode ? "default" : "outline"} size="sm"
+            onClick={() => { setCompareMode((c) => !c); setCompareIds(new Set()); if (!compareMode) { setBulkMode(false); setSelected(new Set()); } }}>
+            <GitCompare className="mr-2 h-4 w-4" />
+            {compareMode ? `Cancelar (${compareIds.size}/${MAX_COMPARE})` : "Comparar"}
+          </Button>
+          {compareMode && compareIds.size >= 2 && (
+            <Button size="sm" onClick={() => setCompareOpen(true)}>
+              Ver comparação ({compareIds.size})
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => runImport(15, "backfill")} disabled={importing !== null}>
