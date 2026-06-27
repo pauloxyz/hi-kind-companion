@@ -263,29 +263,54 @@ function Page() {
       </div>
 
       <Card>
-        <CardContent className="pt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-          <Input placeholder="Buscar título / empregador / cidade" value={search} onChange={(e) => setSearch(e.target.value)} />
-          <Input placeholder="Estado (ex: FLORIDA)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
-          <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
-          <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
-            <SelectTrigger><SelectValue /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>
-              <SelectItem value="fresh">Mais novas</SelectItem>
-              <SelectItem value="match">Maior match</SelectItem>
-              <SelectItem value="wage">Maior salário</SelectItem>
-            </SelectContent>
-          </Select>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={hasEmailOnly} onChange={(e) => setHasEmailOnly(e.target.checked)} />
-            Apenas com e-mail
-          </label>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={hideApplied} onChange={(e) => setHideApplied(e.target.checked)} />
-            Esconder já candidatadas
-          </label>
+        <CardContent className="pt-4 space-y-3">
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            <Input placeholder="Buscar título / empregador / cidade" value={search} onChange={(e) => setSearch(e.target.value)} />
+            <Input placeholder="Estado (ex: FLORIDA)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
+            <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
+            <Select value={categoryFilter} onValueChange={(v: any) => setCategoryFilter(v)}>
+              <SelectTrigger><SelectValue placeholder="Tipo de vaga" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos ({enriched.length})</SelectItem>
+                {(Object.keys(CATEGORY_LABELS) as JobCategory[])
+                  .filter((k) => (categoryCounts[k] ?? 0) > 0)
+                  .sort((a, b) => (categoryCounts[b] ?? 0) - (categoryCounts[a] ?? 0))
+                  .map((k) => (
+                    <SelectItem key={k} value={k}>{CATEGORY_LABELS[k]} ({categoryCounts[k]})</SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>
+                <SelectItem value="fresh">Mais novas</SelectItem>
+                <SelectItem value="match">Maior match</SelectItem>
+                <SelectItem value="wage">Maior salário</SelectItem>
+              </SelectContent>
+            </Select>
+            <div className="flex flex-wrap items-center gap-4">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={hasEmailOnly} onChange={(e) => setHasEmailOnly(e.target.checked)} />
+                Apenas com e-mail
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={hideApplied} onChange={(e) => setHideApplied(e.target.checked)} />
+                Esconder candidatadas
+              </label>
+            </div>
+          </div>
+          <div className="flex items-center justify-between border-t pt-2">
+            <div className="text-xs text-muted-foreground">
+              {filtersActive ? "Filtros ativos" : "Nenhum filtro ativo"}
+            </div>
+            <Button variant="ghost" size="sm" onClick={resetFilters} disabled={!filtersActive}>
+              <RefreshCw className="mr-2 h-3.5 w-3.5" /> Resetar filtros
+            </Button>
+          </div>
         </CardContent>
       </Card>
+
 
       <div className="text-sm text-muted-foreground">
         {loading ? "Carregando…" : `${filtered.length} vagas · ${appliedJobIds.size} já candidatado(s)`}
