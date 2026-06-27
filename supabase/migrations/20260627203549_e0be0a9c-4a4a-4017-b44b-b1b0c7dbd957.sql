@@ -1,0 +1,1 @@
+ALTER TABLE public.resume_experiences ADD COLUMN IF NOT EXISTS job_title_en text;
