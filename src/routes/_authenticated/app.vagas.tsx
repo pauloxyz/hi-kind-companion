@@ -524,6 +524,121 @@ function Page() {
 
 
       <ApplyDialog job={activeJob} open={!!activeJob} onOpenChange={(o) => !o && setActiveJob(null)} onSent={load} />
+
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Comparar vagas ({compareJobs.length})</DialogTitle>
+            <DialogDescription>Lado-a-lado para você decidir qual aplicar primeiro.</DialogDescription>
+          </DialogHeader>
+          {compareJobs.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Selecione vagas para comparar.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-40">Critério</TableHead>
+                  {compareJobs.map(({ job }) => (
+                    <TableHead key={job.id} className="align-top">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-foreground">{job.job_title ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">{job.employer_name ?? "—"}</div>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleCompare(job.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">Qualidade</TableCell>
+                  {compareJobs.map(({ job, quality }) => (
+                    <TableCell key={job.id}>{quality.level ? `${quality.level === "gold" ? "🥇" : quality.level === "silver" ? "🥈" : "🥉"} ${quality.score}/100` : `${quality.score}/100`}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Match c/ perfil</TableCell>
+                  {compareJobs.map(({ job, score }) => (<TableCell key={job.id}>{score}%</TableCell>))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Salário</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>{job.wage_offered != null ? `$${job.wage_offered}/${job.wage_unit ?? "hr"}` : "—"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Estado / Cidade</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>{[job.worksite_city, job.worksite_state].filter(Boolean).join(", ") || "—"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Período</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>{job.start_date ? `${job.start_date} → ${job.end_date ?? "?"}` : "—"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Vagas abertas</TableCell>
+                  {compareJobs.map(({ job }) => (<TableCell key={job.id}>{job.total_openings ?? "—"}</TableCell>))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Postada há</TableCell>
+                  {compareJobs.map(({ job }) => {
+                    const d = daysAgo(job.posted_date);
+                    return (<TableCell key={job.id}>{d == null ? "—" : `${d}d`}</TableCell>);
+                  })}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Categoria</TableCell>
+                  {compareJobs.map(({ job, category }) => (
+                    <TableCell key={job.id} className="text-xs">{CATEGORY_LABELS[category]}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Contato</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id} className="text-xs">
+                      {job.recruitment_email && <div>✉️ {job.recruitment_email}</div>}
+                      {job.recruitment_phone && <div>📞 {job.recruitment_phone}</div>}
+                      {!job.recruitment_email && !job.recruitment_phone && "—"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Sinal de fraude</TableCell>
+                  {compareJobs.map(({ job, isSuspicious }) => (
+                    <TableCell key={job.id}>{isSuspicious ? <span className="text-destructive">⚠️ Suspeita</span> : "✓ Ok"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Status</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>
+                      {appliedJobIds.has(job.id) ? <Badge variant="outline">✓ Candidatado</Badge> : <Badge variant="secondary">Não aplicada</Badge>}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell />
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>
+                      <Button size="sm" disabled={appliedJobIds.has(job.id)}
+                        onClick={() => { setActiveJob(job); setCompareOpen(false); }}>
+                        <Send className="mr-2 h-3.5 w-3.5" /> Candidatar
+                      </Button>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
