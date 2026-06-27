@@ -12,7 +12,7 @@ export const generateHeadline = createServerFn({ method: "POST" })
       supabase.from("my_profile").select("full_name,country,has_prior_h2_experience").eq("owner_id", userId).maybeSingle(),
       supabase.from("resumes").select("summary_en,summary_pt").eq("owner_id", userId).maybeSingle(),
       supabase.from("resume_experiences").select("job_title,employer_name,location,start_date,end_date,description_en").eq("owner_id", userId).order("sort_order", { ascending: true }),
-      supabase.from("resume_skills").select("name").eq("owner_id", userId),
+      supabase.from("resume_skills").select("skill_name").eq("owner_id", userId),
     ]);
 
     const context_payload = {
