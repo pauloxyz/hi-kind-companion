@@ -44,6 +44,7 @@ function Page() {
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [summaryPt, setSummaryPt] = useState("");
   const [summaryEn, setSummaryEn] = useState("");
+  const [availType, setAvailType] = useState<string>("");
   const [availStart, setAvailStart] = useState("");
   const [availEnd, setAvailEnd] = useState("");
   const [experiences, setExperiences] = useState<Experience[]>([emptyExp()]);
@@ -87,6 +88,7 @@ function Page() {
         setResumeId(r.id);
         setSummaryPt(r.summary_pt ?? "");
         setSummaryEn(r.summary_en ?? "");
+        setAvailType((r as { availability_type?: string | null }).availability_type ?? "");
         setAvailStart(r.availability_start ?? "");
         setAvailEnd(r.availability_end ?? "");
 
@@ -241,6 +243,7 @@ function Page() {
         owner_id: userId,
         summary_pt: summaryPt,
         summary_en: summaryEn,
+        availability_type: availType || null,
         availability_start: availStart || null,
         availability_end: availEnd || null,
         template_style: "manual_labor",
