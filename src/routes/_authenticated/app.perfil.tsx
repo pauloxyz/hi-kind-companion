@@ -7,12 +7,37 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/perfil")({ component: PerfilPage });
 
-const LANG_OPTIONS = ["pt", "en", "es"];
+const LANG_OPTIONS = [
+  { code: "pt", label: "Português" },
+  { code: "en", label: "Inglês" },
+  { code: "es", label: "Espanhol" },
+];
+const PROFICIENCY_LEVELS = [
+  { value: "basic", label: "Básico" },
+  { value: "intermediate", label: "Intermediário" },
+  { value: "advanced", label: "Avançado" },
+  { value: "fluent", label: "Fluente" },
+  { value: "native", label: "Nativo" },
+];
+
+// languages stored as "code:level" (e.g. "en:intermediate"). Legacy "en" → "en:basic".
+function parseLang(s: string): { code: string; level: string } {
+  const [code, level] = s.split(":");
+  return { code: (code || "").toLowerCase(), level: level || "basic" };
+}
+function formatLang(code: string, level: string) { return `${code}:${level}`; }
+function langDisplayName(code: string) {
+  return LANG_OPTIONS.find((l) => l.code === code)?.label ?? code.toUpperCase();
+}
+function levelDisplayName(level: string) {
+  return PROFICIENCY_LEVELS.find((l) => l.value === level)?.label ?? level;
+}
 
 function PerfilPage() {
   const [form, setForm] = useState({
