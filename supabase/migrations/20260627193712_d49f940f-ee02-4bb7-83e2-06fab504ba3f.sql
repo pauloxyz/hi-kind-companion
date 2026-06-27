@@ -1,0 +1,1 @@
+ALTER TABLE public.my_profile ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ;

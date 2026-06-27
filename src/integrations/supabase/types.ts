@@ -265,6 +265,7 @@ export type Database = {
           has_prior_h2_experience: boolean | null
           id: string
           languages: string[] | null
+          onboarding_completed_at: string | null
           owner_id: string
           phone: string | null
           photo_url: string | null
@@ -282,6 +283,7 @@ export type Database = {
           has_prior_h2_experience?: boolean | null
           id?: string
           languages?: string[] | null
+          onboarding_completed_at?: string | null
           owner_id: string
           phone?: string | null
           photo_url?: string | null
@@ -299,6 +301,7 @@ export type Database = {
           has_prior_h2_experience?: boolean | null
           id?: string
           languages?: string[] | null
+          onboarding_completed_at?: string | null
           owner_id?: string
           phone?: string | null
           photo_url?: string | null
