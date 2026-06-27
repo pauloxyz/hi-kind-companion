@@ -207,7 +207,10 @@ function Page() {
   async function handleTranslate() {
     setTranslating(true);
     try {
-      const inputs = [summaryPt, ...experiences.map((e) => e.description_pt)];
+      // Order: [summary, ...descriptions, ...job_titles]
+      const descs = experiences.map((e) => e.description_pt);
+      const titles = experiences.map((e) => e.job_title);
+      const inputs = [summaryPt, ...descs, ...titles];
       const filteredIdx: number[] = [];
       const filteredTexts: string[] = [];
       inputs.forEach((t, i) => {
@@ -224,14 +227,37 @@ function Page() {
       const map = new Map<number, string>();
       filteredIdx.forEach((origIdx, k) => map.set(origIdx, translations[k] ?? ""));
       if (map.has(0)) setSummaryEn(map.get(0)!);
+      const n = experiences.length;
       setExperiences((prev) =>
-        prev.map((e, i) => (map.has(i + 1) ? { ...e, description_en: map.get(i + 1)! } : e)),
+        prev.map((e, i) => {
+          const descIdx = 1 + i;
+          const titleIdx = 1 + n + i;
+          return {
+            ...e,
+            description_en: map.has(descIdx) ? map.get(descIdx)! : e.description_en,
+            job_title_en: map.has(titleIdx) ? map.get(titleIdx)! : e.job_title_en,
+          };
+        }),
       );
       toast.success("Traduzido para inglês ✓");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro");
     } finally {
       setTranslating(false);
+    }
+  }
+
+  async function translateOneTitle(i: number) {
+    const pt = experiences[i]?.job_title?.trim();
+    if (!pt) { toast.error("Preencha o cargo em PT primeiro."); return; }
+    try {
+      const { translations } = await translateFn({ data: { texts: [pt] } });
+      const en = translations[0]?.trim() ?? "";
+      if (!en) throw new Error("Tradução vazia");
+      setExperiences((prev) => prev.map((e, idx) => (idx === i ? { ...e, job_title_en: en } : e)));
+      toast.success("Cargo traduzido ✓");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao traduzir");
     }
   }
 
@@ -475,11 +501,23 @@ function Page() {
                   value={e.job_title}
                   onChange={(ev) => updateExp(i, { job_title: ev.target.value })}
                 />
-                <Input
-                  placeholder="Job title in English (ex: Farm Worker)"
-                  value={e.job_title_en}
-                  onChange={(ev) => updateExp(i, { job_title_en: ev.target.value })}
-                />
+                <div className="flex gap-1">
+                  <Input
+                    placeholder="Job title in English (ex: Farm Worker)"
+                    value={e.job_title_en}
+                    onChange={(ev) => updateExp(i, { job_title_en: ev.target.value })}
+                  />
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    title="Traduzir cargo com IA"
+                    onClick={() => translateOneTitle(i)}
+                    disabled={translating || !e.job_title.trim()}
+                  >
+                    <Sparkles className="h-4 w-4" />
+                  </Button>
+                </div>
                 <Input
                   placeholder="Empregador (ex: Fazenda XYZ)"
                   value={e.employer_name}
