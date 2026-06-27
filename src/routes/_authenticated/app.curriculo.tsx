@@ -337,7 +337,7 @@ function Page() {
         experiences: experiences
           .filter((e) => e.job_title.trim())
           .map((e) => ({
-            title: e.job_title,
+            title: e.job_title_en || e.job_title,
             employer: e.employer_name,
             location: e.location,
             startDate: e.start_date,
