@@ -38,7 +38,9 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const Sidebar = (
     <aside className="flex h-full w-60 shrink-0 flex-col border-r bg-card">
       <div className="flex items-center justify-between p-4">
-        <Link to="/app" className="text-lg font-bold text-primary">VaiPraLá</Link>
+        <Link to="/app" className="flex items-center">
+          <img src="/vaiprala-logo.png" alt="VaiPraLá" className="h-8 w-auto" />
+        </Link>
         <button onClick={() => setOpen(false)} className="lg:hidden"><X className="size-5" /></button>
       </div>
       <nav className="flex-1 space-y-1 px-2">
@@ -84,7 +86,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <main className="flex-1">
         <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
           <button onClick={() => setOpen(true)}><Menu className="size-5" /></button>
-          <span className="font-semibold">VaiPraLá</span>
+          <img src="/vaiprala-logo.png" alt="VaiPraLá" className="h-6 w-auto" />
         </header>
         <div className="mx-auto max-w-6xl p-4 lg:p-6">
           {children ?? <Outlet />}
