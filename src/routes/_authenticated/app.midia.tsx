@@ -70,22 +70,38 @@ function Page() {
   });
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files ?? []);
+    if (files.length === 0) return;
     setUploading(true);
+    let ok = 0;
+    let fail = 0;
     try {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) throw new Error("Not signed in");
-      const ext = file.name.split(".").pop() ?? "bin";
-      const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("work-media").upload(path, file, {
-        contentType: file.type,
-      });
-      if (upErr) throw upErr;
-      const media_type = file.type.startsWith("video") ? "video" : "photo";
-      await create({ data: { media_type, media_url: path, category: category as any } });
+      const userId = u.user.id;
+
+      await Promise.all(
+        files.map(async (file) => {
+          try {
+            const ext = file.name.split(".").pop() ?? "bin";
+            const path = `${userId}/${crypto.randomUUID()}.${ext}`;
+            const { error: upErr } = await supabase.storage.from("work-media").upload(path, file, {
+              contentType: file.type,
+            });
+            if (upErr) throw upErr;
+            const media_type = file.type.startsWith("video") ? "video" : "photo";
+            await create({ data: { media_type, media_url: path, category: category as any } });
+            ok++;
+          } catch (err) {
+            fail++;
+            console.error("upload failed", file.name, err);
+          }
+        }),
+      );
+
       qc.invalidateQueries({ queryKey: ["work_media"] });
-      toast.success("Mídia enviada");
+      if (ok > 0) toast.success(`${ok} mídia(s) enviada(s)`);
+      if (fail > 0) toast.error(`${fail} falha(s) no upload`);
     } catch (err: any) {
       toast.error(err.message ?? "Erro no upload");
     } finally {
@@ -114,7 +130,7 @@ function Page() {
                 {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
               </SelectContent>
             </Select>
-            <Input ref={fileRef} type="file" accept="image/*,video/*" onChange={handleFile} disabled={uploading} className="max-w-xs" />
+            <Input ref={fileRef} type="file" accept="image/*,video/*" multiple onChange={handleFile} disabled={uploading} className="max-w-xs" />
             {uploading && <Loader2 className="h-4 w-4 animate-spin" />}
           </div>
           <p className="text-xs text-muted-foreground">
