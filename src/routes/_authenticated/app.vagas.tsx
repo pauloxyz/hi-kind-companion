@@ -147,13 +147,14 @@ function Page() {
 
   async function load() {
     setLoading(true);
-    const [jobsRes, appsRes, profRes, resRes, empRes, savedRes] = await Promise.all([
+    const [jobsRes, appsRes, profRes, resRes, empRes, savedRes, alertsRes] = await Promise.all([
       supabase.from("jobs").select("*").order("posted_date", { ascending: false, nullsFirst: false }).limit(500),
       supabase.from("applications").select("job_id"),
       supabase.from("my_profile").select("*").maybeSingle(),
       supabase.from("resumes").select("*").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("employers").select("employer_name").eq("is_flagged_suspicious", true),
       supabase.from("saved_jobs").select("job_id"),
+      supabase.from("job_alerts").select("*").order("created_at", { ascending: false }),
     ]);
     if (jobsRes.error) toast.error("Erro ao carregar vagas: " + jobsRes.error.message);
     setJobs(jobsRes.data ?? []);
@@ -162,6 +163,7 @@ function Page() {
     setResume(resRes.data);
     setSuspiciousEmployers(new Set((empRes.data ?? []).map((e) => e.employer_name)));
     setSavedJobIds(new Set((savedRes.data ?? []).map((s: any) => s.job_id).filter(Boolean) as string[]));
+    setAlerts((alertsRes.data ?? []) as JobAlert[]);
     setLoading(false);
   }
 
