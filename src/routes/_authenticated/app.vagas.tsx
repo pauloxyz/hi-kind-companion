@@ -317,7 +317,7 @@ function Page() {
       </div>
 
       <div className="grid gap-3">
-        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality }) => {
+        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality, category }) => {
           const applied = appliedJobIds.has(j.id);
           return (
             <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""}`}>
@@ -331,6 +331,7 @@ function Page() {
                     <div>
                       <CardTitle className="text-base">{j.job_title ?? "Sem título"}</CardTitle>
                       <div className="text-sm text-muted-foreground">{j.employer_name ?? "—"}</div>
+                      <Badge variant="secondary" className="mt-1 text-xs">{CATEGORY_LABELS[category]}</Badge>
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
@@ -338,6 +339,7 @@ function Page() {
                     {matchBadge(score)}
                     {freshnessBadge(j.posted_date)}
                     {applied && <Badge variant="outline">✓ Candidatado</Badge>}
+
                   </div>
                 </div>
               </CardHeader>
