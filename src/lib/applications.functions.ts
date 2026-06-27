@@ -34,7 +34,11 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
       profile?.country && `Country: ${profile.country}`,
       profile?.phone && `Phone: ${profile.phone}`,
       profile?.has_prior_h2_experience && "Previous H-2 visa experience: yes",
-      profile?.languages?.length ? `Languages: ${profile.languages.join(", ")}` : null,
+      profile?.languages?.length ? `Languages: ${(profile.languages as string[]).map((l) => {
+        const [code, level] = l.split(":");
+        const map: Record<string, string> = { basic: "Basic", intermediate: "Intermediate", advanced: "Advanced", fluent: "Fluent", native: "Native" };
+        return level ? `${code} (${map[level] ?? level})` : code;
+      }).join(", ")}` : null,
       (() => {
         const t = (resume as { availability_type?: string | null } | null)?.availability_type;
         const map: Record<string, string> = {

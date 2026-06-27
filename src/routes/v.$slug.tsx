@@ -57,7 +57,14 @@ function PublicProfilePage() {
           <div className="flex flex-wrap justify-center gap-2 text-sm text-muted-foreground">
             {profile.country && <span>📍 {profile.country}</span>}
             {profile.has_prior_h2_experience && <span>✓ Previous H-2 experience</span>}
-            {profile.languages?.length ? <span>🗣 {profile.languages.join(", ").toUpperCase()}</span> : null}
+            {profile.languages?.length ? (
+              <span>🗣 {profile.languages.map((l: string) => {
+                const [code, level] = l.split(":");
+                const levelMap: Record<string, string> = { basic: "Basic", intermediate: "Intermediate", advanced: "Advanced", fluent: "Fluent", native: "Native" };
+                const lvl = level ? levelMap[level] ?? level : null;
+                return lvl ? `${code.toUpperCase()} (${lvl})` : code.toUpperCase();
+              }).join(", ")}</span>
+            ) : null}
           </div>
         </header>
 

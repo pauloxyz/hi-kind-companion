@@ -7,12 +7,37 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { X } from "lucide-react";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/_authenticated/app/perfil")({ component: PerfilPage });
 
-const LANG_OPTIONS = ["pt", "en", "es"];
+const LANG_OPTIONS = [
+  { code: "pt", label: "Português" },
+  { code: "en", label: "Inglês" },
+  { code: "es", label: "Espanhol" },
+];
+const PROFICIENCY_LEVELS = [
+  { value: "basic", label: "Básico" },
+  { value: "intermediate", label: "Intermediário" },
+  { value: "advanced", label: "Avançado" },
+  { value: "fluent", label: "Fluente" },
+  { value: "native", label: "Nativo" },
+];
+
+// languages stored as "code:level" (e.g. "en:intermediate"). Legacy "en" → "en:basic".
+function parseLang(s: string): { code: string; level: string } {
+  const [code, level] = s.split(":");
+  return { code: (code || "").toLowerCase(), level: level || "basic" };
+}
+function formatLang(code: string, level: string) { return `${code}:${level}`; }
+function langDisplayName(code: string) {
+  return LANG_OPTIONS.find((l) => l.code === code)?.label ?? code.toUpperCase();
+}
+function levelDisplayName(level: string) {
+  return PROFICIENCY_LEVELS.find((l) => l.value === level)?.label ?? level;
+}
 
 function PerfilPage() {
   const [form, setForm] = useState({
@@ -55,15 +80,31 @@ function PerfilPage() {
     if (error) toast.error(error.message); else { setForm({ ...form, public_slug: slug }); toast.success("Salvo"); }
   };
 
-  function addLang(l: string) {
-    const v = l.trim().toLowerCase();
-    if (!v || form.languages.includes(v)) return;
-    setForm({ ...form, languages: [...form.languages, v] });
+  function addLang(code: string, level = "basic") {
+    const c = code.trim().toLowerCase();
+    if (!c) return;
+    const existing = form.languages.map(parseLang);
+    if (existing.some((l) => l.code === c)) return;
+    setForm({ ...form, languages: [...form.languages, formatLang(c, level)] });
     setLangInput("");
   }
-  function removeLang(l: string) { setForm({ ...form, languages: form.languages.filter((x) => x !== l) }); }
+  function removeLang(code: string) {
+    setForm({ ...form, languages: form.languages.filter((x) => parseLang(x).code !== code) });
+  }
+  function updateLangLevel(code: string, level: string) {
+    setForm({
+      ...form,
+      languages: form.languages.map((x) => {
+        const p = parseLang(x);
+        return p.code === code ? formatLang(code, level) : x;
+      }),
+    });
+  }
 
   if (loading) return <p>Carregando...</p>;
+
+  const parsedLangs = form.languages.map(parseLang);
+  const usedCodes = new Set(parsedLangs.map((l) => l.code));
 
   return (
     <div className="space-y-4">
@@ -82,25 +123,48 @@ function PerfilPage() {
           <div className="space-y-1"><Label>Data de nascimento</Label>
             <Input type="date" value={form.birth_date ?? ""} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></div>
 
-          <div className="space-y-1">
-            <Label>Idiomas falados</Label>
-            <div className="flex flex-wrap gap-1 mb-1">
-              {form.languages.map((l) => (
-                <Badge key={l} variant="secondary" className="cursor-pointer" onClick={() => removeLang(l)}>
-                  {l} <X className="h-3 w-3 ml-1" />
-                </Badge>
+          <div className="space-y-2">
+            <Label>Idiomas e proficiência</Label>
+            <p className="text-xs text-muted-foreground">Indique seu nível em cada idioma. Empregadores americanos valorizam honestidade — exagerar pode te eliminar.</p>
+            <div className="space-y-2">
+              {parsedLangs.map(({ code, level }) => (
+                <div key={code} className="flex items-center gap-2 rounded-md border p-2">
+                  <Badge variant="secondary" className="min-w-[90px] justify-center">{langDisplayName(code)}</Badge>
+                  <Select value={level} onValueChange={(v) => updateLangLevel(code, v)}>
+                    <SelectTrigger className="flex-1"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {PROFICIENCY_LEVELS.map((p) => (
+                        <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button size="sm" variant="ghost" onClick={() => removeLang(code)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
               ))}
+              {parsedLangs.length === 0 && (
+                <p className="text-xs text-muted-foreground italic">Nenhum idioma adicionado.</p>
+              )}
             </div>
-            <div className="flex gap-2">
-              <Input placeholder="ex: en" value={langInput} onChange={(e) => setLangInput(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLang(langInput); } }} />
-              <div className="flex gap-1">
-                {LANG_OPTIONS.filter((l) => !form.languages.includes(l)).map((l) => (
-                  <Button key={l} size="sm" variant="outline" onClick={() => addLang(l)}>+{l}</Button>
+            <div className="flex flex-wrap gap-2 items-center pt-1">
+              <Input
+                className="flex-1 min-w-[140px]"
+                placeholder="Outro idioma (ex: it)"
+                value={langInput}
+                onChange={(e) => setLangInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLang(langInput); } }}
+              />
+              <div className="flex flex-wrap gap-1">
+                {LANG_OPTIONS.filter((l) => !usedCodes.has(l.code)).map((l) => (
+                  <Button key={l.code} size="sm" variant="outline" onClick={() => addLang(l.code)}>
+                    + {l.label}
+                  </Button>
                 ))}
               </div>
             </div>
           </div>
+
 
           <div className="flex items-center justify-between rounded-md border p-3">
             <Label>Já participei de programa H-2 antes</Label>
