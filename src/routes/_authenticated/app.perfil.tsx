@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { X } from "lucide-react";
+import { X, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { generateHeadline } from "@/lib/headline.functions";
 
 export const Route = createFileRoute("/_authenticated/app/perfil")({ component: PerfilPage });
 
@@ -48,6 +50,21 @@ function PerfilPage() {
   const [viewCount, setViewCount] = useState<number | null>(null);
   const [langInput, setLangInput] = useState("");
   const [loading, setLoading] = useState(true);
+  const [generatingHeadline, setGeneratingHeadline] = useState(false);
+  const genHeadline = useServerFn(generateHeadline);
+
+  const handleGenerateHeadline = async () => {
+    setGeneratingHeadline(true);
+    try {
+      const { headline } = await genHeadline();
+      setForm((f) => ({ ...f, public_headline: headline }));
+      toast.success("Frase gerada — revise e salve");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao gerar");
+    } finally {
+      setGeneratingHeadline(false);
+    }
+  };
 
   useEffect(() => {
     (async () => {
@@ -207,13 +224,26 @@ function PerfilPage() {
             )}
           </div>
           <div className="space-y-1">
-            <Label>Frase de apresentação (uma linha em inglês)</Label>
+            <div className="flex items-center justify-between gap-2">
+              <Label>Frase de apresentação (uma linha em inglês)</Label>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={handleGenerateHeadline}
+                disabled={generatingHeadline}
+              >
+                {generatingHeadline ? <Loader2 className="h-3 w-3 mr-1 animate-spin" /> : <Sparkles className="h-3 w-3 mr-1" />}
+                Gerar com IA
+              </Button>
+            </div>
             <Input
               value={form.public_headline}
               onChange={(e) => setForm({ ...form, public_headline: e.target.value })}
               placeholder="Hard-working farmhand from Brazil, 3 seasons of strawberry harvest, available March-Nov."
               maxLength={160}
             />
+            <p className="text-xs text-muted-foreground">A IA usa seu currículo (experiências, habilidades, resumo) para criar uma frase que chame atenção do empregador. Revise antes de salvar.</p>
           </div>
           <div className="rounded-md bg-muted/40 p-3 text-sm">
             <span className="font-semibold">{viewCount ?? "…"}</span> visualização(ões) registrada(s) na sua página.
