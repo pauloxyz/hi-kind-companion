@@ -98,8 +98,10 @@ function Page() {
     return jobs.map((j) => {
       const fraud = detectFraud(j.job_title, j.employer_name, j.employer_address);
       const empFlag = j.employer_name ? suspiciousEmployers.has(j.employer_name) : false;
+      const isSuspicious = fraud.isSuspicious || empFlag;
       const score = matchScore(j, profile, resume);
-      return { job: j, score, isSuspicious: fraud.isSuspicious || empFlag, fraudReasons: fraud.reasons, employerFlagged: empFlag };
+      const quality = jobQuality(j, isSuspicious);
+      return { job: j, score, isSuspicious, fraudReasons: fraud.reasons, employerFlagged: empFlag, quality };
     });
   }, [jobs, profile, resume, suspiciousEmployers]);
 
