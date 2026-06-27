@@ -65,7 +65,8 @@ Devolva APENAS JSON válido no formato:
   "skills": string[],    // 6-12 habilidades práticas em inglês simples (mistura de execução e conhecimento aplicado)
   "experiences": [
     {
-      "job_title": string,        // em PT, reposicionado como função operacional
+      "job_title": string,        // em PT, reposicionado como função operacional (ex: "Trabalhador agrícola")
+      "job_title_en": string,     // mesmo cargo em inglês equivalente para H-2A (ex: "Farm Worker", "Tractor Operator", "Ranch Hand")
       "employer_name": string,
       "location": string,
       "start_date": "YYYY-MM-DD" | "",
