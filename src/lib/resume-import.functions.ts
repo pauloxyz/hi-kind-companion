@@ -17,6 +17,7 @@ export type ImportedResume = {
   skills: string[];
   experiences: Array<{
     job_title: string;
+    job_title_en: string;
     employer_name: string;
     location: string;
     start_date: string; // YYYY-MM-DD or ""
