@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, MapPin, Calendar, Mail, Phone, ExternalLink, Send, Sparkles, AlertTriangle } from "lucide-react";
+import { Loader2, RefreshCw, MapPin, Calendar, Mail, Phone, ExternalLink, Send, Sparkles, AlertTriangle, Star, Inbox } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+
 import { supabase } from "@/integrations/supabase/client";
 import { triggerDolImport } from "@/lib/jobs.functions";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
@@ -114,6 +116,9 @@ function Page() {
   const [minWage, setMinWage] = useState("");
   const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage" | "quality">("quality");
   const [categoryFilter, setCategoryFilter] = useState<"all" | JobCategory>("all");
+  const [startAfter, setStartAfter] = useState("");
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [savedJobIds, setSavedJobIds] = useState<Set<string>>(new Set());
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -125,12 +130,13 @@ function Page() {
 
   async function load() {
     setLoading(true);
-    const [jobsRes, appsRes, profRes, resRes, empRes] = await Promise.all([
+    const [jobsRes, appsRes, profRes, resRes, empRes, savedRes] = await Promise.all([
       supabase.from("jobs").select("*").order("posted_date", { ascending: false, nullsFirst: false }).limit(500),
       supabase.from("applications").select("job_id"),
       supabase.from("my_profile").select("*").maybeSingle(),
       supabase.from("resumes").select("*").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
       supabase.from("employers").select("employer_name").eq("is_flagged_suspicious", true),
+      supabase.from("saved_jobs").select("job_id"),
     ]);
     if (jobsRes.error) toast.error("Erro ao carregar vagas: " + jobsRes.error.message);
     setJobs(jobsRes.data ?? []);
@@ -138,8 +144,35 @@ function Page() {
     setProfile(profRes.data);
     setResume(resRes.data);
     setSuspiciousEmployers(new Set((empRes.data ?? []).map((e) => e.employer_name)));
+    setSavedJobIds(new Set((savedRes.data ?? []).map((s: any) => s.job_id).filter(Boolean) as string[]));
     setLoading(false);
   }
+
+  async function toggleSaved(jobId: string) {
+    const isSaved = savedJobIds.has(jobId);
+    // optimistic
+    setSavedJobIds((prev) => {
+      const n = new Set(prev);
+      if (isSaved) n.delete(jobId); else n.add(jobId);
+      return n;
+    });
+    if (isSaved) {
+      const { error } = await supabase.from("saved_jobs").delete().eq("job_id", jobId);
+      if (error) { toast.error("Falha ao remover favorito"); setSavedJobIds((p) => new Set(p).add(jobId)); }
+    } else {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return;
+      const { error } = await supabase.from("saved_jobs").insert({ job_id: jobId, owner_id: u.user.id });
+      if (error) {
+        toast.error("Falha ao salvar");
+        setSavedJobIds((p) => { const n = new Set(p); n.delete(jobId); return n; });
+      } else {
+        toast.success("Vaga salva nos favoritos");
+      }
+    }
+  }
+
+
 
   useEffect(() => { void load(); }, []);
 
@@ -171,16 +204,31 @@ function Page() {
     return counts;
   }, [enriched]);
 
+  const availableStates = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const { job } of enriched) {
+      const s = (job.worksite_state ?? "").trim().toUpperCase();
+      if (s) counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    return Array.from(counts.entries()).sort((a, b) => b[1] - a[1]);
+  }, [enriched]);
+
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
-    const st = stateFilter.trim().toLowerCase();
+    const st = stateFilter.trim().toUpperCase();
     const w = parseFloat(minWage) || 0;
+    const startCutoff = startAfter ? new Date(startAfter).getTime() : 0;
     let arr = enriched.filter(({ job: j, category }) => {
       if (hasEmailOnly && !j.recruitment_email) return false;
       if (hideApplied && appliedJobIds.has(j.id)) return false;
+      if (savedOnly && !savedJobIds.has(j.id)) return false;
       if (categoryFilter !== "all" && category !== categoryFilter) return false;
-      if (st && !(j.worksite_state ?? "").toLowerCase().includes(st)) return false;
+      if (st && (j.worksite_state ?? "").toUpperCase() !== st) return false;
       if (w && !(j.wage_offered && j.wage_offered >= w)) return false;
+      if (startCutoff && j.start_date) {
+        const sd = new Date(j.start_date).getTime();
+        if (!Number.isNaN(sd) && sd < startCutoff) return false;
+      }
       if (s) {
         const hay = `${j.job_title ?? ""} ${j.employer_name ?? ""} ${j.worksite_city ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
@@ -192,17 +240,19 @@ function Page() {
     else if (sortBy === "quality") arr = [...arr].sort((a, b) => b.quality.score - a.quality.score);
     else arr = [...arr].sort((a, b) => (daysAgo(a.job.posted_date) ?? 9999) - (daysAgo(b.job.posted_date) ?? 9999));
     return arr;
-  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, categoryFilter, appliedJobIds]);
+  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, savedOnly, savedJobIds, minWage, startAfter, sortBy, categoryFilter, appliedJobIds]);
 
   const filtersActive =
-    search !== "" || stateFilter !== "" || minWage !== "" ||
-    hasEmailOnly || hideApplied || categoryFilter !== "all" || sortBy !== "quality";
+    search !== "" || stateFilter !== "" || minWage !== "" || startAfter !== "" ||
+    hasEmailOnly || hideApplied || savedOnly || categoryFilter !== "all" || sortBy !== "quality";
 
   function resetFilters() {
-    setSearch(""); setStateFilter(""); setMinWage("");
-    setHasEmailOnly(false); setHideApplied(false);
+    setSearch(""); setStateFilter(""); setMinWage(""); setStartAfter("");
+    setHasEmailOnly(false); setHideApplied(false); setSavedOnly(false);
     setCategoryFilter("all"); setSortBy("quality");
   }
+
+
 
 
   function toggleSelect(id: string) {
@@ -266,7 +316,15 @@ function Page() {
         <CardContent className="pt-4 space-y-3">
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             <Input placeholder="Buscar título / empregador / cidade" value={search} onChange={(e) => setSearch(e.target.value)} />
-            <Input placeholder="Estado (ex: FLORIDA)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
+            <Select value={stateFilter || "all"} onValueChange={(v) => setStateFilter(v === "all" ? "" : v)}>
+              <SelectTrigger><SelectValue placeholder="Estado" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os estados ({enriched.length})</SelectItem>
+                {availableStates.map(([st, n]) => (
+                  <SelectItem key={st} value={st}>{st} ({n})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
             <Select value={categoryFilter} onValueChange={(v: any) => setCategoryFilter(v)}>
               <SelectTrigger><SelectValue placeholder="Tipo de vaga" /></SelectTrigger>
@@ -280,6 +338,10 @@ function Page() {
                   ))}
               </SelectContent>
             </Select>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Começa a partir de</label>
+              <Input type="date" value={startAfter} onChange={(e) => setStartAfter(e.target.value)} />
+            </div>
             <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
@@ -289,7 +351,7 @@ function Page() {
                 <SelectItem value="wage">Maior salário</SelectItem>
               </SelectContent>
             </Select>
-            <div className="flex flex-wrap items-center gap-4">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:col-span-2 lg:col-span-3">
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={hasEmailOnly} onChange={(e) => setHasEmailOnly(e.target.checked)} />
                 Apenas com e-mail
@@ -298,7 +360,12 @@ function Page() {
                 <input type="checkbox" checked={hideApplied} onChange={(e) => setHideApplied(e.target.checked)} />
                 Esconder candidatadas
               </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={savedOnly} onChange={(e) => setSavedOnly(e.target.checked)} />
+                ⭐ Só favoritas ({savedJobIds.size})
+              </label>
             </div>
+
           </div>
           <div className="flex items-center justify-between border-t pt-2">
             <div className="text-xs text-muted-foreground">
@@ -313,14 +380,27 @@ function Page() {
 
 
       <div className="text-sm text-muted-foreground">
-        {loading ? "Carregando…" : `${filtered.length} vagas · ${appliedJobIds.size} já candidatado(s)`}
+        {loading ? "Carregando…" : `${filtered.length} vagas · ${appliedJobIds.size} candidatada(s) · ${savedJobIds.size} favorita(s)`}
       </div>
 
       <div className="grid gap-3">
-        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality, category }) => {
+        {loading && (
+          <>
+            {[0, 1, 2].map((i) => (
+              <Card key={i}><CardContent className="pt-4 space-y-2">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-8 w-32" />
+              </CardContent></Card>
+            ))}
+          </>
+        )}
+        {!loading && filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality, category }) => {
           const applied = appliedJobIds.has(j.id);
+          const isSaved = savedJobIds.has(j.id);
           return (
-            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""}`}>
+            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""} ${isSaved ? "ring-1 ring-yellow-500/40" : ""}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
@@ -335,11 +415,14 @@ function Page() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleSaved(j.id)}
+                      aria-label={isSaved ? "Remover dos favoritos" : "Salvar nos favoritos"}>
+                      <Star className={`h-4 w-4 ${isSaved ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                    </Button>
                     <QualityMedal q={quality} />
                     {matchBadge(score)}
                     {freshnessBadge(j.posted_date)}
                     {applied && <Badge variant="outline">✓ Candidatado</Badge>}
-
                   </div>
                 </div>
               </CardHeader>
@@ -364,9 +447,13 @@ function Page() {
                   {j.recruitment_website && j.recruitment_website !== "N/A" && (<a className="inline-flex items-center gap-1 text-primary hover:underline" href={j.recruitment_website} target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" /> Site</a>)}
                 </div>
                 {!bulkMode && (
-                  <div className="pt-1">
+                  <div className="pt-1 flex gap-2">
                     <Button size="sm" onClick={() => setActiveJob(j)} disabled={applied}>
                       <Send className="mr-2 h-3.5 w-3.5" />{applied ? "Já candidatado" : "Candidatar"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => toggleSaved(j.id)}>
+                      <Star className={`mr-2 h-3.5 w-3.5 ${isSaved ? "fill-yellow-500 text-yellow-500" : ""}`} />
+                      {isSaved ? "Salvo" : "Salvar"}
                     </Button>
                   </div>
                 )}
@@ -375,11 +462,30 @@ function Page() {
           );
         })}
         {!loading && filtered.length === 0 && (
-          <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">
-            Nenhuma vaga. Clique em <strong>Backfill 15d</strong> para importar.
+          <Card><CardContent className="pt-10 pb-10 text-center space-y-3">
+            <Inbox className="h-10 w-10 mx-auto text-muted-foreground" />
+            <div className="text-sm font-medium">Nenhuma vaga encontrada</div>
+            <div className="text-xs text-muted-foreground max-w-sm mx-auto">
+              {filtersActive
+                ? "Tente ajustar os filtros ou clique em Resetar filtros."
+                : "Importe as vagas mais recentes para começar."}
+            </div>
+            <div className="flex gap-2 justify-center">
+              {filtersActive && (
+                <Button size="sm" variant="outline" onClick={resetFilters}>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" /> Resetar filtros
+                </Button>
+              )}
+              {!filtersActive && (
+                <Button size="sm" onClick={() => runImport(2, "daily")} disabled={importing !== null}>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" /> Buscar agora
+                </Button>
+              )}
+            </div>
           </CardContent></Card>
         )}
       </div>
+
 
       <ApplyDialog job={activeJob} open={!!activeJob} onOpenChange={(o) => !o && setActiveJob(null)} onSent={load} />
     </div>
