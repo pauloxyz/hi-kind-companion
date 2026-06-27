@@ -160,17 +160,25 @@ function Page() {
       const isSuspicious = fraud.isSuspicious || empFlag;
       const score = matchScore(j, profile, resume);
       const quality = jobQuality(j, isSuspicious);
-      return { job: j, score, isSuspicious, fraudReasons: fraud.reasons, employerFlagged: empFlag, quality };
+      const category = classifyJob(j.job_title);
+      return { job: j, score, isSuspicious, fraudReasons: fraud.reasons, employerFlagged: empFlag, quality, category };
     });
   }, [jobs, profile, resume, suspiciousEmployers]);
+
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const e of enriched) counts[e.category] = (counts[e.category] ?? 0) + 1;
+    return counts;
+  }, [enriched]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const st = stateFilter.trim().toLowerCase();
     const w = parseFloat(minWage) || 0;
-    let arr = enriched.filter(({ job: j }) => {
+    let arr = enriched.filter(({ job: j, category }) => {
       if (hasEmailOnly && !j.recruitment_email) return false;
       if (hideApplied && appliedJobIds.has(j.id)) return false;
+      if (categoryFilter !== "all" && category !== categoryFilter) return false;
       if (st && !(j.worksite_state ?? "").toLowerCase().includes(st)) return false;
       if (w && !(j.wage_offered && j.wage_offered >= w)) return false;
       if (s) {
@@ -184,7 +192,18 @@ function Page() {
     else if (sortBy === "quality") arr = [...arr].sort((a, b) => b.quality.score - a.quality.score);
     else arr = [...arr].sort((a, b) => (daysAgo(a.job.posted_date) ?? 9999) - (daysAgo(b.job.posted_date) ?? 9999));
     return arr;
-  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, appliedJobIds]);
+  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, categoryFilter, appliedJobIds]);
+
+  const filtersActive =
+    search !== "" || stateFilter !== "" || minWage !== "" ||
+    hasEmailOnly || hideApplied || categoryFilter !== "all" || sortBy !== "quality";
+
+  function resetFilters() {
+    setSearch(""); setStateFilter(""); setMinWage("");
+    setHasEmailOnly(false); setHideApplied(false);
+    setCategoryFilter("all"); setSortBy("quality");
+  }
+
 
   function toggleSelect(id: string) {
     setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
