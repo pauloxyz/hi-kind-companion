@@ -136,6 +136,59 @@ function Page() {
     setSkillInput("");
   }
 
+  async function handleImportPdf(file: File) {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Arquivo muito grande (máx 10 MB).");
+      return;
+    }
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      // base64 encode in chunks (avoid stack overflow on big files)
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      const fileBase64 = btoa(binary);
+      const imported = await importFn({
+        data: {
+          fileBase64,
+          mimeType: file.type || "application/pdf",
+          filename: file.name,
+        },
+      });
+
+      if (imported.summary_pt) setSummaryPt((prev) => prev || imported.summary_pt);
+      if (imported.summary_en) setSummaryEn((prev) => prev || imported.summary_en);
+      if (imported.skills.length) {
+        setSkills((prev) => Array.from(new Set([...prev, ...imported.skills])));
+      }
+      if (imported.experiences.length) {
+        setExperiences((prev) => {
+          const existingEmpty = prev.length === 1 && !prev[0].job_title.trim();
+          const base = existingEmpty ? [] : prev;
+          return [...base, ...imported.experiences.map((e) => ({ ...e }))];
+        });
+      }
+      if (imported.full_name || imported.phone || imported.country) {
+        setProfile((p) => ({
+          ...p,
+          full_name: p.full_name || imported.full_name || "",
+          phone: p.phone || imported.phone || "",
+          country: p.country || imported.country || "",
+        }));
+      }
+      toast.success("Currículo importado! Revise antes de salvar.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao importar");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+
   async function handleTranslate() {
     setTranslating(true);
     try {
