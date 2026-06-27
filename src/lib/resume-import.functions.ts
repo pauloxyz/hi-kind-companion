@@ -33,31 +33,44 @@ export const importResumeFromPdf = createServerFn({ method: "POST" })
     const key = process.env.LOVABLE_API_KEY;
     if (!key) throw new Error("LOVABLE_API_KEY ausente");
 
-    const schemaInstructions = `Você recebe um currículo (PDF, Word ou imagem). Extraia as informações e devolva APENAS JSON válido no formato:
+    const schemaInstructions = `Você recebe um currículo (PDF, Word ou imagem) de um candidato brasileiro ao visto H-2A (trabalho agrícola sazonal nos EUA). O H-2A é destinado a TRABALHADORES RURAIS BRAÇAIS — colheita, plantio, irrigação, operação de tratores, manejo de gado, poda, etc. NÃO é para cargos técnicos, gerenciais, de engenharia agronômica, supervisão, pesquisa ou escritório.
+
+REGRA CRÍTICA — EVITAR "OVERSKILL":
+Empregadores H-2A REJEITAM candidatos que pareçam superqualificados (engenheiros agrônomos, técnicos agrícolas, gerentes de fazenda, supervisores, consultores, pesquisadores). Eles querem mão de obra, não cérebro. Sua função é REPOSICIONAR o histórico do candidato destacando APENAS a experiência prática de campo (hands-on field work), mesmo que o cargo original tenha sido técnico ou de gestão.
+
+Como reposicionar:
+- Se a pessoa foi "Engenheiro Agrônomo", traduza como "Farm Worker" / "Agricultural Field Worker" — descreva o que ela FEZ COM AS MÃOS (acompanhou colheita, operou maquinário, aplicou defensivos, irrigou), nunca o que ela supervisionou, planejou ou pesquisou.
+- Remova títulos de chefia, gestão, consultoria, pesquisa, coordenação. Substitua por funções de execução.
+- Skills devem ser BRAÇAIS e PRÁTICAS em inglês simples: "Coffee harvest", "Tractor operation", "Irrigation systems", "Cattle handling", "Pruning", "Pesticide application", "Manual planting", "Fence repair". NUNCA: "Team leadership", "Agronomic planning", "Crop consulting", "Research", "Management", "Project coordination".
+- summary_en e summary_pt devem soar humildes, diretos, com foco em disposição para trabalho duro, experiência prática em campo e ética de trabalho. Sem jargão técnico/acadêmico, sem títulos acadêmicos.
+- Mantenha apenas experiências relevantes a trabalho rural braçal. Se o candidato teve cargos de escritório, omita-os ou descreva apenas o lado prático/campo que existiu naquele período.
+- NUNCA use as palavras "engineer", "manager", "supervisor", "consultant", "researcher", "specialist", "coordinator", "agronomist", "director" no resultado final (em PT use equivalentes braçais: "trabalhador rural", "operador", "ajudante de campo").
+
+Devolva APENAS JSON válido no formato:
 {
   "full_name": string|null,
   "phone": string|null,
   "country": string|null,
-  "summary_pt": string, // resumo profissional em português (2-4 frases). Se o currículo estiver em inglês, traduza.
-  "summary_en": string, // mesmo resumo em inglês natural, estilo trabalho manual/agrícola dos EUA
-  "skills": string[],   // habilidades em INGLÊS, curtas (ex: "Tractor operation", "Coffee harvest", "Irrigation")
+  "summary_pt": string, // 2-4 frases, humilde, foco em trabalho de campo
+  "summary_en": string, // mesmo resumo em inglês simples (nível trabalhador rural)
+  "skills": string[],   // habilidades BRAÇAIS em inglês simples
   "experiences": [
     {
-      "job_title": string,        // em português
+      "job_title": string,        // em português, reposicionado como função braçal
       "employer_name": string,
       "location": string,
       "start_date": "YYYY-MM-DD" | "",
-      "end_date": "YYYY-MM-DD" | "",  // vazio se for trabalho atual
-      "description_pt": string,   // descrição em português
-      "description_en": string    // mesma descrição em inglês natural
+      "end_date": "YYYY-MM-DD" | "",
+      "description_pt": string,
+      "description_en": string
     }
   ]
 }
 Regras:
-- Se não souber uma data exata, use o primeiro dia do mês (ex: "2020-03-01"). Se nem mês souber, use "".
-- Não invente experiências; só inclua o que está no documento.
-- Skills sempre em inglês, simples e diretas.
+- Datas: se não souber o dia, use o primeiro do mês. Se nem o mês, use "".
+- Não invente experiências, mas REINTERPRETE as existentes pelo ângulo braçal.
 - Retorne SOMENTE o JSON, sem markdown, sem comentários.`;
+
 
     const body = {
       model: "google/gemini-3-flash-preview",
