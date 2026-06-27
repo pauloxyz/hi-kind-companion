@@ -380,14 +380,27 @@ function Page() {
 
 
       <div className="text-sm text-muted-foreground">
-        {loading ? "Carregando…" : `${filtered.length} vagas · ${appliedJobIds.size} já candidatado(s)`}
+        {loading ? "Carregando…" : `${filtered.length} vagas · ${appliedJobIds.size} candidatada(s) · ${savedJobIds.size} favorita(s)`}
       </div>
 
       <div className="grid gap-3">
-        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality, category }) => {
+        {loading && (
+          <>
+            {[0, 1, 2].map((i) => (
+              <Card key={i}><CardContent className="pt-4 space-y-2">
+                <Skeleton className="h-5 w-2/3" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-8 w-32" />
+              </CardContent></Card>
+            ))}
+          </>
+        )}
+        {!loading && filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged, quality, category }) => {
           const applied = appliedJobIds.has(j.id);
+          const isSaved = savedJobIds.has(j.id);
           return (
-            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""}`}>
+            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""} ${isSaved ? "ring-1 ring-yellow-500/40" : ""}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
@@ -402,11 +415,14 @@ function Page() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleSaved(j.id)}
+                      aria-label={isSaved ? "Remover dos favoritos" : "Salvar nos favoritos"}>
+                      <Star className={`h-4 w-4 ${isSaved ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                    </Button>
                     <QualityMedal q={quality} />
                     {matchBadge(score)}
                     {freshnessBadge(j.posted_date)}
                     {applied && <Badge variant="outline">✓ Candidatado</Badge>}
-
                   </div>
                 </div>
               </CardHeader>
@@ -431,9 +447,13 @@ function Page() {
                   {j.recruitment_website && j.recruitment_website !== "N/A" && (<a className="inline-flex items-center gap-1 text-primary hover:underline" href={j.recruitment_website} target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" /> Site</a>)}
                 </div>
                 {!bulkMode && (
-                  <div className="pt-1">
+                  <div className="pt-1 flex gap-2">
                     <Button size="sm" onClick={() => setActiveJob(j)} disabled={applied}>
                       <Send className="mr-2 h-3.5 w-3.5" />{applied ? "Já candidatado" : "Candidatar"}
+                    </Button>
+                    <Button size="sm" variant="outline" onClick={() => toggleSaved(j.id)}>
+                      <Star className={`mr-2 h-3.5 w-3.5 ${isSaved ? "fill-yellow-500 text-yellow-500" : ""}`} />
+                      {isSaved ? "Salvo" : "Salvar"}
                     </Button>
                   </div>
                 )}
@@ -442,11 +462,30 @@ function Page() {
           );
         })}
         {!loading && filtered.length === 0 && (
-          <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">
-            Nenhuma vaga. Clique em <strong>Backfill 15d</strong> para importar.
+          <Card><CardContent className="pt-10 pb-10 text-center space-y-3">
+            <Inbox className="h-10 w-10 mx-auto text-muted-foreground" />
+            <div className="text-sm font-medium">Nenhuma vaga encontrada</div>
+            <div className="text-xs text-muted-foreground max-w-sm mx-auto">
+              {filtersActive
+                ? "Tente ajustar os filtros ou clique em Resetar filtros."
+                : "Importe as vagas mais recentes para começar."}
+            </div>
+            <div className="flex gap-2 justify-center">
+              {filtersActive && (
+                <Button size="sm" variant="outline" onClick={resetFilters}>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" /> Resetar filtros
+                </Button>
+              )}
+              {!filtersActive && (
+                <Button size="sm" onClick={() => runImport(2, "daily")} disabled={importing !== null}>
+                  <RefreshCw className="mr-2 h-3.5 w-3.5" /> Buscar agora
+                </Button>
+              )}
+            </div>
           </CardContent></Card>
         )}
       </div>
+
 
       <ApplyDialog job={activeJob} open={!!activeJob} onOpenChange={(o) => !o && setActiveJob(null)} onSent={load} />
     </div>
