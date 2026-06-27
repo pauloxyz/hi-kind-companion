@@ -142,9 +142,15 @@ function Page() {
               <CardContent className="p-3 space-y-2">
                 <MediaThumb path={m.media_url} />
                 <div className="flex items-center justify-between gap-2">
-                  <Badge variant="outline" className="text-xs">
-                    {CATEGORIES.find((c) => c.value === m.category)?.label ?? m.category}
-                  </Badge>
+                  <Select
+                    value={m.category ?? "general"}
+                    onValueChange={(v) => upMut.mutate({ id: m.id, patch: { category: v } })}
+                  >
+                    <SelectTrigger className="h-8 text-xs w-36"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                   <div className="flex gap-1">
                     <Button
                       size="icon" variant="ghost"
