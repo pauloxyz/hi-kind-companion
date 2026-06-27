@@ -57,7 +57,7 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
     ].filter(Boolean).join("\n");
 
     const expLines = (experiences ?? []).slice(0, 6).map(
-      (e) => `- ${e.job_title ?? ""} at ${e.employer_name ?? ""} (${e.start_date ?? "?"} → ${e.end_date ?? "present"}): ${e.description_en ?? e.description_pt ?? ""}`,
+      (e) => `- ${e.job_title_en ?? e.job_title ?? ""} at ${e.employer_name ?? ""} (${e.start_date ?? "?"} → ${e.end_date ?? "present"}): ${e.description_en ?? e.description_pt ?? ""}`,
     ).join("\n");
 
     const prompt = `You are writing a short, sincere cover letter in ENGLISH for an H-2A seasonal farm worker job application. Tone: humble, direct, hard-working, no fluff. Max 180 words. Include: greeting using employer name if available; one sentence stating intent; 2-3 sentences of relevant farm/manual labor experience; one sentence about availability; closing with willingness to provide references/video and full legal name. Output ONLY the letter body, no subject line, no markdown.
