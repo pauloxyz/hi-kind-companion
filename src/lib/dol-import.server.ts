@@ -1,12 +1,33 @@
 // Server-only helper to import H-2A jobs from the DOL SeasonalJobs Datahub.
-// Endpoint discovered from seasonaljobs.dol.gov front-end. Requires Origin/Referer
-// headers to be accepted. Returns OData JSON.
+// Uses the same POST search endpoint called by seasonaljobs.dol.gov. The older
+// GET Datahub endpoint is more frequently blocked by CloudFront from server runtimes.
 
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 
-const DOL_BASE = "https://api.seasonaljobs.dol.gov/datahub/";
+const DOL_SEARCH_URL = "https://api.seasonaljobs.dol.gov/datahub/search?api-version=2020-06-30";
 const PAGE_SIZE = 100;
+const SELECT_FIELDS = [
+  "case_number",
+  "visa_class",
+  "job_title",
+  "begin_date",
+  "end_date",
+  "basic_rate_from",
+  "basic_rate_to",
+  "pay_range_desc",
+  "employer_trade_name",
+  "employer_business_name",
+  "worksite_address",
+  "worksite_city",
+  "worksite_state",
+  "worksite_zip",
+  "total_positions",
+  "apply_email",
+  "apply_phone",
+  "apply_url",
+  "accepted_date",
+].join(",");
 
 type DolRecord = {
   case_number?: string | null;
@@ -64,31 +85,38 @@ function mapRecord(r: DolRecord) {
 }
 
 async function fetchPage(opts: { skip: number; sinceIso?: string }) {
-  const params = new URLSearchParams();
-  params.set("api-version", "2020-06-30");
-  params.set("$format", "application/json;odata.metadata=none");
-  params.set("search", "*");
-  params.set("$top", String(PAGE_SIZE));
-  params.set("$skip", String(opts.skip));
-  params.set("$orderby", "accepted_date desc");
-  params.set("$count", "true");
-  const filters = [`visa_class eq 'H-2A'`];
+  const filters = ["active eq true", "display eq true", "visa_class eq 'H-2A'"];
   if (opts.sinceIso) filters.push(`accepted_date ge ${opts.sinceIso}`);
-  params.set("$filter", filters.join(" and "));
-
-  const url = `${DOL_BASE}?${params.toString()}`;
-  const res = await fetch(url, {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 30_000);
+  const res = await fetch(DOL_SEARCH_URL, {
+    method: "POST",
+    signal: controller.signal,
     headers: {
-      Origin: "https://seasonaljobs.dol.gov",
       Referer: "https://seasonaljobs.dol.gov/",
+      "Content-Type": "application/json",
       Accept: "application/json, text/plain, */*",
       "Accept-Language": "en-US,en;q=0.9",
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
     },
+    body: JSON.stringify({
+      search: "*",
+      searchFields:
+        "job_title, job_duties, soc_code_id, soc_title, case_number, worksite_city, worksite_state, employer_business_name, employer_trade_name",
+      filter: filters.join(" and "),
+      orderby: "accepted_date desc",
+      top: PAGE_SIZE,
+      skip: opts.skip,
+      select: SELECT_FIELDS,
+      count: true,
+    }),
   });
+  clearTimeout(timeout);
   if (!res.ok) {
-    throw new Error(`DOL feed ${res.status}: ${await res.text().catch(() => "")}`);
+    const body = await res.text().catch(() => "");
+    const shortBody = body.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+    throw new Error(`DOL feed ${res.status}${shortBody ? `: ${shortBody}` : ""}`);
   }
   const json = (await res.json()) as { value?: DolRecord[]; "@odata.count"?: number };
   return { records: json.value ?? [], total: json["@odata.count"] ?? null };
