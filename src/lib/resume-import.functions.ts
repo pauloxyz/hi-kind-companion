@@ -141,6 +141,7 @@ Regras finais:
       experiences: Array.isArray(parsed.experiences)
         ? parsed.experiences.map((e) => ({
             job_title: e.job_title ?? "",
+            job_title_en: (e as { job_title_en?: string }).job_title_en ?? "",
             employer_name: e.employer_name ?? "",
             location: e.location ?? "",
             start_date: e.start_date ?? "",
