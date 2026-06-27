@@ -62,7 +62,7 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
 
     const experiences: PublicExperience[] = (exps.data ?? []).map((e) => ({
       id: e.id,
-      job_title: e.job_title,
+      job_title: e.job_title_en ?? e.job_title,
       employer_name: e.employer_name,
       start_date: e.start_date,
       end_date: e.end_date,
