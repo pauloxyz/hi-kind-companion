@@ -6,22 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import {
-  Loader2,
-  RefreshCw,
-  MapPin,
-  Calendar,
-  Mail,
-  Phone,
-  ExternalLink,
-  Send,
-  Sparkles,
-} from "lucide-react";
+import { Loader2, RefreshCw, MapPin, Calendar, Mail, Phone, ExternalLink, Send, Sparkles, AlertTriangle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { triggerDolImport } from "@/lib/jobs.functions";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
 import { ApplyDialog } from "@/components/ApplyDialog";
+import { matchScore, detectFraud } from "@/lib/score";
 import type { Database } from "@/integrations/supabase/types";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"];
@@ -39,19 +31,30 @@ function freshnessBadge(date: string | null) {
   const d = daysAgo(date);
   if (d == null) return <Badge variant="outline">sem data</Badge>;
   if (d <= 3) return <Badge className="bg-green-600 hover:bg-green-600">Nova ({d}d)</Badge>;
-  if (d <= 10)
-    return <Badge className="bg-yellow-500 hover:bg-yellow-500 text-black">Recente ({d}d)</Badge>;
+  if (d <= 10) return <Badge className="bg-yellow-500 hover:bg-yellow-500 text-black">Recente ({d}d)</Badge>;
   return <Badge variant="secondary">{d}d atrás</Badge>;
+}
+
+function matchBadge(score: number) {
+  if (score >= 80) return <Badge className="bg-emerald-600">Match {score}%</Badge>;
+  if (score >= 60) return <Badge className="bg-blue-600">Match {score}%</Badge>;
+  return <Badge variant="outline">Match {score}%</Badge>;
 }
 
 function Page() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [profile, setProfile] = useState<any>(null);
+  const [resume, setResume] = useState<any>(null);
+  const [suspiciousEmployers, setSuspiciousEmployers] = useState<Set<string>>(new Set());
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState<null | "daily" | "backfill">(null);
   const [stateFilter, setStateFilter] = useState("");
   const [search, setSearch] = useState("");
   const [hasEmailOnly, setHasEmailOnly] = useState(false);
+  const [hideApplied, setHideApplied] = useState(false);
+  const [minWage, setMinWage] = useState("");
+  const [sortBy, setSortBy] = useState<"match" | "fresh" | "wage">("fresh");
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
@@ -62,23 +65,23 @@ function Page() {
 
   async function load() {
     setLoading(true);
-    const [jobsRes, appsRes] = await Promise.all([
-      supabase
-        .from("jobs")
-        .select("*")
-        .order("posted_date", { ascending: false, nullsFirst: false })
-        .limit(500),
+    const [jobsRes, appsRes, profRes, resRes, empRes] = await Promise.all([
+      supabase.from("jobs").select("*").order("posted_date", { ascending: false, nullsFirst: false }).limit(500),
       supabase.from("applications").select("job_id"),
+      supabase.from("my_profile").select("*").maybeSingle(),
+      supabase.from("resumes").select("*").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+      supabase.from("employers").select("employer_name").eq("is_flagged_suspicious", true),
     ]);
     if (jobsRes.error) toast.error("Erro ao carregar vagas: " + jobsRes.error.message);
     setJobs(jobsRes.data ?? []);
     setAppliedJobIds(new Set((appsRes.data ?? []).map((a) => a.job_id).filter(Boolean) as string[]));
+    setProfile(profRes.data);
+    setResume(resRes.data);
+    setSuspiciousEmployers(new Set((empRes.data ?? []).map((e) => e.employer_name)));
     setLoading(false);
   }
 
-  useEffect(() => {
-    void load();
-  }, []);
+  useEffect(() => { void load(); }, []);
 
   async function runImport(daysBack: number, label: "daily" | "backfill") {
     setImporting(label);
@@ -86,83 +89,68 @@ function Page() {
       const result = await importFn({ data: { daysBack } });
       toast.success(`Importadas ${result.imported} vagas`);
       await load();
-    } catch (e) {
-      toast.error("Falha ao importar: " + (e instanceof Error ? e.message : String(e)));
-    } finally {
-      setImporting(null);
-    }
+    } catch (e) { toast.error("Falha ao importar: " + (e instanceof Error ? e.message : String(e))); }
+    finally { setImporting(null); }
   }
+
+  const enriched = useMemo(() => {
+    return jobs.map((j) => {
+      const fraud = detectFraud(j.job_title, j.employer_name, j.employer_address);
+      const empFlag = j.employer_name ? suspiciousEmployers.has(j.employer_name) : false;
+      const score = matchScore(j, profile, resume);
+      return { job: j, score, isSuspicious: fraud.isSuspicious || empFlag, fraudReasons: fraud.reasons, employerFlagged: empFlag };
+    });
+  }, [jobs, profile, resume, suspiciousEmployers]);
 
   const filtered = useMemo(() => {
     const s = search.trim().toLowerCase();
     const st = stateFilter.trim().toLowerCase();
-    return jobs.filter((j) => {
+    const w = parseFloat(minWage) || 0;
+    let arr = enriched.filter(({ job: j }) => {
       if (hasEmailOnly && !j.recruitment_email) return false;
+      if (hideApplied && appliedJobIds.has(j.id)) return false;
       if (st && !(j.worksite_state ?? "").toLowerCase().includes(st)) return false;
+      if (w && !(j.wage_offered && j.wage_offered >= w)) return false;
       if (s) {
         const hay = `${j.job_title ?? ""} ${j.employer_name ?? ""} ${j.worksite_city ?? ""}`.toLowerCase();
         if (!hay.includes(s)) return false;
       }
       return true;
     });
-  }, [jobs, search, stateFilter, hasEmailOnly]);
+    if (sortBy === "match") arr = [...arr].sort((a, b) => b.score - a.score);
+    else if (sortBy === "wage") arr = [...arr].sort((a, b) => (b.job.wage_offered ?? 0) - (a.job.wage_offered ?? 0));
+    else arr = [...arr].sort((a, b) => (daysAgo(a.job.posted_date) ?? 9999) - (daysAgo(b.job.posted_date) ?? 9999));
+    return arr;
+  }, [enriched, search, stateFilter, hasEmailOnly, hideApplied, minWage, sortBy, appliedJobIds]);
 
   function toggleSelect(id: string) {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+    setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
 
   async function runBulk() {
-    const targets = filtered.filter(
-      (j) => selected.has(j.id) && j.recruitment_email && !appliedJobIds.has(j.id),
-    );
-    if (targets.length === 0) {
-      toast.error("Nenhuma vaga selecionada com e-mail válido (e ainda não aplicada).");
-      return;
-    }
+    const targets = filtered.filter(({ job: j, isSuspicious }) =>
+      selected.has(j.id) && j.recruitment_email && !appliedJobIds.has(j.id) && !isSuspicious,
+    ).map((x) => x.job);
+    if (targets.length === 0) { toast.error("Nenhuma vaga selecionada válida (sem e-mail, suspeita ou já aplicada)."); return; }
     setBulkRunning(true);
-    let success = 0;
-    let failed = 0;
+    let success = 0, failed = 0;
     toast.info(`Gerando ${targets.length} cartas em paralelo…`);
-
-    // Generate all letters in parallel
-    const results = await Promise.allSettled(
-      targets.map((j) => genFn({ data: { jobId: j.id } })),
-    );
-
-    // Then send sequentially via mailto (browsers can't open many at once)
+    const results = await Promise.allSettled(targets.map((j) => genFn({ data: { jobId: j.id } })));
     for (let i = 0; i < targets.length; i++) {
-      const job = targets[i];
-      const r = results[i];
-      if (r.status !== "fulfilled") {
-        failed++;
-        continue;
-      }
+      const job = targets[i]; const r = results[i];
+      if (r.status !== "fulfilled") { failed++; continue; }
       try {
-        await recordFn({
-          data: { jobId: job.id, coverLetterEn: r.value.text, contactMethod: "email" },
-        });
-        const subject = encodeURIComponent(
-          `Application for ${job.job_title ?? "H-2A position"} (Case ${job.external_case_number ?? ""})`,
-        );
+        await recordFn({ data: { jobId: job.id, coverLetterEn: r.value.text, contactMethod: "email",
+          attachedMediaIds: r.value.attachedMediaIds, attachedVideoId: r.value.attachedVideoId } });
+        const subject = encodeURIComponent(`Application for ${job.job_title ?? "H-2A position"} (Case ${job.external_case_number ?? ""})`);
         const body = encodeURIComponent(r.value.text);
-        const href = `mailto:${job.recruitment_email}?subject=${subject}&body=${body}`;
-        window.open(href, "_blank");
+        window.open(`mailto:${job.recruitment_email}?subject=${subject}&body=${body}`, "_blank");
         success++;
         await new Promise((res) => setTimeout(res, 1200));
-      } catch {
-        failed++;
-      }
+      } catch { failed++; }
     }
-
     toast.success(`${success} candidaturas enviadas, ${failed} falharam.`);
-    setBulkRunning(false);
-    setSelected(new Set());
-    setBulkMode(false);
+    setBulkRunning(false); setSelected(new Set()); setBulkMode(false);
     await load();
   }
 
@@ -171,94 +159,66 @@ function Page() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Vagas H-2A</h1>
         <div className="flex flex-wrap gap-2">
-          <Button
-            variant={bulkMode ? "default" : "outline"}
-            size="sm"
-            onClick={() => {
-              setBulkMode((b) => !b);
-              setSelected(new Set());
-            }}
-          >
+          <Button variant={bulkMode ? "default" : "outline"} size="sm"
+            onClick={() => { setBulkMode((b) => !b); setSelected(new Set()); }}>
             {bulkMode ? `Cancelar (${selected.size})` : "Modo seleção"}
           </Button>
           {bulkMode && (
             <Button size="sm" onClick={runBulk} disabled={selected.size === 0 || bulkRunning}>
-              {bulkRunning ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="mr-2 h-4 w-4" />
-              )}
+              {bulkRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Candidatar em massa ({selected.size})
             </Button>
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => runImport(15, "backfill")}
-            disabled={importing !== null}
-          >
-            {importing === "backfill" ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
+          <Button variant="outline" size="sm" onClick={() => runImport(15, "backfill")} disabled={importing !== null}>
+            {importing === "backfill" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             Backfill 15d
           </Button>
           <Button size="sm" onClick={() => runImport(2, "daily")} disabled={importing !== null}>
-            {importing === "daily" ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
-            )}
+            {importing === "daily" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             🔄 Buscar agora
           </Button>
         </div>
       </div>
 
       <Card>
-        <CardContent className="pt-4 grid gap-2 sm:grid-cols-3">
-          <Input
-            placeholder="Buscar título / empregador / cidade"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          <Input
-            placeholder="Estado (ex: FLORIDA)"
-            value={stateFilter}
-            onChange={(e) => setStateFilter(e.target.value)}
-          />
+        <CardContent className="pt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <Input placeholder="Buscar título / empregador / cidade" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <Input placeholder="Estado (ex: FLORIDA)" value={stateFilter} onChange={(e) => setStateFilter(e.target.value)} />
+          <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
+          <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="fresh">Mais novas</SelectItem>
+              <SelectItem value="match">Maior match</SelectItem>
+              <SelectItem value="wage">Maior salário</SelectItem>
+            </SelectContent>
+          </Select>
           <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              checked={hasEmailOnly}
-              onChange={(e) => setHasEmailOnly(e.target.checked)}
-            />
+            <input type="checkbox" checked={hasEmailOnly} onChange={(e) => setHasEmailOnly(e.target.checked)} />
             Apenas com e-mail
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={hideApplied} onChange={(e) => setHideApplied(e.target.checked)} />
+            Esconder já candidatadas
           </label>
         </CardContent>
       </Card>
 
       <div className="text-sm text-muted-foreground">
-        {loading
-          ? "Carregando…"
-          : `${filtered.length} vagas · ${appliedJobIds.size} já candidatado(s)`}
+        {loading ? "Carregando…" : `${filtered.length} vagas · ${appliedJobIds.size} já candidatado(s)`}
       </div>
 
       <div className="grid gap-3">
-        {filtered.map((j) => {
+        {filtered.map(({ job: j, score, isSuspicious, fraudReasons, employerFlagged }) => {
           const applied = appliedJobIds.has(j.id);
           return (
-            <Card key={j.id} className={applied ? "opacity-60" : ""}>
+            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
                     {bulkMode && (
-                      <Checkbox
-                        checked={selected.has(j.id)}
-                        onCheckedChange={() => toggleSelect(j.id)}
-                        disabled={applied || !j.recruitment_email}
-                        className="mt-1"
-                      />
+                      <Checkbox checked={selected.has(j.id)} onCheckedChange={() => toggleSelect(j.id)}
+                        disabled={applied || !j.recruitment_email || isSuspicious} className="mt-1" />
                     )}
                     <div>
                       <CardTitle className="text-base">{j.job_title ?? "Sem título"}</CardTitle>
@@ -266,63 +226,36 @@ function Page() {
                     </div>
                   </div>
                   <div className="flex flex-col items-end gap-1">
+                    {matchBadge(score)}
                     {freshnessBadge(j.posted_date)}
                     {applied && <Badge variant="outline">✓ Candidatado</Badge>}
                   </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
+                {isSuspicious && (
+                  <div className="rounded bg-destructive/10 border border-destructive p-2 text-xs">
+                    <div className="flex items-start gap-1"><AlertTriangle className="h-3 w-3 mt-0.5 text-destructive" />
+                      <div><strong className="text-destructive">Possível fraude:</strong>{" "}
+                        {employerFlagged ? "Empregador marcado como suspeito por você. " : ""}
+                        {fraudReasons.length ? fraudReasons.join(", ") + "." : ""}</div></div>
+                  </div>
+                )}
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {(j.worksite_city || j.worksite_state) && (
-                    <span className="inline-flex items-center gap-1">
-                      <MapPin className="h-3.5 w-3.5" />
-                      {[j.worksite_city, j.worksite_state].filter(Boolean).join(", ")}
-                    </span>
-                  )}
-                  {j.start_date && (
-                    <span className="inline-flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      {j.start_date} → {j.end_date ?? "?"}
-                    </span>
-                  )}
-                  {j.wage_offered != null && (
-                    <span>
-                      💵 ${j.wage_offered}/{j.wage_unit ?? "hr"}
-                    </span>
-                  )}
+                  {(j.worksite_city || j.worksite_state) && (<span className="inline-flex items-center gap-1"><MapPin className="h-3.5 w-3.5" />{[j.worksite_city, j.worksite_state].filter(Boolean).join(", ")}</span>)}
+                  {j.start_date && (<span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />{j.start_date} → {j.end_date ?? "?"}</span>)}
+                  {j.wage_offered != null && (<span>💵 ${j.wage_offered}/{j.wage_unit ?? "hr"}</span>)}
                   {j.total_openings != null && <span>👥 {j.total_openings} vagas</span>}
                 </div>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
-                  {j.recruitment_email && (
-                    <span className="inline-flex items-center gap-1 text-primary">
-                      <Mail className="h-3.5 w-3.5" /> {j.recruitment_email}
-                    </span>
-                  )}
-                  {j.recruitment_phone && (
-                    <span className="inline-flex items-center gap-1">
-                      <Phone className="h-3.5 w-3.5" /> {j.recruitment_phone}
-                    </span>
-                  )}
-                  {j.recruitment_website && j.recruitment_website !== "N/A" && (
-                    <a
-                      className="inline-flex items-center gap-1 text-primary hover:underline"
-                      href={j.recruitment_website}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" /> Site
-                    </a>
-                  )}
+                  {j.recruitment_email && (<span className="inline-flex items-center gap-1 text-primary"><Mail className="h-3.5 w-3.5" /> {j.recruitment_email}</span>)}
+                  {j.recruitment_phone && (<span className="inline-flex items-center gap-1"><Phone className="h-3.5 w-3.5" /> {j.recruitment_phone}</span>)}
+                  {j.recruitment_website && j.recruitment_website !== "N/A" && (<a className="inline-flex items-center gap-1 text-primary hover:underline" href={j.recruitment_website} target="_blank" rel="noreferrer"><ExternalLink className="h-3.5 w-3.5" /> Site</a>)}
                 </div>
                 {!bulkMode && (
                   <div className="pt-1">
-                    <Button
-                      size="sm"
-                      onClick={() => setActiveJob(j)}
-                      disabled={applied}
-                    >
-                      <Send className="mr-2 h-3.5 w-3.5" />
-                      {applied ? "Já candidatado" : "Candidatar"}
+                    <Button size="sm" onClick={() => setActiveJob(j)} disabled={applied}>
+                      <Send className="mr-2 h-3.5 w-3.5" />{applied ? "Já candidatado" : "Candidatar"}
                     </Button>
                   </div>
                 )}
@@ -331,20 +264,13 @@ function Page() {
           );
         })}
         {!loading && filtered.length === 0 && (
-          <Card>
-            <CardContent className="pt-6 text-center text-sm text-muted-foreground">
-              Nenhuma vaga ainda. Clique em <strong>Backfill 15d</strong> para importar do DOL.
-            </CardContent>
-          </Card>
+          <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">
+            Nenhuma vaga. Clique em <strong>Backfill 15d</strong> para importar.
+          </CardContent></Card>
         )}
       </div>
 
-      <ApplyDialog
-        job={activeJob}
-        open={!!activeJob}
-        onOpenChange={(o) => !o && setActiveJob(null)}
-        onSent={load}
-      />
+      <ApplyDialog job={activeJob} open={!!activeJob} onOpenChange={(o) => !o && setActiveJob(null)} onSent={load} />
     </div>
   );
 }

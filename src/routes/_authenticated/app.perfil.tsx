@@ -6,33 +6,32 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { X } from "lucide-react";
 import { toast } from "sonner";
 
-export const Route = createFileRoute("/_authenticated/app/perfil")({
-  component: PerfilPage,
-});
+export const Route = createFileRoute("/_authenticated/app/perfil")({ component: PerfilPage });
+
+const LANG_OPTIONS = ["pt", "en", "es"];
 
 function PerfilPage() {
   const [form, setForm] = useState({
-    full_name: "",
-    phone: "",
-    country: "Brazil",
-    birth_date: "",
-    has_prior_h2_experience: false,
+    full_name: "", phone: "", country: "Brazil", birth_date: "",
+    has_prior_h2_experience: false, languages: ["pt"] as string[],
   });
+  const [langInput, setLangInput] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     supabase.from("my_profile").select("*").maybeSingle().then(({ data }) => {
-      if (data) {
-        setForm({
-          full_name: data.full_name ?? "",
-          phone: data.phone ?? "",
-          country: data.country ?? "Brazil",
-          birth_date: data.birth_date ?? "",
-          has_prior_h2_experience: !!data.has_prior_h2_experience,
-        });
-      }
+      if (data) setForm({
+        full_name: data.full_name ?? "",
+        phone: data.phone ?? "",
+        country: data.country ?? "Brazil",
+        birth_date: data.birth_date ?? "",
+        has_prior_h2_experience: !!data.has_prior_h2_experience,
+        languages: data.languages ?? ["pt"],
+      });
       setLoading(false);
     });
   }, []);
@@ -40,15 +39,20 @@ function PerfilPage() {
   const save = async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
-    const { error } = await supabase
-      .from("my_profile")
-      .upsert(
-        { owner_id: u.user.id, ...form, birth_date: form.birth_date || null, updated_at: new Date().toISOString() },
-        { onConflict: "owner_id" },
-      );
-    if (error) toast.error(error.message);
-    else toast.success("Salvo");
+    const { error } = await supabase.from("my_profile").upsert(
+      { owner_id: u.user.id, ...form, birth_date: form.birth_date || null, updated_at: new Date().toISOString() },
+      { onConflict: "owner_id" },
+    );
+    if (error) toast.error(error.message); else toast.success("Salvo");
   };
+
+  function addLang(l: string) {
+    const v = l.trim().toLowerCase();
+    if (!v || form.languages.includes(v)) return;
+    setForm({ ...form, languages: [...form.languages, v] });
+    setLangInput("");
+  }
+  function removeLang(l: string) { setForm({ ...form, languages: form.languages.filter((x) => x !== l) }); }
 
   if (loading) return <p>Carregando...</p>;
 
@@ -58,14 +62,37 @@ function PerfilPage() {
       <Card>
         <CardHeader><CardTitle>Dados pessoais</CardTitle></CardHeader>
         <CardContent className="space-y-3">
-          <div className="space-y-1"><Label>Nome completo</Label>
+          <div className="space-y-1"><Label>Nome completo (igual ao passaporte)</Label>
             <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} /></div>
-          <div className="space-y-1"><Label>Telefone (com DDI, ex: +55...)</Label>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
-          <div className="space-y-1"><Label>País</Label>
-            <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
+          <div className="grid sm:grid-cols-2 gap-3">
+            <div className="space-y-1"><Label>Telefone (+55...)</Label>
+              <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} /></div>
+            <div className="space-y-1"><Label>País</Label>
+              <Input value={form.country} onChange={(e) => setForm({ ...form, country: e.target.value })} /></div>
+          </div>
           <div className="space-y-1"><Label>Data de nascimento</Label>
             <Input type="date" value={form.birth_date ?? ""} onChange={(e) => setForm({ ...form, birth_date: e.target.value })} /></div>
+
+          <div className="space-y-1">
+            <Label>Idiomas falados</Label>
+            <div className="flex flex-wrap gap-1 mb-1">
+              {form.languages.map((l) => (
+                <Badge key={l} variant="secondary" className="cursor-pointer" onClick={() => removeLang(l)}>
+                  {l} <X className="h-3 w-3 ml-1" />
+                </Badge>
+              ))}
+            </div>
+            <div className="flex gap-2">
+              <Input placeholder="ex: en" value={langInput} onChange={(e) => setLangInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addLang(langInput); } }} />
+              <div className="flex gap-1">
+                {LANG_OPTIONS.filter((l) => !form.languages.includes(l)).map((l) => (
+                  <Button key={l} size="sm" variant="outline" onClick={() => addLang(l)}>+{l}</Button>
+                ))}
+              </div>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between rounded-md border p-3">
             <Label>Já participei de programa H-2 antes</Label>
             <Switch checked={form.has_prior_h2_experience}
