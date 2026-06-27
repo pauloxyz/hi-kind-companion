@@ -40,6 +40,16 @@ function emptyExp(): Experience {
   };
 }
 
+const AVAIL_OPTIONS: Array<{ value: string; labelPt: string; labelEn: string; descPt: string }> = [
+  { value: "full_season", labelPt: "Temporada inteira", labelEn: "Full season (entire H-2A contract)", descPt: "Disponível do início ao fim do contrato (geralmente 6-10 meses)." },
+  { value: "half_season", labelPt: "Meia temporada", labelEn: "Half season", descPt: "Disponível para aproximadamente metade do contrato." },
+  { value: "peak_harvest", labelPt: "Apenas pico da colheita", labelEn: "Peak harvest only (short-term)", descPt: "Disponível para o período mais intenso de colheita (curto prazo)." },
+  { value: "year_round", labelPt: "O ano todo (vários contratos)", labelEn: "Year-round / Multiple contracts", descPt: "Disposto a encadear contratos H-2A consecutivos." },
+  { value: "flexible", labelPt: "Flexível / Conforme necessário", labelEn: "Flexible / As needed", descPt: "Aberto a qualquer período que o empregador precisar." },
+  { value: "custom_dates", labelPt: "Datas específicas", labelEn: "Specific dates", descPt: "Quero informar datas exatas abaixo." },
+];
+
+
 function Page() {
   const [resumeId, setResumeId] = useState<string | null>(null);
   const [summaryPt, setSummaryPt] = useState("");
