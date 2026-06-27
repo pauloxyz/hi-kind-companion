@@ -59,7 +59,7 @@ function Page() {
   const { data: items = [] } = useQuery({ queryKey: ["work_media"], queryFn: () => list() });
 
   const upMut = useMutation({
-    mutationFn: async (vars: { id: string; patch: Partial<MediaRow> }) =>
+    mutationFn: async (vars: { id: string; patch: { caption?: string; is_featured?: boolean; category?: string } }) =>
       update({ data: { id: vars.id, ...vars.patch } }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["work_media"] }),
   });
