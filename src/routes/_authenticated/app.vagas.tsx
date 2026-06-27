@@ -433,13 +433,16 @@ function Page() {
           const applied = appliedJobIds.has(j.id);
           const isSaved = savedJobIds.has(j.id);
           return (
-            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""} ${isSaved ? "ring-1 ring-yellow-500/40" : ""}`}>
+            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""} ${isSaved ? "ring-1 ring-yellow-500/40" : ""} ${compareIds.has(j.id) ? "ring-2 ring-primary" : ""}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
                     {bulkMode && (
                       <Checkbox checked={selected.has(j.id)} onCheckedChange={() => toggleSelect(j.id)}
                         disabled={applied || !j.recruitment_email || isSuspicious} className="mt-1" />
+                    )}
+                    {compareMode && (
+                      <Checkbox checked={compareIds.has(j.id)} onCheckedChange={() => toggleCompare(j.id)} className="mt-1" />
                     )}
                     <div>
                       <CardTitle className="text-base">{j.job_title ?? "Sem título"}</CardTitle>
