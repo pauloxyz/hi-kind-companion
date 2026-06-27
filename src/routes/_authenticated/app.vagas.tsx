@@ -8,8 +8,10 @@ import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, MapPin, Calendar, Mail, Phone, ExternalLink, Send, Sparkles, AlertTriangle, Star, Inbox } from "lucide-react";
+import { Loader2, RefreshCw, MapPin, Calendar, Mail, Phone, ExternalLink, Send, Sparkles, AlertTriangle, Star, Inbox, GitCompare, X } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 import { supabase } from "@/integrations/supabase/client";
 import { triggerDolImport } from "@/lib/jobs.functions";
@@ -122,6 +124,10 @@ function Page() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
+  const [compareMode, setCompareMode] = useState(false);
+  const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
+  const [compareOpen, setCompareOpen] = useState(false);
+  const MAX_COMPARE = 3;
 
   const [activeJob, setActiveJob] = useState<Job | null>(null);
   const importFn = useServerFn(triggerDolImport);
@@ -259,6 +265,23 @@ function Page() {
     setSelected((prev) => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
   }
 
+  function toggleCompare(id: string) {
+    setCompareIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else {
+        if (next.size >= MAX_COMPARE) { toast.error(`Máx. ${MAX_COMPARE} vagas para comparar`); return prev; }
+        next.add(id);
+      }
+      return next;
+    });
+  }
+
+  const compareJobs = useMemo(
+    () => enriched.filter((e) => compareIds.has(e.job.id)),
+    [enriched, compareIds],
+  );
+
   async function runBulk() {
     const targets = filtered.filter(({ job: j, isSuspicious }) =>
       selected.has(j.id) && j.recruitment_email && !appliedJobIds.has(j.id) && !isSuspicious,
@@ -292,13 +315,23 @@ function Page() {
         <h1 className="text-2xl font-bold">Vagas H-2A</h1>
         <div className="flex flex-wrap gap-2">
           <Button variant={bulkMode ? "default" : "outline"} size="sm"
-            onClick={() => { setBulkMode((b) => !b); setSelected(new Set()); }}>
+            onClick={() => { setBulkMode((b) => !b); setSelected(new Set()); if (!bulkMode) { setCompareMode(false); setCompareIds(new Set()); } }}>
             {bulkMode ? `Cancelar (${selected.size})` : "Modo seleção"}
           </Button>
           {bulkMode && (
             <Button size="sm" onClick={runBulk} disabled={selected.size === 0 || bulkRunning}>
               {bulkRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Candidatar em massa ({selected.size})
+            </Button>
+          )}
+          <Button variant={compareMode ? "default" : "outline"} size="sm"
+            onClick={() => { setCompareMode((c) => !c); setCompareIds(new Set()); if (!compareMode) { setBulkMode(false); setSelected(new Set()); } }}>
+            <GitCompare className="mr-2 h-4 w-4" />
+            {compareMode ? `Cancelar (${compareIds.size}/${MAX_COMPARE})` : "Comparar"}
+          </Button>
+          {compareMode && compareIds.size >= 2 && (
+            <Button size="sm" onClick={() => setCompareOpen(true)}>
+              Ver comparação ({compareIds.size})
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={() => runImport(15, "backfill")} disabled={importing !== null}>
@@ -400,13 +433,16 @@ function Page() {
           const applied = appliedJobIds.has(j.id);
           const isSaved = savedJobIds.has(j.id);
           return (
-            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""} ${isSaved ? "ring-1 ring-yellow-500/40" : ""}`}>
+            <Card key={j.id} className={`${applied ? "opacity-60" : ""} ${isSuspicious ? "border-destructive" : ""} ${isSaved ? "ring-1 ring-yellow-500/40" : ""} ${compareIds.has(j.id) ? "ring-2 ring-primary" : ""}`}>
               <CardHeader className="pb-2">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-start gap-2">
                     {bulkMode && (
                       <Checkbox checked={selected.has(j.id)} onCheckedChange={() => toggleSelect(j.id)}
                         disabled={applied || !j.recruitment_email || isSuspicious} className="mt-1" />
+                    )}
+                    {compareMode && (
+                      <Checkbox checked={compareIds.has(j.id)} onCheckedChange={() => toggleCompare(j.id)} className="mt-1" />
                     )}
                     <div>
                       <CardTitle className="text-base">{j.job_title ?? "Sem título"}</CardTitle>
@@ -488,6 +524,121 @@ function Page() {
 
 
       <ApplyDialog job={activeJob} open={!!activeJob} onOpenChange={(o) => !o && setActiveJob(null)} onSent={load} />
+
+      <Dialog open={compareOpen} onOpenChange={setCompareOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-auto">
+          <DialogHeader>
+            <DialogTitle>Comparar vagas ({compareJobs.length})</DialogTitle>
+            <DialogDescription>Lado-a-lado para você decidir qual aplicar primeiro.</DialogDescription>
+          </DialogHeader>
+          {compareJobs.length === 0 ? (
+            <div className="text-sm text-muted-foreground">Selecione vagas para comparar.</div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-40">Critério</TableHead>
+                  {compareJobs.map(({ job }) => (
+                    <TableHead key={job.id} className="align-top">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <div className="font-semibold text-foreground">{job.job_title ?? "—"}</div>
+                          <div className="text-xs text-muted-foreground">{job.employer_name ?? "—"}</div>
+                        </div>
+                        <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => toggleCompare(job.id)}>
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                <TableRow>
+                  <TableCell className="font-medium">Qualidade</TableCell>
+                  {compareJobs.map(({ job, quality }) => (
+                    <TableCell key={job.id}>{quality.level ? `${quality.level === "gold" ? "🥇" : quality.level === "silver" ? "🥈" : "🥉"} ${quality.score}/100` : `${quality.score}/100`}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Match c/ perfil</TableCell>
+                  {compareJobs.map(({ job, score }) => (<TableCell key={job.id}>{score}%</TableCell>))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Salário</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>{job.wage_offered != null ? `$${job.wage_offered}/${job.wage_unit ?? "hr"}` : "—"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Estado / Cidade</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>{[job.worksite_city, job.worksite_state].filter(Boolean).join(", ") || "—"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Período</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>{job.start_date ? `${job.start_date} → ${job.end_date ?? "?"}` : "—"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Vagas abertas</TableCell>
+                  {compareJobs.map(({ job }) => (<TableCell key={job.id}>{job.total_openings ?? "—"}</TableCell>))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Postada há</TableCell>
+                  {compareJobs.map(({ job }) => {
+                    const d = daysAgo(job.posted_date);
+                    return (<TableCell key={job.id}>{d == null ? "—" : `${d}d`}</TableCell>);
+                  })}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Categoria</TableCell>
+                  {compareJobs.map(({ job, category }) => (
+                    <TableCell key={job.id} className="text-xs">{CATEGORY_LABELS[category]}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Contato</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id} className="text-xs">
+                      {job.recruitment_email && <div>✉️ {job.recruitment_email}</div>}
+                      {job.recruitment_phone && <div>📞 {job.recruitment_phone}</div>}
+                      {!job.recruitment_email && !job.recruitment_phone && "—"}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Sinal de fraude</TableCell>
+                  {compareJobs.map(({ job, isSuspicious }) => (
+                    <TableCell key={job.id}>{isSuspicious ? <span className="text-destructive">⚠️ Suspeita</span> : "✓ Ok"}</TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Status</TableCell>
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>
+                      {appliedJobIds.has(job.id) ? <Badge variant="outline">✓ Candidatado</Badge> : <Badge variant="secondary">Não aplicada</Badge>}
+                    </TableCell>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableCell />
+                  {compareJobs.map(({ job }) => (
+                    <TableCell key={job.id}>
+                      <Button size="sm" disabled={appliedJobIds.has(job.id)}
+                        onClick={() => { setActiveJob(job); setCompareOpen(false); }}>
+                        <Send className="mr-2 h-3.5 w-3.5" /> Candidatar
+                      </Button>
+                    </TableCell>
+                  ))}
+                </TableRow>
+              </TableBody>
+            </Table>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
