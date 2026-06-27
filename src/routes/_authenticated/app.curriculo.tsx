@@ -7,10 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Sparkles, Plus, Trash2, Download, Save } from "lucide-react";
+import { Loader2, Sparkles, Plus, Trash2, Download, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
+import { importResumeFromPdf } from "@/lib/resume-import.functions";
 import { pdf } from "@react-pdf/renderer";
 import { ResumePdfDocument, type ResumePdfData } from "@/components/ResumePdfDocument";
 
@@ -57,7 +58,9 @@ function Page() {
   const [translating, setTranslating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [importing, setImporting] = useState(false);
   const translateFn = useServerFn(translateToEnglish);
+  const importFn = useServerFn(importResumeFromPdf);
 
   useEffect(() => {
     void (async () => {
@@ -132,6 +135,59 @@ function Page() {
     setSkills((prev) => Array.from(new Set([...prev, v])));
     setSkillInput("");
   }
+
+  async function handleImportPdf(file: File) {
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("Arquivo muito grande (máx 10 MB).");
+      return;
+    }
+    setImporting(true);
+    try {
+      const buf = await file.arrayBuffer();
+      // base64 encode in chunks (avoid stack overflow on big files)
+      let binary = "";
+      const bytes = new Uint8Array(buf);
+      const chunk = 0x8000;
+      for (let i = 0; i < bytes.length; i += chunk) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+      }
+      const fileBase64 = btoa(binary);
+      const imported = await importFn({
+        data: {
+          fileBase64,
+          mimeType: file.type || "application/pdf",
+          filename: file.name,
+        },
+      });
+
+      if (imported.summary_pt) setSummaryPt((prev) => prev || imported.summary_pt);
+      if (imported.summary_en) setSummaryEn((prev) => prev || imported.summary_en);
+      if (imported.skills.length) {
+        setSkills((prev) => Array.from(new Set([...prev, ...imported.skills])));
+      }
+      if (imported.experiences.length) {
+        setExperiences((prev) => {
+          const existingEmpty = prev.length === 1 && !prev[0].job_title.trim();
+          const base = existingEmpty ? [] : prev;
+          return [...base, ...imported.experiences.map((e) => ({ ...e }))];
+        });
+      }
+      if (imported.full_name || imported.phone || imported.country) {
+        setProfile((p) => ({
+          ...p,
+          full_name: p.full_name || imported.full_name || "",
+          phone: p.phone || imported.phone || "",
+          country: p.country || imported.country || "",
+        }));
+      }
+      toast.success("Currículo importado! Revise antes de salvar.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao importar");
+    } finally {
+      setImporting(false);
+    }
+  }
+
 
   async function handleTranslate() {
     setTranslating(true);
@@ -311,6 +367,44 @@ function Page() {
       <p className="text-xs text-muted-foreground">
         Escreva em português; a IA traduz para inglês. O PDF gerado é em inglês, estilo trabalho manual americano (ATS-friendly).
       </p>
+
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            Já tem um currículo pronto? Importe com IA
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Envie um PDF, Word ou foto do seu currículo. A IA lê e preenche os campos abaixo automaticamente (em português e inglês). Você revisa antes de salvar.
+          </p>
+          <div className="flex items-center gap-2">
+            <Input
+              id="resume-import-file"
+              type="file"
+              accept="application/pdf,.pdf,.doc,.docx,image/*"
+              disabled={importing}
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void handleImportPdf(f);
+                e.target.value = "";
+              }}
+              className="cursor-pointer"
+            />
+            {importing && (
+              <span className="flex items-center gap-1 text-xs text-muted-foreground whitespace-nowrap">
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Lendo…
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            <Upload className="inline h-3 w-3 mr-1" />
+            Máx 10 MB. Os dados existentes não são apagados — novas experiências são adicionadas.
+          </p>
+        </CardContent>
+      </Card>
+
 
       <Card>
         <CardHeader>
