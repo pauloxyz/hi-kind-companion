@@ -268,6 +268,9 @@ export type Database = {
           owner_id: string
           phone: string | null
           photo_url: string | null
+          public_headline: string | null
+          public_page_enabled: boolean
+          public_slug: string | null
           resume_completion_pct: number | null
           updated_at: string | null
         }
@@ -282,6 +285,9 @@ export type Database = {
           owner_id: string
           phone?: string | null
           photo_url?: string | null
+          public_headline?: string | null
+          public_page_enabled?: boolean
+          public_slug?: string | null
           resume_completion_pct?: number | null
           updated_at?: string | null
         }
@@ -296,8 +302,41 @@ export type Database = {
           owner_id?: string
           phone?: string | null
           photo_url?: string | null
+          public_headline?: string | null
+          public_page_enabled?: boolean
+          public_slug?: string | null
           resume_completion_pct?: number | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      profile_views: {
+        Row: {
+          id: string
+          owner_id: string
+          referer: string | null
+          slug: string
+          user_agent: string | null
+          viewed_at: string
+          viewer_ip: string | null
+        }
+        Insert: {
+          id?: string
+          owner_id: string
+          referer?: string | null
+          slug: string
+          user_agent?: string | null
+          viewed_at?: string
+          viewer_ip?: string | null
+        }
+        Update: {
+          id?: string
+          owner_id?: string
+          referer?: string | null
+          slug?: string
+          user_agent?: string | null
+          viewed_at?: string
+          viewer_ip?: string | null
         }
         Relationships: []
       }

@@ -18,12 +18,15 @@ function PerfilPage() {
   const [form, setForm] = useState({
     full_name: "", phone: "", country: "Brazil", birth_date: "",
     has_prior_h2_experience: false, languages: ["pt"] as string[],
+    public_slug: "", public_headline: "", public_page_enabled: true,
   });
+  const [viewCount, setViewCount] = useState<number | null>(null);
   const [langInput, setLangInput] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    supabase.from("my_profile").select("*").maybeSingle().then(({ data }) => {
+    (async () => {
+      const { data } = await supabase.from("my_profile").select("*").maybeSingle();
       if (data) setForm({
         full_name: data.full_name ?? "",
         phone: data.phone ?? "",
@@ -31,19 +34,25 @@ function PerfilPage() {
         birth_date: data.birth_date ?? "",
         has_prior_h2_experience: !!data.has_prior_h2_experience,
         languages: data.languages ?? ["pt"],
+        public_slug: data.public_slug ?? "",
+        public_headline: data.public_headline ?? "",
+        public_page_enabled: data.public_page_enabled ?? true,
       });
+      const { count } = await supabase.from("profile_views").select("*", { count: "exact", head: true });
+      setViewCount(count ?? 0);
       setLoading(false);
-    });
+    })();
   }, []);
 
   const save = async () => {
     const { data: u } = await supabase.auth.getUser();
     if (!u.user) return;
+    const slug = form.public_slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
     const { error } = await supabase.from("my_profile").upsert(
-      { owner_id: u.user.id, ...form, birth_date: form.birth_date || null, updated_at: new Date().toISOString() },
+      { owner_id: u.user.id, ...form, public_slug: slug || null, birth_date: form.birth_date || null, updated_at: new Date().toISOString() },
       { onConflict: "owner_id" },
     );
-    if (error) toast.error(error.message); else toast.success("Salvo");
+    if (error) toast.error(error.message); else { setForm({ ...form, public_slug: slug }); toast.success("Salvo"); }
   };
 
   function addLang(l: string) {
@@ -99,6 +108,53 @@ function PerfilPage() {
               onCheckedChange={(v) => setForm({ ...form, has_prior_h2_experience: v })} />
           </div>
           <Button onClick={save}>Salvar</Button>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Página pública de apresentação</CardTitle>
+          <p className="text-sm text-muted-foreground">Um link curto e bonito que você envia ao empregador, com vídeo, fotos e experiência. Cada visualização é registrada.</p>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex items-center justify-between rounded-md border p-3">
+            <Label>Página pública ativa</Label>
+            <Switch checked={form.public_page_enabled} onCheckedChange={(v) => setForm({ ...form, public_page_enabled: v })} />
+          </div>
+          <div className="space-y-1">
+            <Label>URL do seu perfil</Label>
+            <div className="flex gap-1 items-center">
+              <span className="text-sm text-muted-foreground">/v/</span>
+              <Input value={form.public_slug} onChange={(e) => setForm({ ...form, public_slug: e.target.value })} placeholder="seu-nome" />
+            </div>
+            {form.public_slug && form.public_page_enabled && (
+              <div className="flex gap-2 mt-2">
+                <a href={`/v/${form.public_slug}`} target="_blank" rel="noopener noreferrer" className="text-sm text-primary underline">
+                  Abrir página →
+                </a>
+                <button
+                  type="button"
+                  className="text-sm text-primary underline"
+                  onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/v/${form.public_slug}`); toast.success("Link copiado"); }}
+                >
+                  Copiar link
+                </button>
+              </div>
+            )}
+          </div>
+          <div className="space-y-1">
+            <Label>Frase de apresentação (uma linha em inglês)</Label>
+            <Input
+              value={form.public_headline}
+              onChange={(e) => setForm({ ...form, public_headline: e.target.value })}
+              placeholder="Hard-working farmhand from Brazil, 3 seasons of strawberry harvest, available March-Nov."
+              maxLength={160}
+            />
+          </div>
+          <div className="rounded-md bg-muted/40 p-3 text-sm">
+            <span className="font-semibold">{viewCount ?? "…"}</span> visualização(ões) registrada(s) na sua página.
+          </div>
+          <Button onClick={save}>Salvar página pública</Button>
         </CardContent>
       </Card>
     </div>
