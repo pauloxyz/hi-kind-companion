@@ -17,6 +17,7 @@ export type ImportedResume = {
   skills: string[];
   experiences: Array<{
     job_title: string;
+    job_title_en: string;
     employer_name: string;
     location: string;
     start_date: string; // YYYY-MM-DD or ""
@@ -64,7 +65,8 @@ Devolva APENAS JSON válido no formato:
   "skills": string[],    // 6-12 habilidades práticas em inglês simples (mistura de execução e conhecimento aplicado)
   "experiences": [
     {
-      "job_title": string,        // em PT, reposicionado como função operacional
+      "job_title": string,        // em PT, reposicionado como função operacional (ex: "Trabalhador agrícola")
+      "job_title_en": string,     // mesmo cargo em inglês equivalente para H-2A (ex: "Farm Worker", "Tractor Operator", "Ranch Hand")
       "employer_name": string,
       "location": string,
       "start_date": "YYYY-MM-DD" | "",
@@ -140,6 +142,7 @@ Regras finais:
       experiences: Array.isArray(parsed.experiences)
         ? parsed.experiences.map((e) => ({
             job_title: e.job_title ?? "",
+            job_title_en: (e as { job_title_en?: string }).job_title_en ?? "",
             employer_name: e.employer_name ?? "",
             location: e.location ?? "",
             start_date: e.start_date ?? "",

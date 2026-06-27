@@ -351,6 +351,7 @@ export type Database = {
           end_date: string | null
           id: string
           job_title: string | null
+          job_title_en: string | null
           location: string | null
           owner_id: string
           resume_id: string | null
@@ -364,6 +365,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           job_title?: string | null
+          job_title_en?: string | null
           location?: string | null
           owner_id: string
           resume_id?: string | null
@@ -377,6 +379,7 @@ export type Database = {
           end_date?: string | null
           id?: string
           job_title?: string | null
+          job_title_en?: string | null
           location?: string | null
           owner_id?: string
           resume_id?: string | null

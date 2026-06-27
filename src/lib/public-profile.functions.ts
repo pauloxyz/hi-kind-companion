@@ -41,7 +41,7 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
 
     const ownerId = profile.owner_id;
     const [exps, skills, mediaRows, videoRow] = await Promise.all([
-      sb.from("resume_experiences").select("id,job_title,employer_name,start_date,end_date,description_en,description_pt").eq("owner_id", ownerId).order("start_date", { ascending: false }),
+      sb.from("resume_experiences").select("id,job_title,job_title_en,employer_name,start_date,end_date,description_en,description_pt").eq("owner_id", ownerId).order("start_date", { ascending: false }),
       sb.from("resume_skills").select("id,skill_name,category").eq("owner_id", ownerId),
       sb.from("work_media").select("id,media_url,media_type,caption").eq("owner_id", ownerId).eq("is_featured", true).order("uploaded_at", { ascending: false }).limit(8),
       sb.from("intro_video").select("id,video_url").eq("owner_id", ownerId).eq("is_active", true).order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
@@ -62,7 +62,7 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
 
     const experiences: PublicExperience[] = (exps.data ?? []).map((e) => ({
       id: e.id,
-      job_title: e.job_title,
+      job_title: e.job_title_en ?? e.job_title,
       employer_name: e.employer_name,
       start_date: e.start_date,
       end_date: e.end_date,

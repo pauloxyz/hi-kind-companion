@@ -20,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/app/curriculo")({ componen
 type Experience = {
   id?: string;
   job_title: string;
+  job_title_en: string;
   employer_name: string;
   location: string;
   start_date: string;
@@ -31,6 +32,7 @@ type Experience = {
 function emptyExp(): Experience {
   return {
     job_title: "",
+    job_title_en: "",
     employer_name: "",
     location: "",
     start_date: "",
@@ -115,6 +117,7 @@ function Page() {
             exps.map((e) => ({
               id: e.id,
               job_title: e.job_title ?? "",
+              job_title_en: (e as { job_title_en?: string | null }).job_title_en ?? "",
               employer_name: e.employer_name ?? "",
               location: e.location ?? "",
               start_date: e.start_date ?? "",
@@ -181,7 +184,7 @@ function Page() {
         setExperiences((prev) => {
           const existingEmpty = prev.length === 1 && !prev[0].job_title.trim();
           const base = existingEmpty ? [] : prev;
-          return [...base, ...imported.experiences.map((e) => ({ ...e }))];
+          return [...base, ...imported.experiences.map((e) => ({ ...e, job_title_en: (e as { job_title_en?: string }).job_title_en ?? "" }))];
         });
       }
       if (imported.full_name || imported.phone || imported.country) {
@@ -281,6 +284,7 @@ function Page() {
           owner_id: userId,
           resume_id: id,
           job_title: e.job_title,
+          job_title_en: e.job_title_en || null,
           employer_name: e.employer_name,
           location: e.location,
           start_date: e.start_date || null,
@@ -333,7 +337,7 @@ function Page() {
         experiences: experiences
           .filter((e) => e.job_title.trim())
           .map((e) => ({
-            title: e.job_title,
+            title: e.job_title_en || e.job_title,
             employer: e.employer_name,
             location: e.location,
             startDate: e.start_date,
@@ -467,9 +471,14 @@ function Page() {
               </div>
               <div className="grid gap-2 sm:grid-cols-2">
                 <Input
-                  placeholder="Cargo (PT, ex: Trabalhador rural)"
+                  placeholder="Cargo em PT (ex: Trabalhador rural)"
                   value={e.job_title}
                   onChange={(ev) => updateExp(i, { job_title: ev.target.value })}
+                />
+                <Input
+                  placeholder="Job title in English (ex: Farm Worker)"
+                  value={e.job_title_en}
+                  onChange={(ev) => updateExp(i, { job_title_en: ev.target.value })}
                 />
                 <Input
                   placeholder="Empregador (ex: Fazenda XYZ)"
