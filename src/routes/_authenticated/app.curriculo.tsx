@@ -284,6 +284,7 @@ function Page() {
           owner_id: userId,
           resume_id: id,
           job_title: e.job_title,
+          job_title_en: e.job_title_en || null,
           employer_name: e.employer_name,
           location: e.location,
           start_date: e.start_date || null,
