@@ -42,6 +42,35 @@ function matchBadge(score: number) {
   return <Badge variant="outline">Match {score}%</Badge>;
 }
 
+type JobCategory = "machine" | "harvest" | "livestock" | "irrigation" | "supervisor" | "nursery" | "construction" | "general" | "other";
+
+const CATEGORY_LABELS: Record<JobCategory, string> = {
+  machine: "🚜 Operador de máquina",
+  harvest: "🍓 Colheita / Picker",
+  livestock: "🐄 Pecuária / Laticínios",
+  irrigation: "💧 Irrigação",
+  supervisor: "👷 Supervisor / Crew leader",
+  nursery: "🌱 Viveiro / Nursery",
+  construction: "🔨 Construção / Fence",
+  general: "🌾 Farm worker (geral)",
+  other: "❓ Outros",
+};
+
+function classifyJob(title: string | null): JobCategory {
+  const t = (title ?? "").toLowerCase();
+  if (!t) return "other";
+  if (/(equipment|machine|tractor|combine|forklift|operator|driver|cdl|mechanic)/.test(t)) return "machine";
+  if (/(supervisor|crew\s*leader|foreman|manager|coordinator)/.test(t)) return "supervisor";
+  if (/(dairy|livestock|cattle|cow|herd|milker|ranch|sheep|goat|hog|swine|poultry|chicken)/.test(t)) return "livestock";
+  if (/(irrigation|sprinkler)/.test(t)) return "irrigation";
+  if (/(nursery|greenhouse|transplant|propagation)/.test(t)) return "nursery";
+  if (/(fence|construction|builder)/.test(t)) return "construction";
+  if (/(harvest|picker|picking|pruner|pruning|packer|packing|sorter|detasseler|detassel)/.test(t)) return "harvest";
+  if (/(farm\s*worker|farmworker|laborer|general\s*farm|agricultural\s*worker|field\s*worker)/.test(t)) return "general";
+  return "other";
+}
+
+
 function QualityMedal({ q }: { q: JobQuality }) {
   if (!q.level) return null;
   const cfg = {
