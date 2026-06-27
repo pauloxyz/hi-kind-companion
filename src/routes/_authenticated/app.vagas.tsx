@@ -66,6 +66,9 @@ function QualityMedal({ q }: { q: JobQuality }) {
       </Tooltip>
     </TooltipProvider>
   );
+}
+
+
 
 function Page() {
   const [jobs, setJobs] = useState<Job[]>([]);
