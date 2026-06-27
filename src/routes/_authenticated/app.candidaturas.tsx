@@ -1,12 +1,130 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Mail, Calendar } from "lucide-react";
+
 export const Route = createFileRoute("/_authenticated/app/candidaturas")({ component: Page });
+
+type Row = {
+  id: string;
+  status: string | null;
+  sent_at: string | null;
+  follow_up_due_at: string | null;
+  follow_up_sent_at: string | null;
+  responded_at: string | null;
+  cover_letter_en: string | null;
+  jobs: {
+    job_title: string | null;
+    employer_name: string | null;
+    worksite_state: string | null;
+    worksite_city: string | null;
+    recruitment_email: string | null;
+  } | null;
+};
+
+function statusBadge(r: Row) {
+  if (r.responded_at) return <Badge className="bg-green-600">Respondeu</Badge>;
+  if (r.follow_up_sent_at) return <Badge className="bg-blue-600">Follow-up enviado</Badge>;
+  if (r.follow_up_due_at && new Date(r.follow_up_due_at) < new Date())
+    return <Badge className="bg-orange-500">Follow-up devido</Badge>;
+  return <Badge variant="secondary">Enviado</Badge>;
+}
+
 function Page() {
+  const [rows, setRows] = useState<Row[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    void (async () => {
+      const { data, error } = await supabase
+        .from("applications")
+        .select(
+          "id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email)",
+        )
+        .order("sent_at", { ascending: false });
+      if (error) toast.error(error.message);
+      setRows((data as Row[]) ?? []);
+      setLoading(false);
+    })();
+  }, []);
+
+  const total = rows.length;
+  const pending = rows.filter((r) => !r.responded_at).length;
+  const responded = rows.filter((r) => !!r.responded_at).length;
+
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">Candidaturas</h1>
-      <Card><CardHeader><CardTitle>Histórico</CardTitle></CardHeader>
-        <CardContent><p className="text-sm text-muted-foreground">Em breve: lista de candidaturas com status e atualizações.</p></CardContent></Card>
+      <div className="grid grid-cols-3 gap-3">
+        <Card>
+          <CardContent className="pt-4 text-center">
+            <div className="text-2xl font-bold">{total}</div>
+            <div className="text-xs text-muted-foreground">Total</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 text-center">
+            <div className="text-2xl font-bold">{pending}</div>
+            <div className="text-xs text-muted-foreground">Aguardando</div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="pt-4 text-center">
+            <div className="text-2xl font-bold">{responded}</div>
+            <div className="text-xs text-muted-foreground">Responderam</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+
+      <div className="grid gap-2">
+        {rows.map((r) => (
+          <Card key={r.id}>
+            <CardContent className="pt-4 space-y-1 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div>
+                  <div className="font-medium">{r.jobs?.job_title ?? "—"}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {r.jobs?.employer_name} · {r.jobs?.worksite_city}, {r.jobs?.worksite_state}
+                  </div>
+                </div>
+                {statusBadge(r)}
+              </div>
+              <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                <span className="inline-flex items-center gap-1">
+                  <Calendar className="h-3 w-3" />
+                  Enviado: {r.sent_at ? new Date(r.sent_at).toLocaleString("pt-BR") : "—"}
+                </span>
+                {r.follow_up_due_at && (
+                  <span>
+                    Follow-up: {new Date(r.follow_up_due_at).toLocaleDateString("pt-BR")}
+                  </span>
+                )}
+                {r.jobs?.recruitment_email && (
+                  <a
+                    href={`mailto:${r.jobs.recruitment_email}`}
+                    className="inline-flex items-center gap-1 text-primary hover:underline"
+                  >
+                    <Mail className="h-3 w-3" />
+                    {r.jobs.recruitment_email}
+                  </a>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+        {!loading && rows.length === 0 && (
+          <Card>
+            <CardContent className="pt-6 text-center text-sm text-muted-foreground">
+              Nenhuma candidatura ainda. Vá para <strong>Vagas</strong> e clique em "Candidatar".
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
