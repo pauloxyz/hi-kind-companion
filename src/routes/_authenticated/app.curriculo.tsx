@@ -117,6 +117,7 @@ function Page() {
             exps.map((e) => ({
               id: e.id,
               job_title: e.job_title ?? "",
+              job_title_en: (e as { job_title_en?: string | null }).job_title_en ?? "",
               employer_name: e.employer_name ?? "",
               location: e.location ?? "",
               start_date: e.start_date ?? "",
