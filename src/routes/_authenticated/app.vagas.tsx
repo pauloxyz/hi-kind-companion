@@ -192,6 +192,7 @@ function Page() {
           <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
             <SelectTrigger><SelectValue /></SelectTrigger>
             <SelectContent>
+              <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>
               <SelectItem value="fresh">Mais novas</SelectItem>
               <SelectItem value="match">Maior match</SelectItem>
               <SelectItem value="wage">Maior salário</SelectItem>
