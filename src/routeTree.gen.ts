@@ -12,6 +12,8 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as VagasH2aIndexRouteImport } from './routes/vagas-h2a.index'
+import { Route as VagasH2aStateRouteImport } from './routes/vagas-h2a.$state'
 import { Route as VSlugRouteImport } from './routes/v.$slug'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppVistoRouteImport } from './routes/_authenticated/app.visto'
@@ -25,6 +27,7 @@ import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
+import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -38,6 +41,16 @@ const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VagasH2aIndexRoute = VagasH2aIndexRouteImport.update({
+  id: '/vagas-h2a/',
+  path: '/vagas-h2a/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VagasH2aStateRoute = VagasH2aStateRouteImport.update({
+  id: '/vagas-h2a/$state',
+  path: '/vagas-h2a/$state',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VSlugRoute = VSlugRouteImport.update({
@@ -110,11 +123,19 @@ const ApiPublicHooksImportDolFeedRoute =
     path: '/api/public/hooks/import-dol-feed',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCheckRepliesRoute =
+  ApiPublicHooksCheckRepliesRouteImport.update({
+    id: '/api/public/hooks/check-replies',
+    path: '/api/public/hooks/check-replies',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
+  '/vagas-h2a/$state': typeof VagasH2aStateRoute
+  '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
@@ -126,12 +147,15 @@ export interface FileRoutesByFullPath {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
+  '/vagas-h2a/$state': typeof VagasH2aStateRoute
+  '/vagas-h2a': typeof VagasH2aIndexRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
@@ -143,6 +167,7 @@ export interface FileRoutesByTo {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRoutesById {
@@ -151,6 +176,8 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
+  '/vagas-h2a/$state': typeof VagasH2aStateRoute
+  '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
   '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
@@ -162,6 +189,7 @@ export interface FileRoutesById {
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
   '/_authenticated/app/visto': typeof AuthenticatedAppVistoRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRouteTypes {
@@ -170,6 +198,8 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/v/$slug'
+    | '/vagas-h2a/$state'
+    | '/vagas-h2a/'
     | '/app/candidaturas'
     | '/app/comecar'
     | '/app/curriculo'
@@ -181,12 +211,15 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/app/'
+    | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/auth'
     | '/v/$slug'
+    | '/vagas-h2a/$state'
+    | '/vagas-h2a'
     | '/app/candidaturas'
     | '/app/comecar'
     | '/app/curriculo'
@@ -198,6 +231,7 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/app'
+    | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
   id:
     | '__root__'
@@ -205,6 +239,8 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/v/$slug'
+    | '/vagas-h2a/$state'
+    | '/vagas-h2a/'
     | '/_authenticated/app/candidaturas'
     | '/_authenticated/app/comecar'
     | '/_authenticated/app/curriculo'
@@ -216,6 +252,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/video'
     | '/_authenticated/app/visto'
     | '/_authenticated/app/'
+    | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
   fileRoutesById: FileRoutesById
 }
@@ -224,6 +261,9 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   VSlugRoute: typeof VSlugRoute
+  VagasH2aStateRoute: typeof VagasH2aStateRoute
+  VagasH2aIndexRoute: typeof VagasH2aIndexRoute
+  ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
 }
 
@@ -248,6 +288,20 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vagas-h2a/': {
+      id: '/vagas-h2a/'
+      path: '/vagas-h2a'
+      fullPath: '/vagas-h2a/'
+      preLoaderRoute: typeof VagasH2aIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vagas-h2a/$state': {
+      id: '/vagas-h2a/$state'
+      path: '/vagas-h2a/$state'
+      fullPath: '/vagas-h2a/$state'
+      preLoaderRoute: typeof VagasH2aStateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/v/$slug': {
@@ -341,6 +395,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksImportDolFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/check-replies': {
+      id: '/api/public/hooks/check-replies'
+      path: '/api/public/hooks/check-replies'
+      fullPath: '/api/public/hooks/check-replies'
+      preLoaderRoute: typeof ApiPublicHooksCheckRepliesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -380,6 +441,9 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   VSlugRoute: VSlugRoute,
+  VagasH2aStateRoute: VagasH2aStateRoute,
+  VagasH2aIndexRoute: VagasH2aIndexRoute,
+  ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
 }
 export const routeTree = rootRouteImport

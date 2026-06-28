@@ -9,6 +9,7 @@ import { useI18n } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { FraudBanner } from "./StrategyBanner";
+import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
 
 type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean; highlight?: boolean };
@@ -129,6 +130,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <FraudBanner />
         </div>
       </main>
+      <OnboardingTour />
     </div>
   );
 }
