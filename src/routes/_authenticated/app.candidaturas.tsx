@@ -26,6 +26,10 @@ type Row = {
 };
 
 function statusBadge(r: Row) {
+  const s = r.status ?? "";
+  if (s === "hired" || s === "offer") return <Badge className="bg-emerald-600">🎉 Oferta / Contratado</Badge>;
+  if (s === "interview") return <Badge className="bg-violet-600">📅 Entrevista marcada</Badge>;
+  if (s === "rejected") return <Badge variant="destructive">Rejeitada</Badge>;
   if (r.responded_at) return <Badge className="bg-green-600">Respondeu</Badge>;
   if (r.follow_up_sent_at) return <Badge className="bg-blue-600">Follow-up enviado</Badge>;
   if (r.follow_up_due_at && new Date(r.follow_up_due_at) < new Date()) return <Badge className="bg-orange-500">Follow-up devido</Badge>;
@@ -73,6 +77,10 @@ function Page() {
     void (async () => {
       await loadRows();
       setLoading(false);
+      // Mark replies as "seen" so the sidebar badge clears on next nav
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("lastSeenRespondedAt", String(Date.now()));
+      }
       // Background auto-check for replies (silent). Only if it hasn't run in the last 30 min.
       const KEY = "lastReplyCheckAt";
       const last = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
@@ -93,6 +101,17 @@ function Page() {
     const { error } = await supabase.from("applications").update({ responded_at: new Date().toISOString(), status: "responded" }).eq("id", id);
     if (error) { toast.error(error.message); return; }
     setRows((rs) => rs.map((r) => r.id === id ? { ...r, responded_at: new Date().toISOString(), status: "responded" } : r));
+  }
+
+  async function setStatus(id: string, status: "interview" | "offer" | "rejected") {
+    const nowIso = new Date().toISOString();
+    const current = rows.find((r) => r.id === id);
+    const patch: { status: string; responded_at?: string } = { status };
+    if (!current?.responded_at) patch.responded_at = nowIso;
+    const { error } = await supabase.from("applications").update(patch as never).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
+    toast.success("Status atualizado");
   }
 
   async function handleCheckReplies() {
@@ -163,11 +182,20 @@ function Page() {
                   <div className="mt-1 text-foreground/80 line-clamp-3">{r.reply_snippet}</div>
                 </div>
               )}
-              {!r.responded_at && (
-                <div className="pt-1">
+              <div className="flex flex-wrap gap-2 pt-2">
+                {!r.responded_at && (
                   <Button size="sm" variant="outline" onClick={() => markResponded(r.id)}>Marcar como respondido</Button>
-                </div>
-              )}
+                )}
+                {r.status !== "interview" && (
+                  <Button size="sm" variant="outline" onClick={() => setStatus(r.id, "interview")}>📅 Entrevista</Button>
+                )}
+                {r.status !== "offer" && (
+                  <Button size="sm" variant="outline" onClick={() => setStatus(r.id, "offer")}>🎉 Oferta</Button>
+                )}
+                {r.status !== "rejected" && (
+                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setStatus(r.id, "rejected")}>Rejeitada</Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
