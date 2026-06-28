@@ -323,6 +323,7 @@ function AuditPanel() {
           <TabsTrigger value="alerts">Alertas de Risco</TabsTrigger>
           <TabsTrigger value="events">Eventos</TabsTrigger>
           <TabsTrigger value="trend">Tendência</TabsTrigger>
+          <TabsTrigger value="retention">Retenção</TabsTrigger>
         </TabsList>
 
         <TabsContent value="alerts">
