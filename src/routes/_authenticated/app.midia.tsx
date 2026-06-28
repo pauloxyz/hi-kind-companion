@@ -137,6 +137,17 @@ function Page() {
             <Upload className="h-3 w-3 inline mr-1" />
             Marque suas melhores fotos como destaque — elas serão anexadas nas candidaturas.
           </p>
+          <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-foreground">
+            <div className="flex items-start gap-2">
+              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500 mt-0.5 shrink-0" />
+              <div>
+                <div className="font-semibold">Como aparecer no link enviado ao empregador</div>
+                <p className="mt-1 text-muted-foreground">
+                  Clique na ⭐ das fotos/vídeos que você quer mostrar no seu perfil público (o link <code>/v/seu-slug</code> enviado no email). Só as mídias marcadas como destaque aparecem lá. Se nenhuma for marcada, mostramos as mais recentes automaticamente.
+                </p>
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
