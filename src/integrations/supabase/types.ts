@@ -23,8 +23,11 @@ export type Database = {
           employer_id: string | null
           follow_up_due_at: string | null
           follow_up_sent_at: string | null
+          gmail_message_id: string | null
+          gmail_thread_id: string | null
           id: string
           job_id: string | null
+          last_reply_check_at: string | null
           notes: string | null
           owner_id: string
           responded_at: string | null
@@ -40,8 +43,11 @@ export type Database = {
           employer_id?: string | null
           follow_up_due_at?: string | null
           follow_up_sent_at?: string | null
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
           id?: string
           job_id?: string | null
+          last_reply_check_at?: string | null
           notes?: string | null
           owner_id: string
           responded_at?: string | null
@@ -57,8 +63,11 @@ export type Database = {
           employer_id?: string | null
           follow_up_due_at?: string | null
           follow_up_sent_at?: string | null
+          gmail_message_id?: string | null
+          gmail_thread_id?: string | null
           id?: string
           job_id?: string | null
+          last_reply_check_at?: string | null
           notes?: string | null
           owner_id?: string
           responded_at?: string | null

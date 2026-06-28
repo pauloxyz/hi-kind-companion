@@ -58,8 +58,10 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
     if (!job || !letter.trim()) return;
     setSending(true);
     try {
+      let gmailThreadId: string | null = null;
+      let gmailMessageId: string | null = null;
       if (job.recruitment_email) {
-        await sendEmail({
+        const sent = await sendEmail({
           data: {
             jobId: job.id,
             to: job.recruitment_email,
@@ -67,11 +69,13 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
             body: letter,
           },
         });
+        gmailThreadId = sent.threadId ?? null;
+        gmailMessageId = sent.gmailMessageId ?? null;
         toast.success("Email enviado pelo seu Gmail");
       } else {
         toast.message("Sem email do empregador — só registrando candidatura");
       }
-      await record({ data: { jobId: job.id, coverLetterEn: letter, contactMethod: "email", attachedMediaIds, attachedVideoId } });
+      await record({ data: { jobId: job.id, coverLetterEn: letter, contactMethod: "email", attachedMediaIds, attachedVideoId, gmailThreadId, gmailMessageId } });
       toast.success("Candidatura registrada. Follow-up em 2 dias.");
       onOpenChange(false);
       setLetter(""); setSubject(""); setAttachedMediaIds([]); setAttachedVideoId(null);
