@@ -414,8 +414,9 @@ function AuditPanel() {
                               variant="ghost"
                               disabled={unackMutation.isPending}
                               onClick={() => unackMutation.mutate(key)}
+                              aria-label={tr("audit_reopen")}
                             >
-                              <RotateCcw className="size-3.5" /> Reabrir
+                              <RotateCcw className="size-3.5" aria-hidden="true" /> {tr("audit_reopen")}
                             </Button>
                           ) : (
                             <Button
