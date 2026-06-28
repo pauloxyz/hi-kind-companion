@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,9 +11,14 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStrength";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, Sun, Moon, Monitor, AlertTriangle } from "lucide-react";
+import { Loader2, Sun, Moon, Monitor, AlertTriangle, ShieldAlert, LogOut, Download } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { logAccountEvent } from "@/lib/security-audit.functions";
+import { changeEmailWithReauth, deleteOwnAccount } from "@/lib/account-security.functions";
+import { signOutEverywhere } from "@/lib/account-sessions.functions";
+import { exportMyData } from "@/lib/account-export.functions";
+import { useQueryClient } from "@tanstack/react-query";
+import { MfaCard } from "@/components/MfaCard";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfiguracoesPage,
@@ -35,9 +40,50 @@ function ConfiguracoesPage() {
   const { lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
   const logEvent = useServerFn(logAccountEvent);
+  const changeEmailFn = useServerFn(changeEmailWithReauth);
+  const deleteAccountFn = useServerFn(deleteOwnAccount);
+  const signOutAllFn = useServerFn(signOutEverywhere);
+  const exportDataFn = useServerFn(exportMyData);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [signingOutAll, setSigningOutAll] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const data = await exportDataFn();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `meus-dados-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Dados exportados com sucesso");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao exportar dados");
+    } finally {
+      setExporting(false);
+    }
+  };
 
-
+  const handleSignOutEverywhere = async () => {
+    if (!confirm("Encerrar todas as outras sessões? Você precisará fazer login novamente em todos os dispositivos.")) return;
+    setSigningOutAll(true);
+    try {
+      await signOutAllFn();
+      toast.success("Todas as sessões foram encerradas. Faça login novamente.");
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await supabase.auth.signOut();
+      navigate({ to: "/auth", replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao encerrar sessões");
+    } finally {
+      setSigningOutAll(false);
+    }
+  };
 
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -48,12 +94,14 @@ function ConfiguracoesPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPwd, setSavingPwd] = useState(false);
 
-  // change email
+  // change email — re-auth required
   const [newEmail, setNewEmail] = useState("");
+  const [emailReauthPwd, setEmailReauthPwd] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
 
-  // delete account
+  // delete account — re-auth required
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteReauthPwd, setDeleteReauthPwd] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
@@ -103,20 +151,23 @@ function ConfiguracoesPage() {
 
   const handleChangeEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail || newEmail === email) return;
+    if (!newEmail || newEmail === email || !emailReauthPwd) return;
     setSavingEmail(true);
-    const { error } = await supabase.auth.updateUser({ email: newEmail });
-    setSavingEmail(false);
-    if (error) {
-      toast.error(error.message);
+    try {
+      await changeEmailFn({ data: { password: emailReauthPwd, new_email: newEmail } });
+      toast.success("Enviamos um link de confirmação para o novo e-mail.");
+      setNewEmail("");
+      setEmailReauthPwd("");
+      logEvent({ data: { event_type: "email_change_requested" } }).catch(() => {});
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao atualizar e-mail";
+      toast.error(msg);
       logEvent({
-        data: { event_type: "email_change_failed", metadata: { message: error.message.slice(0, 200) } },
+        data: { event_type: "email_change_failed", metadata: { message: msg.slice(0, 200) } },
       }).catch(() => {});
-      return;
+    } finally {
+      setSavingEmail(false);
     }
-    toast.success("Enviamos um link de confirmação para o novo e-mail.");
-    setNewEmail("");
-    logEvent({ data: { event_type: "email_change_requested" } }).catch(() => {});
   };
 
   const handleDeleteAccount = async () => {
@@ -124,15 +175,25 @@ function ConfiguracoesPage() {
       toast.error('Digite "EXCLUIR" para confirmar.');
       return;
     }
+    if (!deleteReauthPwd) {
+      toast.error("Confirme sua senha atual.");
+      return;
+    }
     setDeleting(true);
-    const subject = encodeURIComponent("Solicitação de exclusão de conta");
-    const body = encodeURIComponent(
-      `Olá,\n\nSolicito a exclusão permanente da minha conta.\n\nE-mail: ${email}\nID: ${userId ?? ""}\n`,
-    );
-    logEvent({ data: { event_type: "account_deletion_requested" } }).catch(() => {});
-    window.location.href = `mailto:suporte@vaiprala.com?subject=${subject}&body=${body}`;
-    toast.success("Abrimos seu e-mail para enviar a solicitação ao suporte.");
-    setDeleting(false);
+    try {
+      logEvent({ data: { event_type: "account_deletion_requested" } }).catch(() => {});
+      await deleteAccountFn({ data: { password: deleteReauthPwd } });
+      toast.success("Conta excluída. Até logo.");
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await supabase.auth.signOut();
+      navigate({ to: "/auth", replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao excluir conta";
+      toast.error(msg);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
@@ -169,7 +230,7 @@ function ConfiguracoesPage() {
           <Separator />
           <form onSubmit={handleChangeEmail} className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="new-email">Alterar e-mail</Label>
+              <Label htmlFor="new-email">Novo e-mail</Label>
               <Input
                 id="new-email"
                 type="email"
@@ -178,11 +239,24 @@ function ConfiguracoesPage() {
                 onChange={(e) => setNewEmail(e.target.value)}
                 autoComplete="email"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email-reauth-pwd" className="flex items-center gap-1.5">
+                <ShieldAlert className="size-3.5" /> Confirme sua senha atual
+              </Label>
+              <Input
+                id="email-reauth-pwd"
+                type="password"
+                value={emailReauthPwd}
+                onChange={(e) => setEmailReauthPwd(e.target.value)}
+                autoComplete="current-password"
+                placeholder="••••••••"
+              />
               <p className="text-[11px] text-muted-foreground">
-                Você receberá um link de confirmação no novo endereço.
+                Por segurança, exigimos a senha atual para alterar o e-mail. Um link de confirmação será enviado ao novo endereço.
               </p>
             </div>
-            <Button type="submit" disabled={savingEmail || !newEmail}>
+            <Button type="submit" disabled={savingEmail || !newEmail || !emailReauthPwd}>
               {savingEmail && <Loader2 className="size-4 animate-spin" />}
               Atualizar e-mail
             </Button>
@@ -241,6 +315,52 @@ function ConfiguracoesPage() {
           </form>
         </CardContent>
       </Card>
+
+      {/* 2FA */}
+      <MfaCard />
+
+      {/* Sessões */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LogOut className="size-5" /> Sessões ativas
+          </CardTitle>
+          <CardDescription>
+            Encerre o acesso em todos os dispositivos onde você está logado. Será necessário fazer login novamente em todos eles.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            disabled={signingOutAll}
+            onClick={handleSignOutEverywhere}
+          >
+            {signingOutAll && <Loader2 className="size-4 animate-spin" />}
+            Encerrar todas as outras sessões
+          </Button>
+        </CardContent>
+      </Card>
+
+      {/* Exportar dados */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="size-5" /> Exportar meus dados
+          </CardTitle>
+          <CardDescription>
+            Baixe uma cópia em JSON de todos os dados associados à sua conta (LGPD/GDPR).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" disabled={exporting} onClick={handleExportData}>
+            {exporting && <Loader2 className="size-4 animate-spin" />}
+            Baixar meus dados (JSON)
+          </Button>
+        </CardContent>
+      </Card>
+
+
+
 
       {/* Preferências */}
       <Card>
@@ -322,7 +442,7 @@ function ConfiguracoesPage() {
             Zona de perigo
           </CardTitle>
           <CardDescription>
-            A exclusão da conta remove permanentemente seus dados, candidaturas e perfil público.
+            A exclusão da conta remove permanentemente seus dados, candidaturas e perfil público. Esta ação é irreversível.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -337,10 +457,23 @@ function ConfiguracoesPage() {
               placeholder="EXCLUIR"
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="delete-reauth-pwd" className="flex items-center gap-1.5">
+              <ShieldAlert className="size-3.5" /> Confirme sua senha atual
+            </Label>
+            <Input
+              id="delete-reauth-pwd"
+              type="password"
+              value={deleteReauthPwd}
+              onChange={(e) => setDeleteReauthPwd(e.target.value)}
+              autoComplete="current-password"
+              placeholder="••••••••"
+            />
+          </div>
           <Button
             variant="destructive"
             onClick={handleDeleteAccount}
-            disabled={deleting || deleteConfirm !== "EXCLUIR"}
+            disabled={deleting || deleteConfirm !== "EXCLUIR" || !deleteReauthPwd}
           >
             {deleting && <Loader2 className="size-4 animate-spin" />}
             Excluir minha conta

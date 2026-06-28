@@ -769,6 +769,39 @@ export type Database = {
           },
         ]
       }
+      security_alert_acks: {
+        Row: {
+          acked_at: string
+          acked_by: string
+          alert_key: string
+          hour: string
+          id: string
+          ip_address: unknown
+          note: string | null
+          risk_level: string
+        }
+        Insert: {
+          acked_at?: string
+          acked_by: string
+          alert_key: string
+          hour: string
+          id?: string
+          ip_address?: unknown
+          note?: string | null
+          risk_level: string
+        }
+        Update: {
+          acked_at?: string
+          acked_by?: string
+          alert_key?: string
+          hour?: string
+          id?: string
+          ip_address?: unknown
+          note?: string | null
+          risk_level?: string
+        }
+        Relationships: []
+      }
       security_audit_log: {
         Row: {
           created_at: string
@@ -777,6 +810,7 @@ export type Database = {
           id: string
           ip_address: unknown
           metadata: Json
+          notified_at: string | null
           resource: string | null
           user_agent: string | null
           user_id: string | null
@@ -788,6 +822,7 @@ export type Database = {
           id?: string
           ip_address?: unknown
           metadata?: Json
+          notified_at?: string | null
           resource?: string | null
           user_agent?: string | null
           user_id?: string | null
@@ -799,9 +834,31 @@ export type Database = {
           id?: string
           ip_address?: unknown
           metadata?: Json
+          notified_at?: string | null
           resource?: string | null
           user_agent?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      security_retention_policy: {
+        Row: {
+          event_type: string
+          retain_days: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          event_type: string
+          retain_days: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          event_type?: string
+          retain_days?: number
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }

@@ -1,11 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -42,6 +43,8 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getAuditStats, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
+import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
+import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
 
 const EVENT_TYPES = [
@@ -60,7 +63,6 @@ const EVENT_TYPES = [
 ];
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
-const ACK_STORAGE_KEY = "security_alerts_ack_v1";
 
 type SortKey = "created_at" | "event_type" | "ip_address" | "resource";
 type SortDir = "asc" | "desc";
@@ -88,19 +90,6 @@ function alertKey(a: { hour: string; ip_address: string | null }): string {
   return `${a.hour}|${a.ip_address ?? ""}`;
 }
 
-function loadAcks(): Record<string, { at: string; note?: string }> {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(ACK_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function saveAcks(acks: Record<string, { at: string; note?: string }>) {
-  window.localStorage.setItem(ACK_STORAGE_KEY, JSON.stringify(acks));
-}
-
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
   component: AuditPanel,
 });
@@ -114,6 +103,10 @@ function sevVariant(lvl: string): "default" | "destructive" | "secondary" {
 function AuditPanel() {
   const fetchStats = useServerFn(getAuditStats);
   const fetchEvents = useServerFn(listAuditEvents);
+  const fetchAcks = useServerFn(listAlertAcks);
+  const ackFn = useServerFn(ackAlert);
+  const unackFn = useServerFn(unackAlert);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>("");
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [search, setSearch] = useState<string>("");
@@ -123,12 +116,9 @@ function AuditPanel() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [selected, setSelected] = useState<AuditEvent | null>(null);
-  const [acks, setAcks] = useState<Record<string, { at: string; note?: string }>>({});
   const [hideAcked, setHideAcked] = useState(true);
-
-  useEffect(() => {
-    setAcks(loadAcks());
-  }, []);
+  const [ackTarget, setAckTarget] = useState<{ hour: string; ip_address: string | null; risk_level: string } | null>(null);
+  const [ackNote, setAckNote] = useState("");
 
   const stats = useQuery({
     queryKey: ["audit-stats"],
@@ -138,6 +128,39 @@ function AuditPanel() {
     queryKey: ["audit-events", filter, sinceDays],
     queryFn: () =>
       fetchEvents({ data: { event_type: filter || undefined, limit: 500, since_days: sinceDays } }),
+  });
+  const acksQuery = useQuery({
+    queryKey: ["audit-alert-acks"],
+    queryFn: () => fetchAcks(),
+  });
+  const acksByKey = useMemo(() => {
+    const m: Record<string, { note: string | null; acked_at: string }> = {};
+    for (const r of acksQuery.data ?? []) m[r.alert_key] = { note: r.note, acked_at: r.acked_at };
+    return m;
+  }, [acksQuery.data]);
+
+  const ackMutation = useMutation({
+    mutationFn: (input: {
+      alert_key: string;
+      hour: string;
+      ip_address: string | null;
+      risk_level: string;
+      note?: string;
+    }) => ackFn({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit-alert-acks"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-events"] });
+      toast.success("Alerta tratado");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Falha ao tratar alerta"),
+  });
+  const unackMutation = useMutation({
+    mutationFn: (alert_key: string) => unackFn({ data: { alert_key } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit-alert-acks"] });
+      toast.success("Alerta reaberto");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Falha ao reabrir"),
   });
 
   // Reset page on filter changes
@@ -244,23 +267,13 @@ function AuditPanel() {
     );
   };
 
-  const ackAlert = (a: { hour: string; ip_address: string | null }) => {
-    const next = { ...acks, [alertKey(a)]: { at: new Date().toISOString() } };
-    setAcks(next);
-    saveAcks(next);
-    toast.success("Alerta tratado");
-  };
-  const unackAlert = (a: { hour: string; ip_address: string | null }) => {
-    const next = { ...acks };
-    delete next[alertKey(a)];
-    setAcks(next);
-    saveAcks(next);
-  };
-
   const t = stats.data?.totals;
   const allAlerts = stats.data?.risk_alerts ?? [];
-  const visibleAlerts = hideAcked ? allAlerts.filter((a) => !acks[alertKey(a)]) : allAlerts;
+  const visibleAlerts = hideAcked ? allAlerts.filter((a) => !acksByKey[alertKey(a)]) : allAlerts;
   const highAlerts = visibleAlerts.filter((a) => a.risk_level === "high");
+  const ackedHiddenCount = hideAcked
+    ? allAlerts.filter((a) => acksByKey[alertKey(a)]).length
+    : 0;
 
   return (
     <div className="space-y-6">
@@ -311,6 +324,7 @@ function AuditPanel() {
           <TabsTrigger value="alerts">Alertas de Risco</TabsTrigger>
           <TabsTrigger value="events">Eventos</TabsTrigger>
           <TabsTrigger value="trend">Tendência</TabsTrigger>
+          <TabsTrigger value="retention">Retenção</TabsTrigger>
         </TabsList>
 
         <TabsContent value="alerts">
@@ -318,9 +332,9 @@ function AuditPanel() {
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-base">
                 IPs com atividade suspeita (24h) · {visibleAlerts.length}
-                {hideAcked && Object.keys(acks).length > 0 && (
+                {ackedHiddenCount > 0 && (
                   <span className="text-muted-foreground font-normal text-xs ml-2">
-                    ({Object.keys(acks).length} tratado{Object.keys(acks).length === 1 ? "" : "s"} oculto{Object.keys(acks).length === 1 ? "" : "s"})
+                    ({ackedHiddenCount} tratado{ackedHiddenCount === 1 ? "" : "s"} oculto{ackedHiddenCount === 1 ? "" : "s"})
                   </span>
                 )}
               </CardTitle>
@@ -338,19 +352,22 @@ function AuditPanel() {
                     <TableHead className="text-right">Falhas Auth</TableHead>
                     <TableHead className="text-right">HIBP</TableHead>
                     <TableHead>Severidade</TableHead>
+                    <TableHead>Tratado por</TableHead>
                     <TableHead className="text-right">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {visibleAlerts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                         Nenhum alerta {hideAcked && allAlerts.length > 0 ? "pendente" : ""}
                       </TableCell>
                     </TableRow>
                   )}
                   {visibleAlerts.map((a, i) => {
-                    const acked = !!acks[alertKey(a)];
+                    const key = alertKey(a);
+                    const ack = acksByKey[key];
+                    const acked = !!ack;
                     return (
                       <TableRow key={i} className={acked ? "opacity-60" : undefined}>
                         <TableCell>{new Date(a.hour).toLocaleString("pt-BR")}</TableCell>
@@ -361,13 +378,45 @@ function AuditPanel() {
                         <TableCell>
                           <Badge variant={sevVariant(a.risk_level)}>{a.risk_level.toUpperCase()}</Badge>
                         </TableCell>
+                        <TableCell className="text-xs">
+                          {ack ? (
+                            <div className="space-y-0.5">
+                              <div className="text-muted-foreground">
+                                {new Date(ack.acked_at).toLocaleString("pt-BR")}
+                              </div>
+                              {ack.note && (
+                                <div className="italic max-w-[220px] truncate" title={ack.note}>
+                                  "{ack.note}"
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           {acked ? (
-                            <Button size="sm" variant="ghost" onClick={() => unackAlert(a)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={unackMutation.isPending}
+                              onClick={() => unackMutation.mutate(key)}
+                            >
                               <RotateCcw className="size-3.5" /> Reabrir
                             </Button>
                           ) : (
-                            <Button size="sm" variant="outline" onClick={() => ackAlert(a)}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAckTarget({
+                                  hour: a.hour,
+                                  ip_address: a.ip_address,
+                                  risk_level: a.risk_level,
+                                });
+                                setAckNote("");
+                              }}
+                            >
                               <Check className="size-3.5" /> Tratar
                             </Button>
                           )}
@@ -567,9 +616,68 @@ function AuditPanel() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="retention">
+          <RetentionTab />
+        </TabsContent>
       </Tabs>
 
       <EventDetailsDialog event={selected} onClose={() => setSelected(null)} />
+
+      <Dialog open={!!ackTarget} onOpenChange={(o) => !o && setAckTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tratar alerta de risco</DialogTitle>
+            <DialogDescription>
+              Adicione uma nota opcional descrevendo a investigação ou a ação tomada.
+            </DialogDescription>
+          </DialogHeader>
+          {ackTarget && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1">
+                <span className="text-muted-foreground">Hora</span>
+                <span>{new Date(ackTarget.hour).toLocaleString("pt-BR")}</span>
+                <span className="text-muted-foreground">IP</span>
+                <span className="font-mono text-xs">{ackTarget.ip_address ?? "—"}</span>
+                <span className="text-muted-foreground">Risco</span>
+                <span>
+                  <Badge variant={sevVariant(ackTarget.risk_level)}>
+                    {ackTarget.risk_level.toUpperCase()}
+                  </Badge>
+                </span>
+              </div>
+              <Textarea
+                value={ackNote}
+                onChange={(e) => setAckNote(e.target.value)}
+                placeholder="Ex.: IP bloqueado no firewall; usuário notificado…"
+                maxLength={1000}
+                rows={4}
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAckTarget(null)}>Cancelar</Button>
+            <Button
+              disabled={ackMutation.isPending || !ackTarget}
+              onClick={() => {
+                if (!ackTarget) return;
+                ackMutation.mutate(
+                  {
+                    alert_key: alertKey(ackTarget),
+                    hour: ackTarget.hour,
+                    ip_address: ackTarget.ip_address,
+                    risk_level: ackTarget.risk_level,
+                    note: ackNote.trim() || undefined,
+                  },
+                  { onSuccess: () => setAckTarget(null) },
+                );
+              }}
+            >
+              Marcar como tratado
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -665,6 +773,108 @@ function Kpi({ icon, label, value }: { icon: React.ReactNode; label: string; val
           {label}
         </div>
         <div className="text-2xl font-bold mt-1">{value}</div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function RetentionTab() {
+  const fetchPolicies = useServerFn(listRetentionPolicies);
+  const upsertFn = useServerFn(upsertRetentionPolicy);
+  const queryClient = useQueryClient();
+  const { data: policies = [], isLoading } = useQuery({
+    queryKey: ["security-retention-policies"],
+    queryFn: () => fetchPolicies(),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (input: { event_type: string; retain_days: number }) => upsertFn({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["security-retention-policies"] });
+      toast.success("Política atualizada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [edits, setEdits] = useState<Record<string, number>>({});
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Política de retenção por tipo de evento</CardTitle>
+        <CardDescription>
+          Define quantos dias cada tipo de evento permanece no log antes do purge automático (rodando diariamente às 03:00). Mínimo 7 dias, máximo 3650 (10 anos).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo de evento</TableHead>
+                <TableHead className="text-right">Dias de retenção</TableHead>
+                <TableHead>Última atualização</TableHead>
+                <TableHead className="text-right">Ação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {policies.map((p: RetentionPolicy) => {
+                const pending = edits[p.event_type];
+                const current = pending ?? p.retain_days;
+                const dirty = pending !== undefined && pending !== p.retain_days;
+                return (
+                  <TableRow key={p.event_type}>
+                    <TableCell>
+                      <Badge variant="outline">{p.event_type}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        min={7}
+                        max={3650}
+                        value={current}
+                        onChange={(e) =>
+                          setEdits((prev) => ({
+                            ...prev,
+                            [p.event_type]: Number(e.target.value) || 0,
+                          }))
+                        }
+                        className="w-24 ml-auto text-right"
+                      />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(p.updated_at).toLocaleString("pt-BR")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant={dirty ? "default" : "ghost"}
+                        disabled={!dirty || mutation.isPending || current < 7 || current > 3650}
+                        onClick={() =>
+                          mutation.mutate(
+                            { event_type: p.event_type, retain_days: current },
+                            {
+                              onSuccess: () =>
+                                setEdits((prev) => {
+                                  const n = { ...prev };
+                                  delete n[p.event_type];
+                                  return n;
+                                }),
+                            },
+                          )
+                        }
+                      >
+                        Salvar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
     </Card>
   );
