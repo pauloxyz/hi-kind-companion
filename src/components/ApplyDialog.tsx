@@ -44,6 +44,8 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
       const title = job.job_title ?? "H-2A position";
       setSubject(`H-2A Application — ${title}`);
       setDuplicateWarning(null);
+      setConfirmedPersonal(false);
+      setPreviewMode(false);
       // Check for recent application to the same employer
       if (job.employer_name) {
         const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
