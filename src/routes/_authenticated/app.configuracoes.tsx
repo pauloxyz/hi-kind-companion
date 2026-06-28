@@ -32,7 +32,8 @@ const THEME_OPTIONS: { code: Theme; label: string; Icon: typeof Sun }[] = [
 function ConfiguracoesPage() {
   const { lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
-  const navigate = useNavigate();
+
+
 
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
