@@ -182,11 +182,20 @@ function Page() {
                   <div className="mt-1 text-foreground/80 line-clamp-3">{r.reply_snippet}</div>
                 </div>
               )}
-              {!r.responded_at && (
-                <div className="pt-1">
+              <div className="flex flex-wrap gap-2 pt-2">
+                {!r.responded_at && (
                   <Button size="sm" variant="outline" onClick={() => markResponded(r.id)}>Marcar como respondido</Button>
-                </div>
-              )}
+                )}
+                {r.status !== "interview" && (
+                  <Button size="sm" variant="outline" onClick={() => setStatus(r.id, "interview")}>📅 Entrevista</Button>
+                )}
+                {r.status !== "offer" && (
+                  <Button size="sm" variant="outline" onClick={() => setStatus(r.id, "offer")}>🎉 Oferta</Button>
+                )}
+                {r.status !== "rejected" && (
+                  <Button size="sm" variant="ghost" className="text-destructive" onClick={() => setStatus(r.id, "rejected")}>Rejeitada</Button>
+                )}
+              </div>
             </CardContent>
           </Card>
         ))}
