@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Mail, Sparkles, Send, AlertTriangle } from "lucide-react";
+import { Loader2, Mail, Sparkles, Send, AlertTriangle, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
 import { sendApplicationEmail } from "@/lib/gmail.functions";
-import { detectFraud } from "@/lib/score";
+import { detectFraud, isPersonalEmailDomain } from "@/lib/score";
 import type { Database } from "@/integrations/supabase/types";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"];
@@ -29,11 +29,14 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
   const [attachedMediaIds, setAttachedMediaIds] = useState<string[]>([]);
   const [attachedVideoId, setAttachedVideoId] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [confirmedPersonal, setConfirmedPersonal] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const gen = useServerFn(generateCoverLetter);
   const record = useServerFn(recordApplication);
   const sendEmail = useServerFn(sendApplicationEmail);
 
   const fraud = job ? detectFraud(job.job_title, job.employer_name, job.employer_address) : { isSuspicious: false, reasons: [] };
+  const personalEmail = isPersonalEmailDomain(job?.recruitment_email);
 
   // Pre-fill subject when the job changes
   useEffect(() => {
@@ -41,6 +44,8 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
       const title = job.job_title ?? "H-2A position";
       setSubject(`H-2A Application — ${title}`);
       setDuplicateWarning(null);
+      setConfirmedPersonal(false);
+      setPreviewMode(false);
       // Check for recent application to the same employer
       if (job.employer_name) {
         const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
@@ -128,6 +133,22 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
                 <div className="text-yellow-800 dark:text-yellow-300">{duplicateWarning}</div></div>
             </div>
           )}
+          {personalEmail && (
+            <div className="rounded-md border-2 border-orange-500 bg-orange-500/10 p-3 text-sm">
+              <div className="flex items-start gap-2"><AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" />
+                <div className="flex-1">
+                  <div className="font-semibold text-orange-700 dark:text-orange-400">Atenção: email pessoal</div>
+                  <div className="text-xs mt-1">
+                    O contato <strong>{job?.recruitment_email}</strong> usa um domínio pessoal (Gmail/Hotmail/etc), não corporativo.
+                    Empregadores H-2A sérios normalmente usam email da empresa. Verifique se a vaga é legítima antes de enviar.
+                  </div>
+                  <label className="mt-2 flex items-center gap-2 text-xs cursor-pointer">
+                    <input type="checkbox" checked={confirmedPersonal} onChange={(e) => setConfirmedPersonal(e.target.checked)} />
+                    Estou ciente e quero enviar mesmo assim
+                  </label>
+                </div></div>
+            </div>
+          )}
           <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             {letter ? "Regerar carta (EN)" : "Gerar carta com IA (EN)"}
@@ -149,7 +170,28 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
               />
             </div>
           )}
-          <Textarea value={letter} onChange={(e) => setLetter(e.target.value)} placeholder="Sua carta em inglês aparecerá aqui…" className="min-h-[280px] font-mono text-sm" />
+          {letter && (
+            <div className="flex items-center justify-between">
+              <Label className="text-xs">Corpo do email</Label>
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPreviewMode((p) => !p)} className="h-7">
+                {previewMode ? <><Pencil className="mr-1 h-3 w-3" /> Editar</> : <><Eye className="mr-1 h-3 w-3" /> Pré-visualizar</>}
+              </Button>
+            </div>
+          )}
+          {previewMode ? (
+            <div className="rounded-md border bg-card p-3 text-sm space-y-2 min-h-[280px]">
+              {job?.recruitment_email && (
+                <>
+                  <div className="text-xs text-muted-foreground"><strong>Para:</strong> {job.recruitment_email}</div>
+                  <div className="text-xs text-muted-foreground"><strong>Assunto:</strong> {subject || "(sem assunto)"}</div>
+                  <hr className="my-2" />
+                </>
+              )}
+              <div className="whitespace-pre-wrap text-sm">{letter}</div>
+            </div>
+          ) : (
+            <Textarea value={letter} onChange={(e) => setLetter(e.target.value)} placeholder="Sua carta em inglês aparecerá aqui…" className="min-h-[280px] font-mono text-sm" />
+          )}
           {!job?.recruitment_email && (<p className="text-xs text-yellow-600">⚠️ Sem e-mail. Use telefone ({job?.recruitment_phone ?? "—"}) ou site.</p>)}
           {job?.recruitment_email && (
             <p className="text-xs text-muted-foreground">
@@ -159,7 +201,7 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={handleSend} disabled={!letter.trim() || sending}>
+          <Button onClick={handleSend} disabled={!letter.trim() || sending || (personalEmail && !confirmedPersonal)}>
             {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
             {job?.recruitment_email ? "Enviar pelo Gmail" : "Registrar candidatura"}
           </Button>

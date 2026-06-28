@@ -62,6 +62,7 @@ function Page() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [filter, setFilter] = useState<"all" | "pending" | "responded" | "interview" | "offer" | "rejected">("all");
   const checkReplies = useServerFn(checkApplicationReplies);
 
   async function loadRows() {
@@ -133,6 +134,26 @@ function Page() {
   const total = rows.length;
   const pending = rows.filter((r) => !r.responded_at).length;
   const responded = rows.filter((r) => !!r.responded_at).length;
+  const interview = rows.filter((r) => r.status === "interview").length;
+  const offer = rows.filter((r) => r.status === "offer" || r.status === "hired").length;
+  const rejected = rows.filter((r) => r.status === "rejected").length;
+
+  const visible = rows.filter((r) => {
+    if (filter === "all") return true;
+    if (filter === "pending") return !r.responded_at;
+    if (filter === "responded") return !!r.responded_at && !["interview", "offer", "hired", "rejected"].includes(r.status ?? "");
+    if (filter === "offer") return r.status === "offer" || r.status === "hired";
+    return r.status === filter;
+  });
+
+  const chip = (key: typeof filter, label: string, count: number, cls = "") => (
+    <button
+      onClick={() => setFilter(key)}
+      className={`rounded-full border px-3 py-1 text-xs transition ${filter === key ? `bg-primary text-primary-foreground border-primary` : `hover:bg-accent ${cls}`}`}
+    >
+      {label} <span className="opacity-70">({count})</span>
+    </button>
+  );
 
   return (
     <div className="space-y-4">
@@ -149,16 +170,19 @@ function Page() {
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <Card><CardContent className="pt-4 text-center"><div className="text-2xl font-bold">{total}</div><div className="text-xs text-muted-foreground">Total</div></CardContent></Card>
-        <Card><CardContent className="pt-4 text-center"><div className="text-2xl font-bold">{pending}</div><div className="text-xs text-muted-foreground">Aguardando</div></CardContent></Card>
-        <Card><CardContent className="pt-4 text-center"><div className="text-2xl font-bold">{responded}</div><div className="text-xs text-muted-foreground">Responderam</div></CardContent></Card>
+      <div className="flex flex-wrap gap-2">
+        {chip("all", "Todas", total)}
+        {chip("pending", "Aguardando", pending)}
+        {chip("responded", "Responderam", responded)}
+        {chip("interview", "📅 Entrevista", interview)}
+        {chip("offer", "🎉 Oferta", offer)}
+        {chip("rejected", "Rejeitada", rejected)}
       </div>
 
       {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
 
       <div className="grid gap-2">
-        {rows.map((r) => (
+        {visible.map((r) => (
           <Card key={r.id}>
             <CardContent className="pt-4 space-y-1 text-sm">
               <div className="flex items-start justify-between gap-2">
@@ -201,6 +225,9 @@ function Page() {
         ))}
         {!loading && rows.length === 0 && (
           <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura ainda. Vá para <strong>Vagas</strong> e clique em "Candidatar".</CardContent></Card>
+        )}
+        {!loading && rows.length > 0 && visible.length === 0 && (
+          <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura nesse filtro.</CardContent></Card>
         )}
       </div>
     </div>
