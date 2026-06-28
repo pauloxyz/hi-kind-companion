@@ -62,11 +62,19 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
 
     const prompt = `You are writing a short, sincere cover letter in ENGLISH for an H-2A seasonal farm worker job application. Tone: humble, direct, hard-working, no fluff. Max 180 words. Include: greeting using employer name if available; one sentence stating intent; 2-3 sentences of relevant farm/manual labor experience; one sentence about availability; closing with willingness to provide references/video and full legal name. Output ONLY the letter body, no subject line, no markdown.
 
+AVAILABILITY RULES (very important):
+- Say the candidate is available NOW / ready to start as soon as the visa/contract allows. Do NOT say "available from <date>" with a future date and do NOT repeat the job's start/end dates.
+- If the candidate's availability description says "Full season", write "available for the full season".
+- If it says "Half season", write "available for half of the season".
+- If it says "Peak harvest only", write "available for the peak harvest period".
+- If it says "Year-round", write "available year-round and open to multiple contracts".
+- If it says "Flexible", write "available with a flexible schedule, as needed".
+- If no availability info is given, just say "available immediately".
+
 JOB:
 Title: ${job.job_title ?? ""}
 Employer: ${job.employer_name ?? ""}
 Location: ${[job.worksite_city, job.worksite_state].filter(Boolean).join(", ")}
-Dates: ${job.start_date ?? "?"} to ${job.end_date ?? "?"}
 Case: ${job.external_case_number ?? ""}
 
 CANDIDATE:
