@@ -153,6 +153,19 @@ function Dashboard() {
         </CardContent>
       </Card>
 
+      {stats.data && stats.data.total > 0 && (
+        <Card>
+          <CardHeader className="pb-2"><CardTitle className="text-base">Funil de candidaturas</CardTitle></CardHeader>
+          <CardContent>
+            <Funnel
+              total={stats.data.total}
+              responded={stats.data.responded}
+              hired={stats.data.hired}
+            />
+          </CardContent>
+        </Card>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t("total_sent")} value={stats.data?.total ?? 0} />
         <StatCard label={t("response_rate")} value={`${rate}%`} />
@@ -163,6 +176,7 @@ function Dashboard() {
         <StatCard label="Follow-ups devidos" value={stats.data?.followupsDue ?? 0} />
         <StatCard label="Aguardando resposta" value={(stats.data?.total ?? 0) - (stats.data?.responded ?? 0)} />
       </div>
+
     </div>
   );
 }
