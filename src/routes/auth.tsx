@@ -178,46 +178,97 @@ function AuthPage() {
 
             <div className="space-y-1.5">
               <h2 className="text-3xl font-bold tracking-tight">
-                {mode === "signin" ? "Bem-vindo de volta" : "Comece sua jornada"}
+                {mode === "signin" && "Bem-vindo de volta"}
+                {mode === "signup" && "Comece sua jornada"}
+                {mode === "forgot" && "Recuperar senha"}
               </h2>
               <p className="text-sm text-muted-foreground">
-                {mode === "signin" ? "Entre para acompanhar suas candidaturas." : "Crie sua conta gratuita em menos de um minuto."}
+                {mode === "signin" && "Entre para acompanhar suas candidaturas."}
+                {mode === "signup" && "Crie sua conta gratuita em menos de um minuto."}
+                {mode === "forgot" && "Enviaremos um link para você criar uma nova senha."}
               </p>
             </div>
 
-            <Button type="button" variant="outline" className="w-full h-11 gap-2" disabled={googleLoading} onClick={signInGoogle}>
-              <GoogleIcon />
-              {googleLoading ? "Conectando..." : "Continuar com Google"}
-            </Button>
+            {mode !== "forgot" && (
+              <>
+                <Button type="button" variant="outline" className="w-full h-11 gap-2" disabled={googleLoading} onClick={signInGoogle} aria-label="Continuar com Google">
+                  <GoogleIcon />
+                  {googleLoading ? "Conectando..." : "Continuar com Google"}
+                </Button>
 
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-              <div className="relative flex justify-center text-xs uppercase tracking-wider">
-                <span className="bg-card px-2 text-muted-foreground">ou com e-mail</span>
-              </div>
-            </div>
+                <div className="relative" role="separator" aria-label="ou com e-mail">
+                  <div className="absolute inset-0 flex items-center" aria-hidden><span className="w-full border-t" /></div>
+                  <div className="relative flex justify-center text-xs uppercase tracking-wider">
+                    <span className="bg-card px-2 text-muted-foreground">ou com e-mail</span>
+                  </div>
+                </div>
+              </>
+            )}
 
-            <form className="space-y-4" onSubmit={submit}>
-              <div className="space-y-1.5">
-                <Label htmlFor="email">{t("email")}</Label>
-                <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">{t("password")}</Label>
-                <Input id="password" type="password" autoComplete={mode === "signin" ? "current-password" : "new-password"} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={8} />
-                {mode === "signup" && <p className="text-[11px] text-muted-foreground">Mínimo 8 caracteres.</p>}
-              </div>
-              <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>
-                {loading ? "..." : mode === "signin" ? t("login") : "Criar conta grátis"}
-              </Button>
-            </form>
+            {mode === "forgot" ? (
+              resetSent ? (
+                <div className="rounded-md border border-border bg-muted/40 p-4 text-sm text-foreground" role="status" aria-live="polite">
+                  Link enviado para <strong>{email}</strong>. Confira sua caixa de entrada e o spam.
+                </div>
+              ) : (
+                <form className="space-y-4" onSubmit={sendReset} aria-label="Formulário de recuperação de senha">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="email-reset">{t("email")}</Label>
+                    <Input id="email-reset" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  </div>
+                  <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>
+                    {loading ? "Enviando…" : "Enviar link de recuperação"}
+                  </Button>
+                </form>
+              )
+            ) : (
+              <form className="space-y-4" onSubmit={submit} aria-label={mode === "signin" ? "Formulário de login" : "Formulário de cadastro"}>
+                <div className="space-y-1.5">
+                  <Label htmlFor="email">{t("email")}</Label>
+                  <Input id="email" type="email" autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                </div>
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="password">{t("password")}</Label>
+                    {mode === "signin" && (
+                      <button
+                        type="button"
+                        className="text-xs font-medium text-primary hover:underline focus-visible:underline focus-visible:outline-none"
+                        onClick={() => { setResetSent(false); setMode("forgot"); }}
+                      >
+                        Esqueci minha senha
+                      </button>
+                    )}
+                  </div>
+                  <Input
+                    id="password"
+                    type="password"
+                    autoComplete={mode === "signin" ? "current-password" : "new-password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    minLength={8}
+                    aria-describedby={mode === "signup" ? "password-hint" : undefined}
+                  />
+                  {mode === "signup" && <p id="password-hint" className="text-[11px] text-muted-foreground">Mínimo 8 caracteres.</p>}
+                </div>
+                <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>
+                  {loading ? "..." : mode === "signin" ? t("login") : "Criar conta grátis"}
+                </Button>
+              </form>
+            )}
 
             <button
               type="button"
-              className="w-full text-sm font-medium text-primary hover:underline"
-              onClick={() => setMode(mode === "signin" ? "signup" : "signin")}
+              className="w-full text-sm font-medium text-primary hover:underline focus-visible:underline focus-visible:outline-none"
+              onClick={() => {
+                setResetSent(false);
+                setMode(mode === "signin" ? "signup" : mode === "signup" ? "signin" : "signin");
+              }}
             >
-              {mode === "signin" ? "Criar conta gratuita →" : "← Voltar ao login"}
+              {mode === "signin" && "Criar conta gratuita →"}
+              {mode === "signup" && "← Voltar ao login"}
+              {mode === "forgot" && "← Voltar ao login"}
             </button>
 
             <p className="text-[11px] text-center text-muted-foreground leading-relaxed">
