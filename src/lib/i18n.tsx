@@ -11,6 +11,7 @@ const dict: Dict = {
   resume: { pt: "Currículo", en: "Resume" },
   media: { pt: "Mídia de Trabalho", en: "Work Media" },
   intro_video: { pt: "Vídeo de Apresentação", en: "Intro Video" },
+  english_course: { pt: "Inglês", en: "English" },
   jobs: { pt: "Vagas", en: "Jobs" },
   applications: { pt: "Candidaturas", en: "Applications" },
   followups: { pt: "Follow-ups", en: "Follow-ups" },
