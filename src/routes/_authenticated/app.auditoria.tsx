@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,37 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Download, FileSpreadsheet, Shield, Lock, KeyRound, Eye, Search } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  AlertTriangle,
+  Download,
+  FileSpreadsheet,
+  Shield,
+  Lock,
+  KeyRound,
+  Eye,
+  Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
+  Check,
+  RotateCcw,
+} from "lucide-react";
 import { toast } from "sonner";
 import { getAuditStats, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
@@ -29,6 +59,12 @@ const EVENT_TYPES = [
   { v: "theme_changed", label: "Tema alterado" },
 ];
 
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+const ACK_STORAGE_KEY = "security_alerts_ack_v1";
+
+type SortKey = "created_at" | "event_type" | "ip_address" | "resource";
+type SortDir = "asc" | "desc";
+
 function csvEscape(v: unknown): string {
   if (v === null || v === undefined) return "";
   const s = typeof v === "string" ? v : JSON.stringify(v);
@@ -39,13 +75,31 @@ function eventsToCsv(rows: AuditEvent[]): string {
   const head = ["created_at", "event_type", "user_id", "ip_address", "resource", "email_hash", "user_agent", "metadata"];
   const lines = [head.join(",")];
   for (const r of rows) {
-    lines.push([
-      r.created_at, r.event_type, r.user_id, r.ip_address, r.resource, r.email_hash, r.user_agent, r.metadata,
-    ].map(csvEscape).join(","));
+    lines.push(
+      [r.created_at, r.event_type, r.user_id, r.ip_address, r.resource, r.email_hash, r.user_agent, r.metadata]
+        .map(csvEscape)
+        .join(","),
+    );
   }
   return lines.join("\n");
 }
 
+function alertKey(a: { hour: string; ip_address: string | null }): string {
+  return `${a.hour}|${a.ip_address ?? ""}`;
+}
+
+function loadAcks(): Record<string, { at: string; note?: string }> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(ACK_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveAcks(acks: Record<string, { at: string; note?: string }>) {
+  window.localStorage.setItem(ACK_STORAGE_KEY, JSON.stringify(acks));
+}
 
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
   component: AuditPanel,
@@ -64,6 +118,17 @@ function AuditPanel() {
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [search, setSearch] = useState<string>("");
   const [exporting, setExporting] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50);
+  const [selected, setSelected] = useState<AuditEvent | null>(null);
+  const [acks, setAcks] = useState<Record<string, { at: string; note?: string }>>({});
+  const [hideAcked, setHideAcked] = useState(true);
+
+  useEffect(() => {
+    setAcks(loadAcks());
+  }, []);
 
   const stats = useQuery({
     queryKey: ["audit-stats"],
@@ -75,17 +140,36 @@ function AuditPanel() {
       fetchEvents({ data: { event_type: filter || undefined, limit: 500, since_days: sinceDays } }),
   });
 
+  // Reset page on filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [filter, sinceDays, search, pageSize, sortKey, sortDir]);
+
   const filteredEvents = useMemo(() => {
     const all = events.data ?? [];
     const q = search.trim().toLowerCase();
-    if (!q) return all;
-    return all.filter((e) =>
-      [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
-        .filter(Boolean)
-        .some((v) => String(v).toLowerCase().includes(q)),
-    );
-  }, [events.data, search]);
+    const matched = !q
+      ? all
+      : all.filter((e) =>
+          [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
+            .filter(Boolean)
+            .some((v) => String(v).toLowerCase().includes(q)),
+        );
+    const sorted = [...matched].sort((a, b) => {
+      const av = (a[sortKey] ?? "") as string;
+      const bv = (b[sortKey] ?? "") as string;
+      const cmp = av < bv ? -1 : av > bv ? 1 : 0;
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+    return sorted;
+  }, [events.data, search, sortKey, sortDir]);
 
+  const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const pageRows = useMemo(
+    () => filteredEvents.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [filteredEvents, currentPage, pageSize],
+  );
 
   if (stats.error) {
     return (
@@ -103,9 +187,7 @@ function AuditPanel() {
     if (!stats.data || !events.data) return;
     setExporting(true);
     try {
-      const blob = await pdf(
-        <SecurityAuditPdf stats={stats.data} events={events.data} />,
-      ).toBlob();
+      const blob = await pdf(<SecurityAuditPdf stats={stats.data} events={events.data} />).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -138,9 +220,47 @@ function AuditPanel() {
     toast.success(`CSV gerado (${rows.length} eventos)`);
   };
 
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  };
+
+  const SortHead = ({ k, children }: { k: SortKey; children: React.ReactNode }) => {
+    const active = sortKey === k;
+    const Icon = !active ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
+    return (
+      <TableHead>
+        <button
+          onClick={() => toggleSort(k)}
+          className="inline-flex items-center gap-1 hover:text-foreground transition-colors"
+        >
+          {children}
+          <Icon className="size-3" />
+        </button>
+      </TableHead>
+    );
+  };
+
+  const ackAlert = (a: { hour: string; ip_address: string | null }) => {
+    const next = { ...acks, [alertKey(a)]: { at: new Date().toISOString() } };
+    setAcks(next);
+    saveAcks(next);
+    toast.success("Alerta tratado");
+  };
+  const unackAlert = (a: { hour: string; ip_address: string | null }) => {
+    const next = { ...acks };
+    delete next[alertKey(a)];
+    setAcks(next);
+    saveAcks(next);
+  };
+
   const t = stats.data?.totals;
-  const alerts = stats.data?.risk_alerts ?? [];
-  const highAlerts = alerts.filter((a) => a.risk_level === "high");
+  const allAlerts = stats.data?.risk_alerts ?? [];
+  const visibleAlerts = hideAcked ? allAlerts.filter((a) => !acks[alertKey(a)]) : allAlerts;
+  const highAlerts = visibleAlerts.filter((a) => a.risk_level === "high");
 
   return (
     <div className="space-y-6">
@@ -163,17 +283,16 @@ function AuditPanel() {
         </div>
       </div>
 
-
       {highAlerts.length > 0 && (
         <Card className="border-destructive bg-destructive/5">
           <CardContent className="p-4 flex items-start gap-3">
             <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
             <div className="text-sm">
               <p className="font-semibold text-destructive">
-                {highAlerts.length} alerta(s) de risco ALTO nas últimas 24h
+                {highAlerts.length} alerta(s) de risco ALTO não tratado(s) nas últimas 24h
               </p>
               <p className="text-muted-foreground">
-                Possível tentativa de força bruta ou ataque automatizado. Investigue os IPs abaixo.
+                Possível tentativa de força bruta ou ataque automatizado. Investigue e marque como tratado abaixo.
               </p>
             </div>
           </CardContent>
@@ -196,7 +315,19 @@ function AuditPanel() {
 
         <TabsContent value="alerts">
           <Card>
-            <CardHeader><CardTitle className="text-base">IPs com atividade suspeita (24h)</CardTitle></CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between gap-2">
+              <CardTitle className="text-base">
+                IPs com atividade suspeita (24h) · {visibleAlerts.length}
+                {hideAcked && Object.keys(acks).length > 0 && (
+                  <span className="text-muted-foreground font-normal text-xs ml-2">
+                    ({Object.keys(acks).length} tratado{Object.keys(acks).length === 1 ? "" : "s"} oculto{Object.keys(acks).length === 1 ? "" : "s"})
+                  </span>
+                )}
+              </CardTitle>
+              <Button variant="ghost" size="sm" onClick={() => setHideAcked((v) => !v)}>
+                {hideAcked ? "Mostrar tratados" : "Ocultar tratados"}
+              </Button>
+            </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
@@ -207,22 +338,43 @@ function AuditPanel() {
                     <TableHead className="text-right">Falhas Auth</TableHead>
                     <TableHead className="text-right">HIBP</TableHead>
                     <TableHead>Severidade</TableHead>
+                    <TableHead className="text-right">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {alerts.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhum alerta</TableCell></TableRow>
-                  )}
-                  {alerts.map((a, i) => (
-                    <TableRow key={i}>
-                      <TableCell>{new Date(a.hour).toLocaleString("pt-BR")}</TableCell>
-                      <TableCell className="font-mono text-xs">{a.ip_address ?? "—"}</TableCell>
-                      <TableCell className="text-right">{a.total_events}</TableCell>
-                      <TableCell className="text-right">{a.auth_failures}</TableCell>
-                      <TableCell className="text-right">{a.hibp_blocks}</TableCell>
-                      <TableCell><Badge variant={sevVariant(a.risk_level)}>{a.risk_level.toUpperCase()}</Badge></TableCell>
+                  {visibleAlerts.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                        Nenhum alerta {hideAcked && allAlerts.length > 0 ? "pendente" : ""}
+                      </TableCell>
                     </TableRow>
-                  ))}
+                  )}
+                  {visibleAlerts.map((a, i) => {
+                    const acked = !!acks[alertKey(a)];
+                    return (
+                      <TableRow key={i} className={acked ? "opacity-60" : undefined}>
+                        <TableCell>{new Date(a.hour).toLocaleString("pt-BR")}</TableCell>
+                        <TableCell className="font-mono text-xs">{a.ip_address ?? "—"}</TableCell>
+                        <TableCell className="text-right">{a.total_events}</TableCell>
+                        <TableCell className="text-right">{a.auth_failures}</TableCell>
+                        <TableCell className="text-right">{a.hibp_blocks}</TableCell>
+                        <TableCell>
+                          <Badge variant={sevVariant(a.risk_level)}>{a.risk_level.toUpperCase()}</Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {acked ? (
+                            <Button size="sm" variant="ghost" onClick={() => unackAlert(a)}>
+                              <RotateCcw className="size-3.5" /> Reabrir
+                            </Button>
+                          ) : (
+                            <Button size="sm" variant="outline" onClick={() => ackAlert(a)}>
+                              <Check className="size-3.5" /> Tratar
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </CardContent>
@@ -246,7 +398,9 @@ function AuditPanel() {
                     className="text-sm border rounded px-2 py-1 bg-background"
                   >
                     {EVENT_TYPES.map((o) => (
-                      <option key={o.v} value={o.v}>{o.label}</option>
+                      <option key={o.v} value={o.v}>
+                        {o.label}
+                      </option>
                     ))}
                   </select>
                   <select
@@ -260,6 +414,17 @@ function AuditPanel() {
                     <option value={90}>90 dias</option>
                     <option value={180}>180 dias</option>
                   </select>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => setPageSize(Number(e.target.value))}
+                    className="text-sm border rounded px-2 py-1 bg-background"
+                  >
+                    {PAGE_SIZE_OPTIONS.map((n) => (
+                      <option key={n} value={n}>
+                        {n}/página
+                      </option>
+                    ))}
+                  </select>
                 </div>
               </div>
               <div className="relative">
@@ -272,44 +437,112 @@ function AuditPanel() {
                 />
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>IP</TableHead>
-                    <TableHead>Recurso</TableHead>
+                    <SortHead k="created_at">Data</SortHead>
+                    <SortHead k="event_type">Tipo</SortHead>
+                    <SortHead k="ip_address">IP</SortHead>
+                    <SortHead k="resource">Recurso</SortHead>
                     <TableHead>Metadata</TableHead>
                     <TableHead>Email (hash)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredEvents.map((e) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="text-xs whitespace-nowrap">{new Date(e.created_at).toLocaleString("pt-BR")}</TableCell>
-                      <TableCell><Badge variant="outline">{e.event_type}</Badge></TableCell>
+                  {pageRows.map((e) => (
+                    <TableRow
+                      key={e.id}
+                      className="cursor-pointer hover:bg-muted/40"
+                      onClick={() => setSelected(e)}
+                    >
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {new Date(e.created_at).toLocaleString("pt-BR")}
+                      </TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{e.event_type}</Badge>
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{e.ip_address ?? "—"}</TableCell>
                       <TableCell className="text-xs">{e.resource ?? "—"}</TableCell>
                       <TableCell className="text-xs font-mono max-w-[260px] truncate" title={JSON.stringify(e.metadata)}>
                         {e.metadata && Object.keys(e.metadata as object).length > 0 ? JSON.stringify(e.metadata) : "—"}
                       </TableCell>
-                      <TableCell className="font-mono text-xs">{e.email_hash ? e.email_hash.slice(0, 12) + "…" : "—"}</TableCell>
+                      <TableCell className="font-mono text-xs">
+                        {e.email_hash ? e.email_hash.slice(0, 12) + "…" : "—"}
+                      </TableCell>
                     </TableRow>
                   ))}
-                  {filteredEvents.length === 0 && (
-                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhum evento</TableCell></TableRow>
+                  {pageRows.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center text-muted-foreground py-6">
+                        Nenhum evento
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
+
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between text-sm text-muted-foreground">
+                  <span>
+                    Mostrando {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredEvents.length)} de{" "}
+                    {filteredEvents.length}
+                  </span>
+                  <Pagination className="mx-0 w-auto">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPage(Math.max(1, currentPage - 1));
+                          }}
+                          aria-disabled={currentPage === 1}
+                          className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                      {pageRange(currentPage, totalPages).map((p, idx) =>
+                        p === "…" ? (
+                          <PaginationItem key={`e-${idx}`}>
+                            <span className="px-2 text-muted-foreground">…</span>
+                          </PaginationItem>
+                        ) : (
+                          <PaginationItem key={p}>
+                            <PaginationLink
+                              isActive={p === currentPage}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                setPage(p);
+                              }}
+                              className="cursor-pointer"
+                            >
+                              {p}
+                            </PaginationLink>
+                          </PaginationItem>
+                        ),
+                      )}
+                      <PaginationItem>
+                        <PaginationNext
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setPage(Math.min(totalPages, currentPage + 1));
+                          }}
+                          aria-disabled={currentPage === totalPages}
+                          className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </Pagination>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
 
-
         <TabsContent value="trend">
           <Card>
-            <CardHeader><CardTitle className="text-base">Tendência diária</CardTitle></CardHeader>
+            <CardHeader>
+              <CardTitle className="text-base">Tendência diária</CardTitle>
+            </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
@@ -335,7 +568,91 @@ function AuditPanel() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <EventDetailsDialog event={selected} onClose={() => setSelected(null)} />
     </div>
+  );
+}
+
+function pageRange(current: number, total: number): Array<number | "…"> {
+  if (total <= 7) return Array.from({ length: total }, (_, i) => i + 1);
+  const pages: Array<number | "…"> = [1];
+  const start = Math.max(2, current - 1);
+  const end = Math.min(total - 1, current + 1);
+  if (start > 2) pages.push("…");
+  for (let p = start; p <= end; p++) pages.push(p);
+  if (end < total - 1) pages.push("…");
+  pages.push(total);
+  return pages;
+}
+
+function EventDetailsDialog({ event, onClose }: { event: AuditEvent | null; onClose: () => void }) {
+  const copy = (text: string) => {
+    navigator.clipboard?.writeText(text).then(
+      () => toast.success("Copiado"),
+      () => toast.error("Falha ao copiar"),
+    );
+  };
+  return (
+    <Dialog open={!!event} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Shield className="size-4" /> Detalhes do evento
+          </DialogTitle>
+          <DialogDescription>
+            {event && new Date(event.created_at).toLocaleString("pt-BR")}
+          </DialogDescription>
+        </DialogHeader>
+        {event && (
+          <div className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-sm">
+            <Field label="Tipo">
+              <Badge variant="outline">{event.event_type}</Badge>
+            </Field>
+            <Field label="ID">
+              <code className="text-xs">{event.id}</code>
+            </Field>
+            <Field label="Usuário">
+              <code className="text-xs">{event.user_id ?? "—"}</code>
+            </Field>
+            <Field label="IP">
+              <code className="text-xs">{event.ip_address ?? "—"}</code>
+            </Field>
+            <Field label="Recurso">
+              <span className="text-xs">{event.resource ?? "—"}</span>
+            </Field>
+            <Field label="Email hash">
+              <code className="text-xs break-all">{event.email_hash ?? "—"}</code>
+            </Field>
+            <Field label="User-Agent">
+              <span className="text-xs break-all">{event.user_agent ?? "—"}</span>
+            </Field>
+            <Field label="Metadata">
+              <pre className="text-xs bg-muted rounded p-2 overflow-auto max-h-64">
+                {JSON.stringify(event.metadata ?? {}, null, 2)}
+              </pre>
+            </Field>
+          </div>
+        )}
+        <DialogFooter>
+          {event && (
+            <Button variant="outline" onClick={() => copy(JSON.stringify(event, null, 2))}>
+              Copiar JSON
+            </Button>
+          )}
+          <Button onClick={onClose}>Fechar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function Field({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <>
+      <div className="text-muted-foreground">{label}</div>
+      <div className="min-w-0">{children}</div>
+    </>
   );
 }
 
@@ -343,7 +660,10 @@ function Kpi({ icon, label, value }: { icon: React.ReactNode; label: string; val
   return (
     <Card>
       <CardContent className="p-4">
-        <div className="text-xs text-muted-foreground flex items-center gap-1.5">{icon}{label}</div>
+        <div className="text-xs text-muted-foreground flex items-center gap-1.5">
+          {icon}
+          {label}
+        </div>
         <div className="text-2xl font-bold mt-1">{value}</div>
       </CardContent>
     </Card>
