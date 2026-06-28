@@ -63,7 +63,7 @@ function Page() {
   async function loadRows() {
     const { data, error } = await supabase
       .from("applications")
-      .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
+      .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,reply_snippet,reply_from,reply_received_at,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
       .order("sent_at", { ascending: false });
     if (error) toast.error(error.message);
     setRows((data as Row[]) ?? []);
