@@ -61,6 +61,8 @@ function AuditPanel() {
   const fetchStats = useServerFn(getAuditStats);
   const fetchEvents = useServerFn(listAuditEvents);
   const [filter, setFilter] = useState<string>("");
+  const [sinceDays, setSinceDays] = useState<number>(30);
+  const [search, setSearch] = useState<string>("");
   const [exporting, setExporting] = useState(false);
 
   const stats = useQuery({
@@ -68,10 +70,22 @@ function AuditPanel() {
     queryFn: () => fetchStats(),
   });
   const events = useQuery({
-    queryKey: ["audit-events", filter],
+    queryKey: ["audit-events", filter, sinceDays],
     queryFn: () =>
-      fetchEvents({ data: { event_type: filter || undefined, limit: 200, since_days: 30 } }),
+      fetchEvents({ data: { event_type: filter || undefined, limit: 500, since_days: sinceDays } }),
   });
+
+  const filteredEvents = useMemo(() => {
+    const all = events.data ?? [];
+    const q = search.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter((e) =>
+      [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [events.data, search]);
+
 
   if (stats.error) {
     return (
