@@ -148,6 +148,121 @@ export type Database = {
         }
         Relationships: []
       }
+      english_lessons: {
+        Row: {
+          created_at: string
+          id: string
+          intro_pt: string
+          is_free: boolean
+          module_id: string
+          phrases: Json
+          quiz: Json
+          slug: string
+          sort_order: number
+          title_en: string
+          title_pt: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          intro_pt?: string
+          is_free?: boolean
+          module_id: string
+          phrases?: Json
+          quiz?: Json
+          slug: string
+          sort_order?: number
+          title_en: string
+          title_pt: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          intro_pt?: string
+          is_free?: boolean
+          module_id?: string
+          phrases?: Json
+          quiz?: Json
+          slug?: string
+          sort_order?: number
+          title_en?: string
+          title_pt?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "english_lessons_module_id_fkey"
+            columns: ["module_id"]
+            isOneToOne: false
+            referencedRelation: "english_modules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      english_modules: {
+        Row: {
+          created_at: string
+          description_pt: string
+          icon: string
+          id: string
+          slug: string
+          sort_order: number
+          title_en: string
+          title_pt: string
+        }
+        Insert: {
+          created_at?: string
+          description_pt: string
+          icon?: string
+          id?: string
+          slug: string
+          sort_order?: number
+          title_en: string
+          title_pt: string
+        }
+        Update: {
+          created_at?: string
+          description_pt?: string
+          icon?: string
+          id?: string
+          slug?: string
+          sort_order?: number
+          title_en?: string
+          title_pt?: string
+        }
+        Relationships: []
+      }
+      english_progress: {
+        Row: {
+          completed_at: string
+          lesson_id: string
+          quiz_correct: number
+          quiz_total: number
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string
+          lesson_id: string
+          quiz_correct?: number
+          quiz_total?: number
+          user_id: string
+        }
+        Update: {
+          completed_at?: string
+          lesson_id?: string
+          quiz_correct?: number
+          quiz_total?: number
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "english_progress_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "english_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       feed_import_logs: {
         Row: {
           error_message: string | null
