@@ -50,6 +50,12 @@ const groups: NavGroup[] = [
       { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
     ],
   },
+  {
+    label: "Conta",
+    items: [
+      { to: "/app/configuracoes", labelKey: "settings", icon: Settings },
+    ],
+  },
 ];
 
 const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] = [
