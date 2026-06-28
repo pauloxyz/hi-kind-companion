@@ -31,7 +31,9 @@ describe("rate-limit", () => {
   });
 
   it("fails OPEN when rpc throws", async () => {
-    rpcMock.mockImplementation(() => Promise.reject(new Error("net")));
+    rpcMock.mockImplementation(() => {
+      throw new Error("net");
+    });
     expect(await checkRateLimit("k", 5, 60)).toBe(true);
   });
 
