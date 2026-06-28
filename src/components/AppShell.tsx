@@ -60,6 +60,7 @@ const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] 
 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { t, lang, setLang } = useI18n();
+  const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -128,8 +129,13 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <Link to="/app" className="flex items-center gap-2">
           <img src={logoUrl} alt="VaiPraLá" className="h-8 w-auto" />
         </Link>
-        <button onClick={() => setOpen(false)} className="lg:hidden text-muted-foreground hover:text-foreground">
-          <X className="size-5" />
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="lg:hidden text-muted-foreground hover:text-foreground rounded-md p-1 min-h-11 min-w-11 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          aria-label="Fechar menu"
+        >
+          <X className="size-5" aria-hidden />
         </button>
       </div>
 
