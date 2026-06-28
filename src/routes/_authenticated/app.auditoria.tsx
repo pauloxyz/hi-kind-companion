@@ -62,7 +62,6 @@ const EVENT_TYPES = [
 ];
 
 const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
-const ACK_STORAGE_KEY = "security_alerts_ack_v1";
 
 type SortKey = "created_at" | "event_type" | "ip_address" | "resource";
 type SortDir = "asc" | "desc";
