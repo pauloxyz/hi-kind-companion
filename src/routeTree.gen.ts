@@ -23,6 +23,7 @@ import { Route as AuthenticatedAppVideoRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppVagasRouteImport } from './routes/_authenticated/app.vagas'
 import { Route as AuthenticatedAppPerfilRouteImport } from './routes/_authenticated/app.perfil'
 import { Route as AuthenticatedAppMidiaRouteImport } from './routes/_authenticated/app.midia'
+import { Route as AuthenticatedAppInglesRouteImport } from './routes/_authenticated/app.ingles'
 import { Route as AuthenticatedAppFollowupsRouteImport } from './routes/_authenticated/app.followups'
 import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_authenticated/app.empregadores'
 import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
@@ -100,6 +101,11 @@ const AuthenticatedAppMidiaRoute = AuthenticatedAppMidiaRouteImport.update({
   path: '/app/midia',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAppInglesRoute = AuthenticatedAppInglesRouteImport.update({
+  id: '/app/ingles',
+  path: '/app/ingles',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppFollowupsRoute =
   AuthenticatedAppFollowupsRouteImport.update({
     id: '/app/followups',
@@ -155,6 +161,7 @@ export interface FileRoutesByFullPath {
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
+  '/app/ingles': typeof AuthenticatedAppInglesRoute
   '/app/midia': typeof AuthenticatedAppMidiaRoute
   '/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/app/vagas': typeof AuthenticatedAppVagasRoute
@@ -177,6 +184,7 @@ export interface FileRoutesByTo {
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
+  '/app/ingles': typeof AuthenticatedAppInglesRoute
   '/app/midia': typeof AuthenticatedAppMidiaRoute
   '/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/app/vagas': typeof AuthenticatedAppVagasRoute
@@ -201,6 +209,7 @@ export interface FileRoutesById {
   '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/_authenticated/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/_authenticated/app/followups': typeof AuthenticatedAppFollowupsRoute
+  '/_authenticated/app/ingles': typeof AuthenticatedAppInglesRoute
   '/_authenticated/app/midia': typeof AuthenticatedAppMidiaRoute
   '/_authenticated/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/_authenticated/app/vagas': typeof AuthenticatedAppVagasRoute
@@ -225,6 +234,7 @@ export interface FileRouteTypes {
     | '/app/curriculo'
     | '/app/empregadores'
     | '/app/followups'
+    | '/app/ingles'
     | '/app/midia'
     | '/app/perfil'
     | '/app/vagas'
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/app/curriculo'
     | '/app/empregadores'
     | '/app/followups'
+    | '/app/ingles'
     | '/app/midia'
     | '/app/perfil'
     | '/app/vagas'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/curriculo'
     | '/_authenticated/app/empregadores'
     | '/_authenticated/app/followups'
+    | '/_authenticated/app/ingles'
     | '/_authenticated/app/midia'
     | '/_authenticated/app/perfil'
     | '/_authenticated/app/vagas'
@@ -393,6 +405,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppMidiaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/ingles': {
+      id: '/_authenticated/app/ingles'
+      path: '/app/ingles'
+      fullPath: '/app/ingles'
+      preLoaderRoute: typeof AuthenticatedAppInglesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/followups': {
       id: '/_authenticated/app/followups'
       path: '/app/followups'
@@ -451,6 +470,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppCurriculoRoute: typeof AuthenticatedAppCurriculoRoute
   AuthenticatedAppEmpregadoresRoute: typeof AuthenticatedAppEmpregadoresRoute
   AuthenticatedAppFollowupsRoute: typeof AuthenticatedAppFollowupsRoute
+  AuthenticatedAppInglesRoute: typeof AuthenticatedAppInglesRoute
   AuthenticatedAppMidiaRoute: typeof AuthenticatedAppMidiaRoute
   AuthenticatedAppPerfilRoute: typeof AuthenticatedAppPerfilRoute
   AuthenticatedAppVagasRoute: typeof AuthenticatedAppVagasRoute
@@ -465,6 +485,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppCurriculoRoute: AuthenticatedAppCurriculoRoute,
   AuthenticatedAppEmpregadoresRoute: AuthenticatedAppEmpregadoresRoute,
   AuthenticatedAppFollowupsRoute: AuthenticatedAppFollowupsRoute,
+  AuthenticatedAppInglesRoute: AuthenticatedAppInglesRoute,
   AuthenticatedAppMidiaRoute: AuthenticatedAppMidiaRoute,
   AuthenticatedAppPerfilRoute: AuthenticatedAppPerfilRoute,
   AuthenticatedAppVagasRoute: AuthenticatedAppVagasRoute,
