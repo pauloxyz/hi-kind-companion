@@ -29,6 +29,7 @@ import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
+import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 
@@ -135,6 +136,12 @@ const AuthenticatedAppCandidaturasRoute =
     path: '/app/candidaturas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppInglesIndexRoute =
+  AuthenticatedAppInglesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => AuthenticatedAppInglesRoute,
+  } as any)
 const ApiPublicHooksImportDolFeedRoute =
   ApiPublicHooksImportDolFeedRouteImport.update({
     id: '/api/public/hooks/import-dol-feed',
@@ -161,7 +168,7 @@ export interface FileRoutesByFullPath {
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
-  '/app/ingles': typeof AuthenticatedAppInglesRoute
+  '/app/ingles': typeof AuthenticatedAppInglesRouteWithChildren
   '/app/midia': typeof AuthenticatedAppMidiaRoute
   '/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/app/vagas': typeof AuthenticatedAppVagasRoute
@@ -170,6 +177,7 @@ export interface FileRoutesByFullPath {
   '/app/': typeof AuthenticatedAppIndexRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -184,7 +192,6 @@ export interface FileRoutesByTo {
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
-  '/app/ingles': typeof AuthenticatedAppInglesRoute
   '/app/midia': typeof AuthenticatedAppMidiaRoute
   '/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/app/vagas': typeof AuthenticatedAppVagasRoute
@@ -193,6 +200,7 @@ export interface FileRoutesByTo {
   '/app': typeof AuthenticatedAppIndexRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -209,7 +217,7 @@ export interface FileRoutesById {
   '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/_authenticated/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/_authenticated/app/followups': typeof AuthenticatedAppFollowupsRoute
-  '/_authenticated/app/ingles': typeof AuthenticatedAppInglesRoute
+  '/_authenticated/app/ingles': typeof AuthenticatedAppInglesRouteWithChildren
   '/_authenticated/app/midia': typeof AuthenticatedAppMidiaRoute
   '/_authenticated/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/_authenticated/app/vagas': typeof AuthenticatedAppVagasRoute
@@ -218,6 +226,7 @@ export interface FileRoutesById {
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -243,6 +252,7 @@ export interface FileRouteTypes {
     | '/app/'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/app/ingles/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -257,7 +267,6 @@ export interface FileRouteTypes {
     | '/app/curriculo'
     | '/app/empregadores'
     | '/app/followups'
-    | '/app/ingles'
     | '/app/midia'
     | '/app/perfil'
     | '/app/vagas'
@@ -266,6 +275,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/app/ingles'
   id:
     | '__root__'
     | '/'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/_authenticated/app/ingles/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -447,6 +458,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCandidaturasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/ingles/': {
+      id: '/_authenticated/app/ingles/'
+      path: '/'
+      fullPath: '/app/ingles/'
+      preLoaderRoute: typeof AuthenticatedAppInglesIndexRouteImport
+      parentRoute: typeof AuthenticatedAppInglesRoute
+    }
     '/api/public/hooks/import-dol-feed': {
       id: '/api/public/hooks/import-dol-feed'
       path: '/api/public/hooks/import-dol-feed'
@@ -464,13 +482,27 @@ declare module '@tanstack/react-router' {
   }
 }
 
+interface AuthenticatedAppInglesRouteChildren {
+  AuthenticatedAppInglesIndexRoute: typeof AuthenticatedAppInglesIndexRoute
+}
+
+const AuthenticatedAppInglesRouteChildren: AuthenticatedAppInglesRouteChildren =
+  {
+    AuthenticatedAppInglesIndexRoute: AuthenticatedAppInglesIndexRoute,
+  }
+
+const AuthenticatedAppInglesRouteWithChildren =
+  AuthenticatedAppInglesRoute._addFileChildren(
+    AuthenticatedAppInglesRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
   AuthenticatedAppComecarRoute: typeof AuthenticatedAppComecarRoute
   AuthenticatedAppCurriculoRoute: typeof AuthenticatedAppCurriculoRoute
   AuthenticatedAppEmpregadoresRoute: typeof AuthenticatedAppEmpregadoresRoute
   AuthenticatedAppFollowupsRoute: typeof AuthenticatedAppFollowupsRoute
-  AuthenticatedAppInglesRoute: typeof AuthenticatedAppInglesRoute
+  AuthenticatedAppInglesRoute: typeof AuthenticatedAppInglesRouteWithChildren
   AuthenticatedAppMidiaRoute: typeof AuthenticatedAppMidiaRoute
   AuthenticatedAppPerfilRoute: typeof AuthenticatedAppPerfilRoute
   AuthenticatedAppVagasRoute: typeof AuthenticatedAppVagasRoute
@@ -485,7 +517,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppCurriculoRoute: AuthenticatedAppCurriculoRoute,
   AuthenticatedAppEmpregadoresRoute: AuthenticatedAppEmpregadoresRoute,
   AuthenticatedAppFollowupsRoute: AuthenticatedAppFollowupsRoute,
-  AuthenticatedAppInglesRoute: AuthenticatedAppInglesRoute,
+  AuthenticatedAppInglesRoute: AuthenticatedAppInglesRouteWithChildren,
   AuthenticatedAppMidiaRoute: AuthenticatedAppMidiaRoute,
   AuthenticatedAppPerfilRoute: AuthenticatedAppPerfilRoute,
   AuthenticatedAppVagasRoute: AuthenticatedAppVagasRoute,
