@@ -231,20 +231,46 @@ function AuditPanel() {
 
         <TabsContent value="events">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Eventos recentes</CardTitle>
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="text-sm border rounded px-2 py-1 bg-background"
-              >
-                <option value="">Todos os tipos</option>
-                <option value="hibp_block">HIBP Block</option>
-                <option value="weak_password_block">Senha Fraca</option>
-                <option value="auth_failure">Falha de Auth</option>
-                <option value="pii_access">Acesso PII</option>
-                <option value="admin_action">Ação Admin</option>
-              </select>
+            <CardHeader className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base">
+                  Eventos · {filteredEvents.length}
+                  {events.data && filteredEvents.length !== events.data.length && (
+                    <span className="text-muted-foreground font-normal"> de {events.data.length}</span>
+                  )}
+                </CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="text-sm border rounded px-2 py-1 bg-background"
+                  >
+                    {EVENT_TYPES.map((o) => (
+                      <option key={o.v} value={o.v}>{o.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={sinceDays}
+                    onChange={(e) => setSinceDays(Number(e.target.value))}
+                    className="text-sm border rounded px-2 py-1 bg-background"
+                  >
+                    <option value={1}>Últimas 24h</option>
+                    <option value={7}>7 dias</option>
+                    <option value={30}>30 dias</option>
+                    <option value={90}>90 dias</option>
+                    <option value={180}>180 dias</option>
+                  </select>
+                </div>
+              </div>
+              <div className="relative">
+                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por IP, recurso, user_id, hash, metadata…"
+                  className="pl-8"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -254,27 +280,32 @@ function AuditPanel() {
                     <TableHead>Tipo</TableHead>
                     <TableHead>IP</TableHead>
                     <TableHead>Recurso</TableHead>
+                    <TableHead>Metadata</TableHead>
                     <TableHead>Email (hash)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(events.data ?? []).map((e) => (
+                  {filteredEvents.map((e) => (
                     <TableRow key={e.id}>
-                      <TableCell className="text-xs">{new Date(e.created_at).toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{new Date(e.created_at).toLocaleString("pt-BR")}</TableCell>
                       <TableCell><Badge variant="outline">{e.event_type}</Badge></TableCell>
                       <TableCell className="font-mono text-xs">{e.ip_address ?? "—"}</TableCell>
                       <TableCell className="text-xs">{e.resource ?? "—"}</TableCell>
+                      <TableCell className="text-xs font-mono max-w-[260px] truncate" title={JSON.stringify(e.metadata)}>
+                        {e.metadata && Object.keys(e.metadata as object).length > 0 ? JSON.stringify(e.metadata) : "—"}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{e.email_hash ? e.email_hash.slice(0, 12) + "…" : "—"}</TableCell>
                     </TableRow>
                   ))}
-                  {events.data?.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Nenhum evento</TableCell></TableRow>
+                  {filteredEvents.length === 0 && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhum evento</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="trend">
           <Card>
