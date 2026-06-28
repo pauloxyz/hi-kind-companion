@@ -151,11 +151,21 @@ function PricingPage() {
                 <span className="text-4xl font-bold">{p.price}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">{p.priceNote}</p>
-              <Link to="/auth" className="mt-5">
-                <Button className="w-full" variant={p.highlight ? "default" : "outline"}>
+              {p.priceId ? (
+                <Button
+                  className="mt-5 w-full"
+                  variant={p.highlight ? "default" : "outline"}
+                  onClick={() => handleSubscribe(p.priceId!)}
+                >
                   {p.cta} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </Link>
+              ) : (
+                <Link to="/auth" className="mt-5">
+                  <Button className="w-full" variant={p.highlight ? "default" : "outline"}>
+                    {p.cta} <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
               <ul className="mt-6 space-y-2 text-sm">
                 {p.features.map((f) => (
                   <li key={f.text} className="flex items-start gap-2">
