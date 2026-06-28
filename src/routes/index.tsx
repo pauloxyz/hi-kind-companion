@@ -4,8 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/vaiprala-logo.png";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowRight, Briefcase, FileText, Video, ShieldCheck, BarChart3, Globe2,
-  Star, Quote, TrendingUp, Users, Award, Sparkles, Check, GraduationCap,
+  ArrowRight, Briefcase, FileText, Video, ShieldCheck, BarChart3,
+  Star, Quote, Sparkles, Check, GraduationCap, Send,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -526,5 +526,3 @@ const FAQ = [
   { q: "Como me protejo de golpe?", a: "Nunca pague 'taxa de aplicação', 'depósito de segurança' ou 'reserva de vaga'. Empregador legítimo de H-2A NUNCA cobra do trabalhador. Nosso sistema alerta vagas suspeitas automaticamente." },
 ];
 
-// Import for hero icon
-import { Send } from "lucide-react";
