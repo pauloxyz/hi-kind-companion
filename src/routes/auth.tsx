@@ -10,6 +10,7 @@ import { useI18n, I18nProvider } from "@/lib/i18n";
 import logo from "@/assets/vaiprala-logo.png";
 import farmBg from "@/assets/auth-farm-bg.jpg";
 import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStrength";
+import { logSecurityEvent } from "@/lib/security-audit.functions";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
