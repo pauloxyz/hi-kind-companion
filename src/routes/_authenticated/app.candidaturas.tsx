@@ -226,6 +226,9 @@ function Page() {
         {!loading && rows.length === 0 && (
           <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura ainda. Vá para <strong>Vagas</strong> e clique em "Candidatar".</CardContent></Card>
         )}
+        {!loading && rows.length > 0 && visible.length === 0 && (
+          <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura nesse filtro.</CardContent></Card>
+        )}
       </div>
     </div>
   );
