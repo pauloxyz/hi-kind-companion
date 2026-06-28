@@ -1,8 +1,8 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
-  Send, Bell, Building2, Stamp, LogOut, Languages, Menu, X,
+  Send, Bell, Building2, Stamp, LogOut, Languages, Menu, X, Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { FraudBanner } from "./StrategyBanner";
 import logoUrl from "@/assets/vaiprala-logo.png";
 
-type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean };
-const items: NavItem[] = [
+type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean; highlight?: boolean };
+const baseItems: NavItem[] = [
   { to: "/app", labelKey: "dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/perfil", labelKey: "profile", icon: User },
   { to: "/app/curriculo", labelKey: "resume", icon: FileText },
