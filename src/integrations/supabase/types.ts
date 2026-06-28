@@ -150,12 +150,19 @@ export type Database = {
       }
       english_lessons: {
         Row: {
+          common_mistakes: Json
           created_at: string
+          cultural_note: string
+          dialogue: Json
+          estimated_minutes: number
+          goal_pt: string
+          grammar_tip: string
           id: string
           intro_pt: string
           is_free: boolean
           module_id: string
           phrases: Json
+          pronunciation_tip: string
           quiz: Json
           slug: string
           sort_order: number
@@ -163,12 +170,19 @@ export type Database = {
           title_pt: string
         }
         Insert: {
+          common_mistakes?: Json
           created_at?: string
+          cultural_note?: string
+          dialogue?: Json
+          estimated_minutes?: number
+          goal_pt?: string
+          grammar_tip?: string
           id?: string
           intro_pt?: string
           is_free?: boolean
           module_id: string
           phrases?: Json
+          pronunciation_tip?: string
           quiz?: Json
           slug: string
           sort_order?: number
@@ -176,12 +190,19 @@ export type Database = {
           title_pt: string
         }
         Update: {
+          common_mistakes?: Json
           created_at?: string
+          cultural_note?: string
+          dialogue?: Json
+          estimated_minutes?: number
+          goal_pt?: string
+          grammar_tip?: string
           id?: string
           intro_pt?: string
           is_free?: boolean
           module_id?: string
           phrases?: Json
+          pronunciation_tip?: string
           quiz?: Json
           slug?: string
           sort_order?: number
@@ -204,6 +225,7 @@ export type Database = {
           description_pt: string
           icon: string
           id: string
+          level: string
           slug: string
           sort_order: number
           title_en: string
@@ -214,6 +236,7 @@ export type Database = {
           description_pt: string
           icon?: string
           id?: string
+          level?: string
           slug: string
           sort_order?: number
           title_en: string
@@ -224,6 +247,7 @@ export type Database = {
           description_pt?: string
           icon?: string
           id?: string
+          level?: string
           slug?: string
           sort_order?: number
           title_en?: string
