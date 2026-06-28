@@ -12,6 +12,8 @@ import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStr
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Sun, Moon, Monitor, AlertTriangle } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { logAccountEvent } from "@/lib/security-audit.functions";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfiguracoesPage,
@@ -32,6 +34,8 @@ const THEME_OPTIONS: { code: Theme; label: string; Icon: typeof Sun }[] = [
 function ConfiguracoesPage() {
   const { lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
+  const logEvent = useServerFn(logAccountEvent);
+
 
 
 
@@ -60,7 +64,10 @@ function ConfiguracoesPage() {
       setUserId(data.user?.id ?? null);
       setLoading(false);
     });
+    // audit: settings opened
+    logEvent({ data: { event_type: "settings_viewed" } }).catch(() => {});
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -71,21 +78,27 @@ function ConfiguracoesPage() {
     }
     if (!isPasswordAcceptable(newPassword)) {
       toast.error("Senha muito fraca — escolha uma mais forte.");
+      logEvent({ data: { event_type: "password_change_failed", metadata: { reason: "weak" } } }).catch(() => {});
       return;
     }
     setSavingPwd(true);
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     setSavingPwd(false);
     if (error) {
-      const msg = /pwned|leaked|compromised|breach/i.test(error.message)
-        ? "Esta senha apareceu em vazamentos públicos. Escolha outra."
-        : error.message;
-      toast.error(msg);
+      const leaked = /pwned|leaked|compromised|breach/i.test(error.message);
+      toast.error(leaked ? "Esta senha apareceu em vazamentos públicos. Escolha outra." : error.message);
+      logEvent({
+        data: {
+          event_type: "password_change_failed",
+          metadata: { reason: leaked ? "hibp" : "auth_error", message: error.message.slice(0, 200) },
+        },
+      }).catch(() => {});
       return;
     }
     toast.success("Senha atualizada com sucesso.");
     setNewPassword("");
     setConfirmPassword("");
+    logEvent({ data: { event_type: "password_changed" } }).catch(() => {});
   };
 
   const handleChangeEmail = async (e: React.FormEvent) => {
@@ -96,10 +109,14 @@ function ConfiguracoesPage() {
     setSavingEmail(false);
     if (error) {
       toast.error(error.message);
+      logEvent({
+        data: { event_type: "email_change_failed", metadata: { message: error.message.slice(0, 200) } },
+      }).catch(() => {});
       return;
     }
     toast.success("Enviamos um link de confirmação para o novo e-mail.");
     setNewEmail("");
+    logEvent({ data: { event_type: "email_change_requested" } }).catch(() => {});
   };
 
   const handleDeleteAccount = async () => {
@@ -112,6 +129,7 @@ function ConfiguracoesPage() {
     const body = encodeURIComponent(
       `Olá,\n\nSolicito a exclusão permanente da minha conta.\n\nE-mail: ${email}\nID: ${userId ?? ""}\n`,
     );
+    logEvent({ data: { event_type: "account_deletion_requested" } }).catch(() => {});
     window.location.href = `mailto:suporte@vaiprala.com?subject=${subject}&body=${body}`;
     toast.success("Abrimos seu e-mail para enviar a solicitação ao suporte.");
     setDeleting(false);
