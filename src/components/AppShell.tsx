@@ -3,7 +3,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
   Send, Bell, Building2, Stamp, LogOut, Menu, X, Sparkles, GraduationCap,
-  Sun, Moon, Monitor, Shield,
+  Sun, Moon, Monitor, Shield, Settings,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
