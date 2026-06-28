@@ -31,11 +31,11 @@ const groups: NavGroup[] = [
   {
     label: "Preparação",
     items: [
-      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap },
       { to: "/app/perfil", labelKey: "profile", icon: User },
       { to: "/app/curriculo", labelKey: "resume", icon: FileText },
       { to: "/app/midia", labelKey: "media", icon: ImageIcon },
       { to: "/app/video", labelKey: "intro_video", icon: Video },
+      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap },
       { to: "/app/visto", labelKey: "visa", icon: Stamp },
     ],
   },
@@ -48,6 +48,12 @@ const groups: NavGroup[] = [
       { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
     ],
   },
+];
+
+const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] = [
+  { code: "pt", label: "PT", flag: "🇧🇷" },
+  { code: "en", label: "EN", flag: "🇺🇸" },
+  { code: "es", label: "ES", flag: "🇪🇸" },
 ];
 
 export function AppShell({ children }: { children?: ReactNode }) {
