@@ -769,6 +769,39 @@ export type Database = {
           },
         ]
       }
+      security_alert_acks: {
+        Row: {
+          acked_at: string
+          acked_by: string
+          alert_key: string
+          hour: string
+          id: string
+          ip_address: unknown
+          note: string | null
+          risk_level: string
+        }
+        Insert: {
+          acked_at?: string
+          acked_by: string
+          alert_key: string
+          hour: string
+          id?: string
+          ip_address?: unknown
+          note?: string | null
+          risk_level: string
+        }
+        Update: {
+          acked_at?: string
+          acked_by?: string
+          alert_key?: string
+          hour?: string
+          id?: string
+          ip_address?: unknown
+          note?: string | null
+          risk_level?: string
+        }
+        Relationships: []
+      }
       security_audit_log: {
         Row: {
           created_at: string
