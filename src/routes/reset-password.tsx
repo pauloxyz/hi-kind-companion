@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { ThemeProvider } from "@/lib/theme";
 import logo from "@/assets/vaiprala-logo.png";
 import farmBg from "@/assets/auth-farm-bg.jpg";
+import { PasswordStrength } from "@/components/PasswordStrength";
 
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
@@ -110,7 +111,9 @@ function ResetPasswordPage() {
                   minLength={8}
                   aria-describedby="new-password-hint"
                 />
-                <p id="new-password-hint" className="text-[11px] text-muted-foreground">Mínimo 8 caracteres.</p>
+                <div id="new-password-hint">
+                  <PasswordStrength password={password} />
+                </div>
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="confirm-password">Confirmar senha</Label>

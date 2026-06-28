@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useI18n, I18nProvider } from "@/lib/i18n";
 import logo from "@/assets/vaiprala-logo.png";
 import farmBg from "@/assets/auth-farm-bg.jpg";
+import { PasswordStrength } from "@/components/PasswordStrength";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -250,7 +251,11 @@ function AuthPage() {
                     minLength={8}
                     aria-describedby={mode === "signup" ? "password-hint" : undefined}
                   />
-                  {mode === "signup" && <p id="password-hint" className="text-[11px] text-muted-foreground">Mínimo 8 caracteres.</p>}
+                  {mode === "signup" && (
+                    <div id="password-hint">
+                      <PasswordStrength password={password} />
+                    </div>
+                  )}
                 </div>
                 <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>
                   {loading ? "..." : mode === "signin" ? t("login") : "Criar conta grátis"}
