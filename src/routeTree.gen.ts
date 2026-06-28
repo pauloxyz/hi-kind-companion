@@ -13,6 +13,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VagasH2aIndexRouteImport } from './routes/vagas-h2a.index'
+import { Route as VagasH2aStateRouteImport } from './routes/vagas-h2a.$state'
 import { Route as VSlugRouteImport } from './routes/v.$slug'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as AuthenticatedAppVistoRouteImport } from './routes/_authenticated/app.visto'
@@ -45,6 +46,11 @@ const IndexRoute = IndexRouteImport.update({
 const VagasH2aIndexRoute = VagasH2aIndexRouteImport.update({
   id: '/vagas-h2a/',
   path: '/vagas-h2a/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VagasH2aStateRoute = VagasH2aStateRouteImport.update({
+  id: '/vagas-h2a/$state',
+  path: '/vagas-h2a/$state',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VSlugRoute = VSlugRouteImport.update({
@@ -128,6 +134,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
+  '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -147,6 +154,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
+  '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -168,6 +176,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/v/$slug': typeof VSlugRoute
+  '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -189,6 +198,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/v/$slug'
+    | '/vagas-h2a/$state'
     | '/vagas-h2a/'
     | '/app/candidaturas'
     | '/app/comecar'
@@ -208,6 +218,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/v/$slug'
+    | '/vagas-h2a/$state'
     | '/vagas-h2a'
     | '/app/candidaturas'
     | '/app/comecar'
@@ -228,6 +239,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/v/$slug'
+    | '/vagas-h2a/$state'
     | '/vagas-h2a/'
     | '/_authenticated/app/candidaturas'
     | '/_authenticated/app/comecar'
@@ -249,6 +261,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   VSlugRoute: typeof VSlugRoute
+  VagasH2aStateRoute: typeof VagasH2aStateRoute
   VagasH2aIndexRoute: typeof VagasH2aIndexRoute
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
@@ -282,6 +295,13 @@ declare module '@tanstack/react-router' {
       path: '/vagas-h2a'
       fullPath: '/vagas-h2a/'
       preLoaderRoute: typeof VagasH2aIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vagas-h2a/$state': {
+      id: '/vagas-h2a/$state'
+      path: '/vagas-h2a/$state'
+      fullPath: '/vagas-h2a/$state'
+      preLoaderRoute: typeof VagasH2aStateRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/v/$slug': {
@@ -421,6 +441,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   VSlugRoute: VSlugRoute,
+  VagasH2aStateRoute: VagasH2aStateRoute,
   VagasH2aIndexRoute: VagasH2aIndexRoute,
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
