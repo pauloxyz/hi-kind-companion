@@ -187,7 +187,7 @@ function ConfiguracoesPage() {
           <Separator />
           <form onSubmit={handleChangeEmail} className="space-y-3">
             <div className="space-y-1.5">
-              <Label htmlFor="new-email">Alterar e-mail</Label>
+              <Label htmlFor="new-email">Novo e-mail</Label>
               <Input
                 id="new-email"
                 type="email"
@@ -196,11 +196,24 @@ function ConfiguracoesPage() {
                 onChange={(e) => setNewEmail(e.target.value)}
                 autoComplete="email"
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="email-reauth-pwd" className="flex items-center gap-1.5">
+                <ShieldAlert className="size-3.5" /> Confirme sua senha atual
+              </Label>
+              <Input
+                id="email-reauth-pwd"
+                type="password"
+                value={emailReauthPwd}
+                onChange={(e) => setEmailReauthPwd(e.target.value)}
+                autoComplete="current-password"
+                placeholder="••••••••"
+              />
               <p className="text-[11px] text-muted-foreground">
-                Você receberá um link de confirmação no novo endereço.
+                Por segurança, exigimos a senha atual para alterar o e-mail. Um link de confirmação será enviado ao novo endereço.
               </p>
             </div>
-            <Button type="submit" disabled={savingEmail || !newEmail}>
+            <Button type="submit" disabled={savingEmail || !newEmail || !emailReauthPwd}>
               {savingEmail && <Loader2 className="size-4 animate-spin" />}
               Atualizar e-mail
             </Button>
