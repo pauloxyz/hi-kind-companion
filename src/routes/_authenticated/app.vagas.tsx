@@ -379,18 +379,24 @@ function Page() {
     if (targets.length === 0) { toast.error("Nenhuma vaga selecionada válida (sem e-mail, suspeita ou já aplicada)."); return; }
     setBulkRunning(true);
     let success = 0, failed = 0;
-    toast.info(`Gerando ${targets.length} cartas em paralelo…`);
+    const progressToast = toast.loading(`Gerando ${targets.length} cartas em paralelo…`);
     const results = await Promise.allSettled(targets.map((j) => genFn({ data: { jobId: j.id } })));
-    toast.info(`Enviando emails pelo seu Gmail…`);
+    toast.loading(`Enviando 0/${targets.length} pelo seu Gmail…`, { id: progressToast });
     for (let i = 0; i < targets.length; i++) {
       const job = targets[i]; const r = results[i];
       if (r.status !== "fulfilled") { failed++; continue; }
       try {
-        const subject = `H-2A Application — ${job.job_title ?? "H-2A position"}${job.external_case_number ? ` (Case ${job.external_case_number})` : ""}`;
-        await sendFn({ data: { jobId: job.id, to: job.recruitment_email!, subject, body: r.value.text } });
-        await recordFn({ data: { jobId: job.id, coverLetterEn: r.value.text, contactMethod: "email",
-          attachedMediaIds: r.value.attachedMediaIds, attachedVideoId: r.value.attachedVideoId } });
+        const subject = `H-2A Application — ${job.job_title ?? "H-2A position"}`;
+        const sent = await sendFn({ data: { jobId: job.id, to: job.recruitment_email!, subject, body: r.value.text } });
+        await recordFn({ data: {
+          jobId: job.id, coverLetterEn: r.value.text, contactMethod: "email",
+          attachedMediaIds: r.value.attachedMediaIds, attachedVideoId: r.value.attachedVideoId,
+          gmailThreadId: sent.threadId ?? null, gmailMessageId: sent.gmailMessageId ?? null,
+        } });
         success++;
+        // Reflect in UI immediately so the user sees progress
+        setAppliedJobIds((prev) => new Set(prev).add(job.id));
+        toast.loading(`Enviando ${success + failed}/${targets.length} pelo seu Gmail…`, { id: progressToast });
         // Small delay to avoid Gmail per-user rate limit (250 quota units/sec)
         await new Promise((res) => setTimeout(res, 400));
       } catch (e) {
@@ -398,6 +404,7 @@ function Page() {
         console.error("Bulk send failed for", job.id, e);
       }
     }
+    toast.dismiss(progressToast);
     if (failed === 0) toast.success(`${success} candidaturas enviadas pelo Gmail.`);
     else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
     setBulkRunning(false); setSelected(new Set()); setBulkMode(false);
