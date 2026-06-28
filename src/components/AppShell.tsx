@@ -2,7 +2,7 @@ import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-route
 import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
-  Send, Bell, Building2, Stamp, LogOut, Languages, Menu, X, Sparkles,
+  Send, Bell, Building2, Stamp, LogOut, Languages, Menu, X, Sparkles, GraduationCap,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
@@ -16,6 +16,7 @@ type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exa
 const baseItems: NavItem[] = [
   { to: "/app", labelKey: "dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/perfil", labelKey: "profile", icon: User },
+  { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap },
   { to: "/app/curriculo", labelKey: "resume", icon: FileText },
   { to: "/app/midia", labelKey: "media", icon: ImageIcon },
   { to: "/app/video", labelKey: "intro_video", icon: Video },
