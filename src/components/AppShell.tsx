@@ -68,7 +68,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
               onClick={() => setOpen(false)}
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-                active ? "bg-primary text-primary-foreground" : "hover:bg-accent",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : it.highlight
+                    ? "bg-primary/10 text-primary font-medium hover:bg-primary/15"
+                    : "hover:bg-accent",
               )}
             >
               <Icon className="size-4" />
