@@ -13,6 +13,8 @@ async function assertAdmin(ctx: { supabase: any; userId: string }) {
   if (!data) throw new Error("Forbidden");
 }
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+
 export type AuditEvent = {
   id: string;
   event_type: string;
@@ -21,7 +23,7 @@ export type AuditEvent = {
   ip_address: string | null;
   user_agent: string | null;
   resource: string | null;
-  metadata: unknown;
+  metadata: JsonValue;
   created_at: string;
 };
 
