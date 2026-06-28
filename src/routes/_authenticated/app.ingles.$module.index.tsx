@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Lock, CheckCircle2, ChevronRight } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/app/ingles/$module")({
+export const Route = createFileRoute("/_authenticated/app/ingles/$module/")({
   component: ModulePage,
 });
 
