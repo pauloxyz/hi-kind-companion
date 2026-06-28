@@ -38,8 +38,7 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
   useEffect(() => {
     if (job && open) {
       const title = job.job_title ?? "H-2A position";
-      const caseRef = job.external_case_number ? ` (Case ${job.external_case_number})` : "";
-      setSubject(`H-2A Application — ${title}${caseRef}`);
+      setSubject(`H-2A Application — ${title}`);
     }
   }, [job, open]);
 
