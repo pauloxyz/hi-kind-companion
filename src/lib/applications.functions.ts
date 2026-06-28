@@ -9,6 +9,8 @@ const RecordApplicationInput = z.object({
   contactMethod: z.string().default("email"),
   attachedMediaIds: z.array(z.string().uuid()).optional(),
   attachedVideoId: z.string().uuid().nullable().optional(),
+  gmailThreadId: z.string().nullable().optional(),
+  gmailMessageId: z.string().nullable().optional(),
 });
 
 export const generateCoverLetter = createServerFn({ method: "POST" })
