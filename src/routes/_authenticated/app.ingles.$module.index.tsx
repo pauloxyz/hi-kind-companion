@@ -10,7 +10,7 @@ export const Route = createFileRoute("/_authenticated/app/ingles/$module/")({
 });
 
 function ModulePage() {
-  const { module: slug } = useParams({ from: "/_authenticated/app/ingles/$module" });
+  const { module: slug } = useParams({ from: "/_authenticated/app/ingles/$module/" });
 
   const { data: mod } = useQuery({
     queryKey: ["english-module", slug],
