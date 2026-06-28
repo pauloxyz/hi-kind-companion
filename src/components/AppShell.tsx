@@ -31,11 +31,11 @@ const groups: NavGroup[] = [
   {
     label: "Preparação",
     items: [
-      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap },
       { to: "/app/perfil", labelKey: "profile", icon: User },
       { to: "/app/curriculo", labelKey: "resume", icon: FileText },
       { to: "/app/midia", labelKey: "media", icon: ImageIcon },
       { to: "/app/video", labelKey: "intro_video", icon: Video },
+      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap },
       { to: "/app/visto", labelKey: "visa", icon: Stamp },
     ],
   },
@@ -48,6 +48,12 @@ const groups: NavGroup[] = [
       { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
     ],
   },
+];
+
+const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] = [
+  { code: "pt", label: "PT", flag: "🇧🇷" },
+  { code: "en", label: "EN", flag: "🇺🇸" },
+  { code: "es", label: "ES", flag: "🇪🇸" },
 ];
 
 export function AppShell({ children }: { children?: ReactNode }) {
@@ -140,30 +146,39 @@ export function AppShell({ children }: { children?: ReactNode }) {
         ))}
       </nav>
 
-      <div className="border-t bg-card/40 p-3">
-        <p className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-          Conta
-        </p>
-        <div className="space-y-0.5">
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-foreground/75 hover:text-foreground"
-            onClick={() => setLang(lang === "pt" ? "en" : "pt")}
-          >
-            <Languages className="size-4 text-muted-foreground" />
-            <span className="flex-1 text-left">{lang === "pt" ? "Idioma · EN" : "Language · PT"}</span>
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="w-full justify-start text-foreground/75 hover:text-foreground"
-            onClick={onLogout}
-          >
-            <LogOut className="size-4 text-muted-foreground" />
-            <span className="flex-1 text-left">{t("logout")}</span>
-          </Button>
+      <div className="border-t bg-card/40 p-3 space-y-3">
+        <div>
+          <p className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <Languages className="size-3" /> Acessibilidade
+          </p>
+          <div className="grid grid-cols-3 gap-1 px-1">
+            {LANG_OPTIONS.map((opt) => (
+              <button
+                key={opt.code}
+                type="button"
+                onClick={() => setLang(opt.code)}
+                className={cn(
+                  "flex flex-col items-center justify-center gap-0.5 rounded-md border py-1.5 text-[11px] font-semibold transition-colors",
+                  lang === opt.code
+                    ? "border-primary bg-primary text-primary-foreground shadow-sm"
+                    : "border-border bg-background text-foreground/70 hover:bg-accent hover:text-foreground",
+                )}
+              >
+                <span className="text-base leading-none">{opt.flag}</span>
+                <span>{opt.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start text-foreground/75 hover:text-foreground"
+          onClick={onLogout}
+        >
+          <LogOut className="size-4 text-muted-foreground" />
+          <span className="flex-1 text-left">{t("logout")}</span>
+        </Button>
       </div>
     </aside>
   );
