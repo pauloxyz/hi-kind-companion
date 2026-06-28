@@ -77,6 +77,10 @@ function Page() {
     void (async () => {
       await loadRows();
       setLoading(false);
+      // Mark replies as "seen" so the sidebar badge clears on next nav
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem("lastSeenRespondedAt", String(Date.now()));
+      }
       // Background auto-check for replies (silent). Only if it hasn't run in the last 30 min.
       const KEY = "lastReplyCheckAt";
       const last = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
@@ -97,6 +101,15 @@ function Page() {
     const { error } = await supabase.from("applications").update({ responded_at: new Date().toISOString(), status: "responded" }).eq("id", id);
     if (error) { toast.error(error.message); return; }
     setRows((rs) => rs.map((r) => r.id === id ? { ...r, responded_at: new Date().toISOString(), status: "responded" } : r));
+  }
+
+  async function setStatus(id: string, status: "interview" | "offer" | "rejected") {
+    const patch: Record<string, unknown> = { status };
+    if (!rows.find((r) => r.id === id)?.responded_at) patch.responded_at = new Date().toISOString();
+    const { error } = await supabase.from("applications").update(patch).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } as Row : r));
+    toast.success("Status atualizado");
   }
 
   async function handleCheckReplies() {
