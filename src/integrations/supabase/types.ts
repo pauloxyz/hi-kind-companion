@@ -769,6 +769,42 @@ export type Database = {
           },
         ]
       }
+      security_audit_log: {
+        Row: {
+          created_at: string
+          email_hash: string | null
+          event_type: string
+          id: string
+          ip_address: unknown
+          metadata: Json
+          resource: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email_hash?: string | null
+          event_type: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          resource?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email_hash?: string | null
+          event_type?: string
+          id?: string
+          ip_address?: unknown
+          metadata?: Json
+          resource?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           amount_cents: number | null
@@ -897,7 +933,24 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      security_hibp_daily: {
+        Row: {
+          auth_failures: number | null
+          day: string | null
+          hibp_blocks: number | null
+          weak_blocks: number | null
+        }
+        Relationships: []
+      }
+      security_pii_access_recent: {
+        Row: {
+          created_at: string | null
+          metadata: Json | null
+          resource: string | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
