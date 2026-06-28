@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { triggerDolImport } from "@/lib/jobs.functions";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
+import { sendApplicationEmail } from "@/lib/gmail.functions";
 import { ApplyDialog } from "@/components/ApplyDialog";
 import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/score";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -144,6 +145,7 @@ function Page() {
   const importFn = useServerFn(triggerDolImport);
   const genFn = useServerFn(generateCoverLetter);
   const recordFn = useServerFn(recordApplication);
+  const sendFn = useServerFn(sendApplicationEmail);
 
   async function load() {
     setLoading(true);
@@ -379,20 +381,25 @@ function Page() {
     let success = 0, failed = 0;
     toast.info(`Gerando ${targets.length} cartas em paralelo…`);
     const results = await Promise.allSettled(targets.map((j) => genFn({ data: { jobId: j.id } })));
+    toast.info(`Enviando emails pelo seu Gmail…`);
     for (let i = 0; i < targets.length; i++) {
       const job = targets[i]; const r = results[i];
       if (r.status !== "fulfilled") { failed++; continue; }
       try {
+        const subject = `H-2A Application — ${job.job_title ?? "H-2A position"}${job.external_case_number ? ` (Case ${job.external_case_number})` : ""}`;
+        await sendFn({ data: { jobId: job.id, to: job.recruitment_email!, subject, body: r.value.text } });
         await recordFn({ data: { jobId: job.id, coverLetterEn: r.value.text, contactMethod: "email",
           attachedMediaIds: r.value.attachedMediaIds, attachedVideoId: r.value.attachedVideoId } });
-        const subject = encodeURIComponent(`Application for ${job.job_title ?? "H-2A position"} (Case ${job.external_case_number ?? ""})`);
-        const body = encodeURIComponent(r.value.text);
-        window.open(`mailto:${job.recruitment_email}?subject=${subject}&body=${body}`, "_blank");
         success++;
-        await new Promise((res) => setTimeout(res, 1200));
-      } catch { failed++; }
+        // Small delay to avoid Gmail per-user rate limit (250 quota units/sec)
+        await new Promise((res) => setTimeout(res, 400));
+      } catch (e) {
+        failed++;
+        console.error("Bulk send failed for", job.id, e);
+      }
     }
-    toast.success(`${success} candidaturas enviadas, ${failed} falharam.`);
+    if (failed === 0) toast.success(`${success} candidaturas enviadas pelo Gmail.`);
+    else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
     setBulkRunning(false); setSelected(new Set()); setBulkMode(false);
     await load();
   }
