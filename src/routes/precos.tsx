@@ -57,6 +57,7 @@ const PLANS: Plan[] = [
     highlight: true,
     badge: "Mais escolhido",
     cta: "Assinar Pro",
+    priceId: "pro_monthly",
     features: [
       { ok: true, text: "Tudo do Grátis, sem limites" },
       { ok: true, text: "Candidaturas ilimitadas" },
