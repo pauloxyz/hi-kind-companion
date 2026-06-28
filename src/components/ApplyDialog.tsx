@@ -29,11 +29,14 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
   const [attachedMediaIds, setAttachedMediaIds] = useState<string[]>([]);
   const [attachedVideoId, setAttachedVideoId] = useState<string | null>(null);
   const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
+  const [confirmedPersonal, setConfirmedPersonal] = useState(false);
+  const [previewMode, setPreviewMode] = useState(false);
   const gen = useServerFn(generateCoverLetter);
   const record = useServerFn(recordApplication);
   const sendEmail = useServerFn(sendApplicationEmail);
 
   const fraud = job ? detectFraud(job.job_title, job.employer_name, job.employer_address) : { isSuspicious: false, reasons: [] };
+  const personalEmail = isPersonalEmailDomain(job?.recruitment_email);
 
   // Pre-fill subject when the job changes
   useEffect(() => {
