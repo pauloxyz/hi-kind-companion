@@ -33,6 +33,7 @@ import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authe
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 import { Route as AuthenticatedAppInglesModuleRouteImport } from './routes/_authenticated/app.ingles.$module'
+import { Route as AuthenticatedAppInglesModuleLessonRouteImport } from './routes/_authenticated/app.ingles.$module.$lesson'
 
 const PrecosRoute = PrecosRouteImport.update({
   id: '/precos',
@@ -161,6 +162,12 @@ const AuthenticatedAppInglesModuleRoute =
     path: '/$module',
     getParentRoute: () => AuthenticatedAppInglesRoute,
   } as any)
+const AuthenticatedAppInglesModuleLessonRoute =
+  AuthenticatedAppInglesModuleLessonRouteImport.update({
+    id: '/$lesson',
+    path: '/$lesson',
+    getParentRoute: () => AuthenticatedAppInglesModuleRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -182,10 +189,11 @@ export interface FileRoutesByFullPath {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app/': typeof AuthenticatedAppIndexRoute
-  '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRoute
+  '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
+  '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -206,10 +214,11 @@ export interface FileRoutesByTo {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app': typeof AuthenticatedAppIndexRoute
-  '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRoute
+  '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
+  '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -233,10 +242,11 @@ export interface FileRoutesById {
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
   '/_authenticated/app/visto': typeof AuthenticatedAppVistoRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
-  '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRoute
+  '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
+  '/_authenticated/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -264,6 +274,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/app/ingles/'
+    | '/app/ingles/$module/$lesson'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/app/ingles'
+    | '/app/ingles/$module/$lesson'
   id:
     | '__root__'
     | '/'
@@ -314,6 +326,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/_authenticated/app/ingles/'
+    | '/_authenticated/app/ingles/$module/$lesson'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -499,17 +512,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppInglesModuleRouteImport
       parentRoute: typeof AuthenticatedAppInglesRoute
     }
+    '/_authenticated/app/ingles/$module/$lesson': {
+      id: '/_authenticated/app/ingles/$module/$lesson'
+      path: '/$lesson'
+      fullPath: '/app/ingles/$module/$lesson'
+      preLoaderRoute: typeof AuthenticatedAppInglesModuleLessonRouteImport
+      parentRoute: typeof AuthenticatedAppInglesModuleRoute
+    }
   }
 }
 
+interface AuthenticatedAppInglesModuleRouteChildren {
+  AuthenticatedAppInglesModuleLessonRoute: typeof AuthenticatedAppInglesModuleLessonRoute
+}
+
+const AuthenticatedAppInglesModuleRouteChildren: AuthenticatedAppInglesModuleRouteChildren =
+  {
+    AuthenticatedAppInglesModuleLessonRoute:
+      AuthenticatedAppInglesModuleLessonRoute,
+  }
+
+const AuthenticatedAppInglesModuleRouteWithChildren =
+  AuthenticatedAppInglesModuleRoute._addFileChildren(
+    AuthenticatedAppInglesModuleRouteChildren,
+  )
+
 interface AuthenticatedAppInglesRouteChildren {
-  AuthenticatedAppInglesModuleRoute: typeof AuthenticatedAppInglesModuleRoute
+  AuthenticatedAppInglesModuleRoute: typeof AuthenticatedAppInglesModuleRouteWithChildren
   AuthenticatedAppInglesIndexRoute: typeof AuthenticatedAppInglesIndexRoute
 }
 
 const AuthenticatedAppInglesRouteChildren: AuthenticatedAppInglesRouteChildren =
   {
-    AuthenticatedAppInglesModuleRoute: AuthenticatedAppInglesModuleRoute,
+    AuthenticatedAppInglesModuleRoute:
+      AuthenticatedAppInglesModuleRouteWithChildren,
     AuthenticatedAppInglesIndexRoute: AuthenticatedAppInglesIndexRoute,
   }
 
