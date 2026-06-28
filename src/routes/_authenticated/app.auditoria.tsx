@@ -1,17 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Download, Shield, Lock, KeyRound, Eye } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, Shield, Lock, KeyRound, Eye, Search } from "lucide-react";
 import { toast } from "sonner";
-import { getAuditStats, listAuditEvents } from "@/lib/security-admin.functions";
+import { getAuditStats, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
+
+const EVENT_TYPES = [
+  { v: "", label: "Todos os tipos" },
+  { v: "hibp_block", label: "HIBP Block" },
+  { v: "weak_password_block", label: "Senha Fraca" },
+  { v: "auth_failure", label: "Falha de Auth" },
+  { v: "pii_access", label: "Acesso PII" },
+  { v: "admin_action", label: "Ação Admin" },
+  { v: "settings_viewed", label: "Configurações abertas" },
+  { v: "password_changed", label: "Senha alterada" },
+  { v: "email_change_requested", label: "Email alterado" },
+  { v: "account_deletion_requested", label: "Exclusão de conta" },
+  { v: "language_changed", label: "Idioma alterado" },
+  { v: "theme_changed", label: "Tema alterado" },
+];
+
+function csvEscape(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function eventsToCsv(rows: AuditEvent[]): string {
+  const head = ["created_at", "event_type", "user_id", "ip_address", "resource", "email_hash", "user_agent", "metadata"];
+  const lines = [head.join(",")];
+  for (const r of rows) {
+    lines.push([
+      r.created_at, r.event_type, r.user_id, r.ip_address, r.resource, r.email_hash, r.user_agent, r.metadata,
+    ].map(csvEscape).join(","));
+  }
+  return lines.join("\n");
+}
+
 
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
   component: AuditPanel,
