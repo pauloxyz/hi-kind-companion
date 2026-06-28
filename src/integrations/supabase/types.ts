@@ -214,6 +214,7 @@ export type Database = {
           id: string
           intro_pt: string
           is_free: boolean
+          listening_quiz: Json
           mastery_threshold: number
           module_id: string
           phrases: Json
@@ -237,6 +238,7 @@ export type Database = {
           id?: string
           intro_pt?: string
           is_free?: boolean
+          listening_quiz?: Json
           mastery_threshold?: number
           module_id: string
           phrases?: Json
@@ -260,6 +262,7 @@ export type Database = {
           id?: string
           intro_pt?: string
           is_free?: boolean
+          listening_quiz?: Json
           mastery_threshold?: number
           module_id?: string
           phrases?: Json
