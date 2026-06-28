@@ -56,7 +56,7 @@ export const submitMasteryQuiz = createServerFn({ method: "POST" })
         best_score: bestScore,
         attempts,
         mastered_at: masteredAt,
-        completed_at: passed ? new Date().toISOString() : existing ? undefined : null,
+        completed_at: passed ? new Date().toISOString() : (existing ? undefined : new Date().toISOString()),
       },
       { onConflict: "user_id,lesson_id" },
     );
