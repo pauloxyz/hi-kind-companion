@@ -17,6 +17,7 @@ export const Route = createFileRoute("/auth")({
     meta: [
       { title: "VaiPraLá — Entrar ou criar conta" },
       { name: "description", content: "Acesse seu painel de candidaturas H-2A." },
+      { name: "robots", content: "noindex,nofollow" },
     ],
   }),
   component: () => (
