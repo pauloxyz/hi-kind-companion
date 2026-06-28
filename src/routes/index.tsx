@@ -11,24 +11,38 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "VaiPraLá — Da roça brasileira para a fazenda americana | Visto H-2A" },
-      { name: "description", content: "Plataforma que conecta trabalhadores rurais brasileiros a vagas H-2A reais nos EUA. Vagas oficiais do DOL, carta em inglês com IA, curso de inglês e checklist do visto. Grátis para começar." },
+      { title: "VaiPraLá — Visto H-2A para brasileiros" },
+      { name: "description", content: "Vagas H-2A oficiais do DOL, carta em inglês com IA, curso de inglês e checklist do visto. Grátis para começar." },
       { property: "og:title", content: "VaiPraLá — Visto H-2A para brasileiros" },
       { property: "og:description", content: "Vagas reais de fazendas americanas, cartas em inglês com IA, curso de inglês e acompanhamento do visto." },
       { property: "og:url", content: "/" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [{ rel: "canonical", href: "/" }],
-    scripts: [{
-      type: "application/ld+json",
-      children: JSON.stringify({
-        "@context": "https://schema.org",
-        "@type": "Organization",
-        name: "VaiPraLá",
-        description: "Plataforma para trabalhadores rurais brasileiros aplicarem em vagas H-2A nos EUA.",
-        url: "/",
-      }),
-    }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "VaiPraLá",
+          description: "Plataforma para trabalhadores rurais brasileiros aplicarem em vagas H-2A nos EUA.",
+          url: "/",
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: FAQ.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }),
+      },
+    ],
   }),
   component: Landing,
 });

@@ -7,16 +7,35 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/vaiprala-logo.png";
 
+const PRECOS_FAQ = [
+  { q: "Posso usar de graça pra sempre?", a: "Sim! O plano grátis é permanente. Você só precisa do Pro se quiser candidaturas ilimitadas e automação." },
+  { q: "Como pago?", a: "Cartão de crédito brasileiro ou internacional. Cobrado em reais." },
+  { q: "Posso cancelar quando quiser?", a: "Sim, sem multa. Você continua com os benefícios até o fim do período pago." },
+  { q: "Tem reembolso?", a: "Sim, 7 dias de garantia no plano anual." },
+];
+
 export const Route = createFileRoute("/precos")({
   head: () => ({
     meta: [
-      { title: "Preços — VaiPraLá | Grátis para começar, Pro a partir de R$ 19,90" },
+      { title: "Preços VaiPraLá — Grátis e Pro a partir de R$ 19,90/mês" },
       { name: "description", content: "Comece grátis. Plano Pro com candidaturas ilimitadas, alertas de novas vagas e follow-up automático a partir de R$ 19,90/mês." },
       { property: "og:title", content: "Planos VaiPraLá — a partir de R$ 19,90/mês" },
       { property: "og:description", content: "Acelere sua chance de conseguir uma vaga H-2A. Plano grátis disponível." },
       { property: "og:url", content: "/precos" },
     ],
     links: [{ rel: "canonical", href: "/precos" }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: PRECOS_FAQ.map((f) => ({
+          "@type": "Question",
+          name: f.q,
+          acceptedAnswer: { "@type": "Answer", text: f.a },
+        })),
+      }),
+    }],
   }),
   component: PricingPage,
 });
@@ -184,12 +203,7 @@ function PricingPage() {
 
         <div className="mt-16 max-w-2xl mx-auto text-left space-y-4">
           <h3 className="text-2xl font-bold text-center mb-6">Perguntas sobre o pagamento</h3>
-          {[
-            { q: "Posso usar de graça pra sempre?", a: "Sim! O plano grátis é permanente. Você só precisa do Pro se quiser candidaturas ilimitadas e automação." },
-            { q: "Como pago?", a: "Cartão de crédito brasileiro ou internacional. Cobrado em reais." },
-            { q: "Posso cancelar quando quiser?", a: "Sim, sem multa. Você continua com os benefícios até o fim do período pago." },
-            { q: "Tem reembolso?", a: "Sim, 7 dias de garantia no plano anual." },
-          ].map((f) => (
+          {PRECOS_FAQ.map((f) => (
             <details key={f.q} className="rounded-lg border bg-card p-4">
               <summary className="cursor-pointer font-medium">{f.q}</summary>
               <p className="mt-2 text-sm text-muted-foreground">{f.a}</p>

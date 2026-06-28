@@ -24,6 +24,19 @@ export const Route = createFileRoute("/v/$slug")({
         ...(image ? [{ property: "og:image", content: image } as const, { name: "twitter:image", content: image } as const] : []),
       ],
       links: [{ rel: "canonical", href: path }],
+      scripts: [{
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Person",
+          name,
+          jobTitle: headline,
+          nationality: loaderData?.profile.country ?? undefined,
+          image,
+          knowsLanguage: loaderData?.profile.languages ?? undefined,
+          url: path,
+        }),
+      }],
     };
   },
   errorComponent: ({ error }) => <div className="p-8 text-center text-sm text-muted-foreground">Erro: {error.message}</div>,
