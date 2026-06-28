@@ -1,0 +1,13 @@
+{
+  "name": "VaiPraLá — Visto H-2A para brasileiros",
+  "short_name": "VaiPraLá",
+  "description": "Vagas H-2A reais, cartas em inglês com IA e acompanhamento do visto.",
+  "start_url": "/app",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#009c3b",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }
+  ]
+}

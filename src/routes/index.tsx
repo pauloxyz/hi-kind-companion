@@ -9,15 +9,27 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "VaiPraLá — Da roça brasileira para a fazenda americana | Visto H-2A" },
-      { name: "description", content: "Plataforma gratuita que conecta trabalhadores rurais brasileiros a vagas H-2A reais nos Estados Unidos. Vagas DOL ao vivo, carta em inglês com IA, vídeo de apresentação e checklist do visto." },
+      { name: "description", content: "Plataforma que conecta trabalhadores rurais brasileiros a vagas H-2A reais nos EUA. Vagas oficiais do DOL, carta em inglês com IA, vídeo de apresentação e checklist do visto. Grátis para começar." },
       { property: "og:title", content: "VaiPraLá — Visto H-2A para brasileiros" },
       { property: "og:description", content: "Vagas reais de fazendas americanas, cartas em inglês com IA, vídeo de apresentação e acompanhamento do visto." },
-      { property: "og:type", content: "website" },
+      { property: "og:url", content: "/" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "canonical", href: "/" }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: "VaiPraLá",
+        description: "Plataforma para trabalhadores rurais brasileiros aplicarem em vagas H-2A nos EUA.",
+        url: "/",
+      }),
+    }],
   }),
   component: Landing,
 });
+
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
@@ -37,8 +49,11 @@ function Landing() {
           <nav className="hidden md:flex items-center gap-6 text-sm">
             <a href="#como-funciona" className="text-muted-foreground hover:text-foreground">Como funciona</a>
             <a href="#recursos" className="text-muted-foreground hover:text-foreground">Recursos</a>
+            <Link to="/precos" className="text-muted-foreground hover:text-foreground">Preços</Link>
+            <Link to="/vagas-h2a" className="text-muted-foreground hover:text-foreground">Vagas</Link>
             <a href="#faq" className="text-muted-foreground hover:text-foreground">FAQ</a>
           </nav>
+
           <div className="flex items-center gap-2">
             {signedIn ? (
               <Link to="/app"><Button size="sm">Abrir meu app</Button></Link>
@@ -133,7 +148,43 @@ function Landing() {
         </div>
       </section>
 
+      {/* PREÇOS */}
+      <section id="precos" className="border-t">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-20 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Comece grátis. Pague só se quiser turbinar.</h2>
+          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Plano Grátis para sempre. Pro com candidaturas ilimitadas e automação por menos que uma pizza por mês.</p>
+          <div className="mt-10 grid sm:grid-cols-2 gap-4 max-w-3xl mx-auto text-left">
+            <div className="rounded-2xl border p-6 bg-card">
+              <div className="text-sm font-semibold text-muted-foreground">Grátis</div>
+              <div className="mt-1 text-3xl font-bold">R$ 0<span className="text-sm font-normal text-muted-foreground">/sempre</span></div>
+              <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground">
+                <li>✓ Vagas oficiais do DOL</li>
+                <li>✓ 10 candidaturas/mês</li>
+                <li>✓ Carta com IA + vídeo</li>
+                <li>✓ Checklist do visto</li>
+              </ul>
+            </div>
+            <div className="rounded-2xl border-2 border-primary p-6 bg-card relative">
+              <div className="absolute -top-3 left-6 px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-xs font-semibold">Mais escolhido</div>
+              <div className="text-sm font-semibold text-primary">Pro</div>
+              <div className="mt-1 text-3xl font-bold">R$ 19,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
+              <ul className="mt-4 space-y-1.5 text-sm">
+                <li>✓ Candidaturas ilimitadas</li>
+                <li>✓ Alertas por email de vagas novas</li>
+                <li>✓ Follow-up automático em 48h</li>
+                <li>✓ Detecção automática de respostas</li>
+                <li>✓ Selo Pro na sua página pública</li>
+              </ul>
+            </div>
+          </div>
+          <Link to="/precos" className="inline-block mt-8">
+            <Button variant="outline">Ver todos os planos <ArrowRight className="ml-2 h-4 w-4" /></Button>
+          </Link>
+        </div>
+      </section>
+
       {/* FAQ */}
+
       <section id="faq" className="border-t bg-muted/30">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 py-20">
           <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-center mb-10">Perguntas frequentes</h2>
