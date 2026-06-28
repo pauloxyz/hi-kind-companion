@@ -9,6 +9,7 @@ VaiPraLá ajuda candidatos brasileiros a encontrar e se candidatar a vagas reais
 - [Início](/): Visão geral da plataforma, depoimentos e como começar.
 - [Preços](/precos): Planos Grátis e Pro (a partir de R$ 19,90/mês).
 - [Vagas H-2A por estado](/vagas-h2a): Índice de todos os estados dos EUA com vagas H-2A abertas.
+- [Guia H-2A vs H-2B](/guia-h2a-vs-h2b): Comparação entre os dois principais vistos americanos de trabalho temporário.
 
 ## Optional
 
