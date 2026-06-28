@@ -330,9 +330,9 @@ function AuditPanel() {
             <CardHeader className="flex flex-row items-center justify-between gap-2">
               <CardTitle className="text-base">
                 IPs com atividade suspeita (24h) · {visibleAlerts.length}
-                {hideAcked && Object.keys(acks).length > 0 && (
+                {ackedHiddenCount > 0 && (
                   <span className="text-muted-foreground font-normal text-xs ml-2">
-                    ({Object.keys(acks).length} tratado{Object.keys(acks).length === 1 ? "" : "s"} oculto{Object.keys(acks).length === 1 ? "" : "s"})
+                    ({ackedHiddenCount} tratado{ackedHiddenCount === 1 ? "" : "s"} oculto{ackedHiddenCount === 1 ? "" : "s"})
                   </span>
                 )}
               </CardTitle>
@@ -350,19 +350,22 @@ function AuditPanel() {
                     <TableHead className="text-right">Falhas Auth</TableHead>
                     <TableHead className="text-right">HIBP</TableHead>
                     <TableHead>Severidade</TableHead>
+                    <TableHead>Tratado por</TableHead>
                     <TableHead className="text-right">Ação</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {visibleAlerts.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={7} className="text-center text-muted-foreground py-6">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground py-6">
                         Nenhum alerta {hideAcked && allAlerts.length > 0 ? "pendente" : ""}
                       </TableCell>
                     </TableRow>
                   )}
                   {visibleAlerts.map((a, i) => {
-                    const acked = !!acks[alertKey(a)];
+                    const key = alertKey(a);
+                    const ack = acksByKey[key];
+                    const acked = !!ack;
                     return (
                       <TableRow key={i} className={acked ? "opacity-60" : undefined}>
                         <TableCell>{new Date(a.hour).toLocaleString("pt-BR")}</TableCell>
@@ -373,13 +376,45 @@ function AuditPanel() {
                         <TableCell>
                           <Badge variant={sevVariant(a.risk_level)}>{a.risk_level.toUpperCase()}</Badge>
                         </TableCell>
+                        <TableCell className="text-xs">
+                          {ack ? (
+                            <div className="space-y-0.5">
+                              <div className="text-muted-foreground">
+                                {new Date(ack.acked_at).toLocaleString("pt-BR")}
+                              </div>
+                              {ack.note && (
+                                <div className="italic max-w-[220px] truncate" title={ack.note}>
+                                  "{ack.note}"
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </TableCell>
                         <TableCell className="text-right">
                           {acked ? (
-                            <Button size="sm" variant="ghost" onClick={() => unackAlert(a)}>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              disabled={unackMutation.isPending}
+                              onClick={() => unackMutation.mutate(key)}
+                            >
                               <RotateCcw className="size-3.5" /> Reabrir
                             </Button>
                           ) : (
-                            <Button size="sm" variant="outline" onClick={() => ackAlert(a)}>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setAckTarget({
+                                  hour: a.hour,
+                                  ip_address: a.ip_address,
+                                  risk_level: a.risk_level,
+                                });
+                                setAckNote("");
+                              }}
+                            >
                               <Check className="size-3.5" /> Tratar
                             </Button>
                           )}
