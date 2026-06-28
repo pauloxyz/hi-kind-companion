@@ -189,3 +189,27 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
     </CardContent></Card>
   );
 }
+
+function Funnel({ total, responded, hired }: { total: number; responded: number; hired: number }) {
+  const respondedPct = total > 0 ? Math.round((responded / total) * 100) : 0;
+  const hiredPct = total > 0 ? Math.round((hired / total) * 100) : 0;
+  const Bar = ({ label, count, pct, color }: { label: string; count: number; pct: number; color: string }) => (
+    <div>
+      <div className="flex items-center justify-between text-xs mb-1">
+        <span className="font-medium">{label}</span>
+        <span className="text-muted-foreground">{count} · {pct}%</span>
+      </div>
+      <div className="h-7 rounded-md bg-muted overflow-hidden">
+        <div className={`h-full ${color} transition-all`} style={{ width: `${Math.max(pct, 2)}%` }} />
+      </div>
+    </div>
+  );
+  return (
+    <div className="space-y-2.5">
+      <Bar label="Enviadas" count={total} pct={100} color="bg-primary" />
+      <Bar label="Respondidas" count={responded} pct={respondedPct} color="bg-green-500" />
+      <Bar label="Contratadas" count={hired} pct={hiredPct} color="bg-emerald-700" />
+    </div>
+  );
+}
+
