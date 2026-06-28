@@ -860,6 +860,7 @@ function RetentionTab() {
                           }))
                         }
                         className="w-24 ml-auto text-right"
+                        aria-label={`Dias de retenção para ${p.event_type}`}
                       />
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">
