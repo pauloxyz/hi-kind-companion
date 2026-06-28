@@ -122,6 +122,12 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
                   <div className="text-xs mt-1">Nunca pague taxas para conseguir uma vaga H-2A.</div></div></div>
             </div>
           )}
+          {duplicateWarning && (
+            <div className="rounded-md border border-yellow-500 bg-yellow-500/10 p-2 text-xs">
+              <div className="flex items-start gap-2"><AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mt-0.5" />
+                <div className="text-yellow-800 dark:text-yellow-300">{duplicateWarning}</div></div>
+            </div>
+          )}
           <Button variant="outline" size="sm" onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
             {letter ? "Regerar carta (EN)" : "Gerar carta com IA (EN)"}
