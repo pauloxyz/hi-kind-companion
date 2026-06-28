@@ -42,6 +42,9 @@ export const deleteOwnAccount = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const email = (context.claims as { email?: string })?.email;
     if (!email) throw new Error("missing email claim");
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    // 3 attempts / 15 min per user
+    await enforceRateLimit(`reauth_delete:${context.userId}`, 3, 900);
     const ok = await verifyPassword(email, data.password);
     if (!ok) {
       await logAccount(context, "reauth_failed", { action: "delete_account" });
