@@ -1,5 +1,7 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useState, type ReactNode } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { logAccountEvent } from "@/lib/security-audit.functions";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
   Send, Bell, Building2, Stamp, LogOut, Menu, X, Sparkles, GraduationCap,
@@ -67,6 +69,7 @@ const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
+  const logAccount = useServerFn(logAccountEvent);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
@@ -197,7 +200,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   role="radio"
                   aria-checked={selected}
                   aria-label={`Idioma ${opt.label}`}
-                  onClick={() => setLang(opt.code)}
+                  onClick={() => {
+                    if (lang !== opt.code) {
+                      setLang(opt.code);
+                      logAccount({ data: { event_type: "language_changed", metadata: { to: opt.code, from: lang, source: "appshell" } } }).catch(() => {});
+                    }
+                  }}
                   className={cn(
                     "flex flex-col items-center justify-center gap-0.5 rounded-md border py-1.5 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     selected
@@ -231,7 +239,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   role="radio"
                   aria-checked={selected}
                   aria-label={`Tema ${label}`}
-                  onClick={() => setTheme(code)}
+                  onClick={() => {
+                    if (theme !== code) {
+                      setTheme(code);
+                      logAccount({ data: { event_type: "theme_changed", metadata: { to: code, from: theme, source: "appshell" } } }).catch(() => {});
+                    }
+                  }}
                   className={cn(
                     "flex flex-col items-center justify-center gap-0.5 rounded-md border py-1.5 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     selected

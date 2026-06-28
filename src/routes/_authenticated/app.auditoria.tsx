@@ -1,17 +1,51 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { AlertTriangle, Download, Shield, Lock, KeyRound, Eye } from "lucide-react";
+import { AlertTriangle, Download, FileSpreadsheet, Shield, Lock, KeyRound, Eye, Search } from "lucide-react";
 import { toast } from "sonner";
-import { getAuditStats, listAuditEvents } from "@/lib/security-admin.functions";
+import { getAuditStats, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
+
+const EVENT_TYPES = [
+  { v: "", label: "Todos os tipos" },
+  { v: "hibp_block", label: "HIBP Block" },
+  { v: "weak_password_block", label: "Senha Fraca" },
+  { v: "auth_failure", label: "Falha de Auth" },
+  { v: "pii_access", label: "Acesso PII" },
+  { v: "admin_action", label: "Ação Admin" },
+  { v: "settings_viewed", label: "Configurações abertas" },
+  { v: "password_changed", label: "Senha alterada" },
+  { v: "email_change_requested", label: "Email alterado" },
+  { v: "account_deletion_requested", label: "Exclusão de conta" },
+  { v: "language_changed", label: "Idioma alterado" },
+  { v: "theme_changed", label: "Tema alterado" },
+];
+
+function csvEscape(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  const s = typeof v === "string" ? v : JSON.stringify(v);
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function eventsToCsv(rows: AuditEvent[]): string {
+  const head = ["created_at", "event_type", "user_id", "ip_address", "resource", "email_hash", "user_agent", "metadata"];
+  const lines = [head.join(",")];
+  for (const r of rows) {
+    lines.push([
+      r.created_at, r.event_type, r.user_id, r.ip_address, r.resource, r.email_hash, r.user_agent, r.metadata,
+    ].map(csvEscape).join(","));
+  }
+  return lines.join("\n");
+}
+
 
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
   component: AuditPanel,
@@ -27,6 +61,8 @@ function AuditPanel() {
   const fetchStats = useServerFn(getAuditStats);
   const fetchEvents = useServerFn(listAuditEvents);
   const [filter, setFilter] = useState<string>("");
+  const [sinceDays, setSinceDays] = useState<number>(30);
+  const [search, setSearch] = useState<string>("");
   const [exporting, setExporting] = useState(false);
 
   const stats = useQuery({
@@ -34,10 +70,22 @@ function AuditPanel() {
     queryFn: () => fetchStats(),
   });
   const events = useQuery({
-    queryKey: ["audit-events", filter],
+    queryKey: ["audit-events", filter, sinceDays],
     queryFn: () =>
-      fetchEvents({ data: { event_type: filter || undefined, limit: 200, since_days: 30 } }),
+      fetchEvents({ data: { event_type: filter || undefined, limit: 500, since_days: sinceDays } }),
   });
+
+  const filteredEvents = useMemo(() => {
+    const all = events.data ?? [];
+    const q = search.trim().toLowerCase();
+    if (!q) return all;
+    return all.filter((e) =>
+      [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
+        .filter(Boolean)
+        .some((v) => String(v).toLowerCase().includes(q)),
+    );
+  }, [events.data, search]);
+
 
   if (stats.error) {
     return (
@@ -73,6 +121,23 @@ function AuditPanel() {
     }
   };
 
+  const handleExportCsv = () => {
+    const rows = filteredEvents;
+    if (!rows.length) {
+      toast.error("Nenhum evento para exportar");
+      return;
+    }
+    const csv = eventsToCsv(rows);
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `auditoria-eventos-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`CSV gerado (${rows.length} eventos)`);
+  };
+
   const t = stats.data?.totals;
   const alerts = stats.data?.risk_alerts ?? [];
   const highAlerts = alerts.filter((a) => a.risk_level === "high");
@@ -85,13 +150,19 @@ function AuditPanel() {
             <Shield className="size-6" /> Auditoria de Segurança
           </h1>
           <p className="text-sm text-muted-foreground">
-            Últimos 30 dias · Retenção automática: 180 dias
+            Janela: {sinceDays} dias · Retenção automática: 180 dias
           </p>
         </div>
-        <Button onClick={handleExport} disabled={exporting || !stats.data}>
-          <Download className="size-4" /> {exporting ? "Gerando…" : "Exportar PDF"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportCsv} disabled={!filteredEvents.length}>
+            <FileSpreadsheet className="size-4" /> Exportar CSV
+          </Button>
+          <Button onClick={handleExport} disabled={exporting || !stats.data}>
+            <Download className="size-4" /> {exporting ? "Gerando…" : "Exportar PDF"}
+          </Button>
+        </div>
       </div>
+
 
       {highAlerts.length > 0 && (
         <Card className="border-destructive bg-destructive/5">
@@ -160,20 +231,46 @@ function AuditPanel() {
 
         <TabsContent value="events">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle className="text-base">Eventos recentes</CardTitle>
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="text-sm border rounded px-2 py-1 bg-background"
-              >
-                <option value="">Todos os tipos</option>
-                <option value="hibp_block">HIBP Block</option>
-                <option value="weak_password_block">Senha Fraca</option>
-                <option value="auth_failure">Falha de Auth</option>
-                <option value="pii_access">Acesso PII</option>
-                <option value="admin_action">Ação Admin</option>
-              </select>
+            <CardHeader className="space-y-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <CardTitle className="text-base">
+                  Eventos · {filteredEvents.length}
+                  {events.data && filteredEvents.length !== events.data.length && (
+                    <span className="text-muted-foreground font-normal"> de {events.data.length}</span>
+                  )}
+                </CardTitle>
+                <div className="flex flex-wrap gap-2">
+                  <select
+                    value={filter}
+                    onChange={(e) => setFilter(e.target.value)}
+                    className="text-sm border rounded px-2 py-1 bg-background"
+                  >
+                    {EVENT_TYPES.map((o) => (
+                      <option key={o.v} value={o.v}>{o.label}</option>
+                    ))}
+                  </select>
+                  <select
+                    value={sinceDays}
+                    onChange={(e) => setSinceDays(Number(e.target.value))}
+                    className="text-sm border rounded px-2 py-1 bg-background"
+                  >
+                    <option value={1}>Últimas 24h</option>
+                    <option value={7}>7 dias</option>
+                    <option value={30}>30 dias</option>
+                    <option value={90}>90 dias</option>
+                    <option value={180}>180 dias</option>
+                  </select>
+                </div>
+              </div>
+              <div className="relative">
+                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Buscar por IP, recurso, user_id, hash, metadata…"
+                  className="pl-8"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <Table>
@@ -183,27 +280,32 @@ function AuditPanel() {
                     <TableHead>Tipo</TableHead>
                     <TableHead>IP</TableHead>
                     <TableHead>Recurso</TableHead>
+                    <TableHead>Metadata</TableHead>
                     <TableHead>Email (hash)</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {(events.data ?? []).map((e) => (
+                  {filteredEvents.map((e) => (
                     <TableRow key={e.id}>
-                      <TableCell className="text-xs">{new Date(e.created_at).toLocaleString("pt-BR")}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">{new Date(e.created_at).toLocaleString("pt-BR")}</TableCell>
                       <TableCell><Badge variant="outline">{e.event_type}</Badge></TableCell>
                       <TableCell className="font-mono text-xs">{e.ip_address ?? "—"}</TableCell>
                       <TableCell className="text-xs">{e.resource ?? "—"}</TableCell>
+                      <TableCell className="text-xs font-mono max-w-[260px] truncate" title={JSON.stringify(e.metadata)}>
+                        {e.metadata && Object.keys(e.metadata as object).length > 0 ? JSON.stringify(e.metadata) : "—"}
+                      </TableCell>
                       <TableCell className="font-mono text-xs">{e.email_hash ? e.email_hash.slice(0, 12) + "…" : "—"}</TableCell>
                     </TableRow>
                   ))}
-                  {events.data?.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-6">Nenhum evento</TableCell></TableRow>
+                  {filteredEvents.length === 0 && (
+                    <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-6">Nenhum evento</TableCell></TableRow>
                   )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         </TabsContent>
+
 
         <TabsContent value="trend">
           <Card>
