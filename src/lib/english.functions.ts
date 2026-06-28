@@ -1,7 +1,111 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// ---------- Mark lesson complete ----------
+// ---------- Update guided study step ----------
+export const updateStudyStep = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { lessonId: string; step: number }) => input)
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("english_progress")
+      .upsert(
+        { user_id: userId, lesson_id: data.lessonId, current_step: data.step },
+        { onConflict: "user_id,lesson_id" },
+      );
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+// ---------- Submit mastery quiz (>=90% to pass) ----------
+export const submitMasteryQuiz = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { lessonId: string; correct: number; total: number }) => input,
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const score = data.total > 0 ? data.correct / data.total : 0;
+
+    const { data: lesson } = await supabase
+      .from("english_lessons")
+      .select("mastery_threshold")
+      .eq("id", data.lessonId)
+      .maybeSingle();
+    const threshold = Number(lesson?.mastery_threshold ?? 0.9);
+    const passed = score >= threshold;
+
+    const { data: existing } = await supabase
+      .from("english_progress")
+      .select("best_score, attempts, mastered_at")
+      .eq("user_id", userId)
+      .eq("lesson_id", data.lessonId)
+      .maybeSingle();
+
+    const bestScore = Math.max(Number(existing?.best_score ?? 0), score);
+    const attempts = (existing?.attempts ?? 0) + 1;
+    const masteredAt =
+      existing?.mastered_at ?? (passed ? new Date().toISOString() : null);
+
+    const { error } = await supabase.from("english_progress").upsert(
+      {
+        user_id: userId,
+        lesson_id: data.lessonId,
+        quiz_correct: data.correct,
+        quiz_total: data.total,
+        best_score: bestScore,
+        attempts,
+        mastered_at: masteredAt,
+        completed_at: passed ? new Date().toISOString() : (existing ? undefined : new Date().toISOString()),
+      },
+      { onConflict: "user_id,lesson_id" },
+    );
+    if (error) throw new Error(error.message);
+    return { passed, score, threshold, bestScore, attempts };
+  });
+
+// ---------- Review a flashcard (SRS-lite) ----------
+export const reviewFlashcard = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (input: { lessonId: string; cardIndex: number; correct: boolean }) => input,
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: existing } = await supabase
+      .from("english_flashcard_reviews")
+      .select("correct_streak, total_seen, total_correct, mastered")
+      .eq("user_id", userId)
+      .eq("lesson_id", data.lessonId)
+      .eq("card_index", data.cardIndex)
+      .maybeSingle();
+
+    const prevStreak = existing?.correct_streak ?? 0;
+    const newStreak = data.correct ? prevStreak + 1 : 0;
+    const mastered = newStreak >= 2; // need 2 correct in a row
+    // SRS-lite: again=10min, good=1d, mastered=7d
+    const dueMs = !data.correct ? 10 * 60_000 : mastered ? 7 * 86_400_000 : 86_400_000;
+    const next_due_at = new Date(Date.now() + dueMs).toISOString();
+
+    const { error } = await supabase.from("english_flashcard_reviews").upsert(
+      {
+        user_id: userId,
+        lesson_id: data.lessonId,
+        card_index: data.cardIndex,
+        correct_streak: newStreak,
+        total_seen: (existing?.total_seen ?? 0) + 1,
+        total_correct: (existing?.total_correct ?? 0) + (data.correct ? 1 : 0),
+        mastered: mastered || (existing?.mastered ?? false),
+        last_review_at: new Date().toISOString(),
+        next_due_at,
+      },
+      { onConflict: "user_id,lesson_id,card_index" },
+    );
+    if (error) throw new Error(error.message);
+    return { streak: newStreak, mastered };
+  });
+
+// ---------- Legacy: mark lesson complete (kept for compatibility) ----------
 export const markLessonComplete = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
@@ -24,6 +128,7 @@ export const markLessonComplete = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
 
 // ---------- TTS (returns base64 mp3) ----------
 export const speakText = createServerFn({ method: "POST" })

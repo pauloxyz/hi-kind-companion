@@ -148,6 +148,59 @@ export type Database = {
         }
         Relationships: []
       }
+      english_flashcard_reviews: {
+        Row: {
+          card_index: number
+          correct_streak: number
+          created_at: string
+          id: string
+          last_review_at: string
+          lesson_id: string
+          mastered: boolean
+          next_due_at: string
+          total_correct: number
+          total_seen: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          card_index: number
+          correct_streak?: number
+          created_at?: string
+          id?: string
+          last_review_at?: string
+          lesson_id: string
+          mastered?: boolean
+          next_due_at?: string
+          total_correct?: number
+          total_seen?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          card_index?: number
+          correct_streak?: number
+          created_at?: string
+          id?: string
+          last_review_at?: string
+          lesson_id?: string
+          mastered?: boolean
+          next_due_at?: string
+          total_correct?: number
+          total_seen?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "english_flashcard_reviews_lesson_id_fkey"
+            columns: ["lesson_id"]
+            isOneToOne: false
+            referencedRelation: "english_lessons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       english_lessons: {
         Row: {
           common_mistakes: Json
@@ -155,11 +208,13 @@ export type Database = {
           cultural_note: string
           dialogue: Json
           estimated_minutes: number
+          flashcards: Json
           goal_pt: string
           grammar_tip: string
           id: string
           intro_pt: string
           is_free: boolean
+          mastery_threshold: number
           module_id: string
           phrases: Json
           pronunciation_tip: string
@@ -168,6 +223,7 @@ export type Database = {
           sort_order: number
           title_en: string
           title_pt: string
+          warmup_pt: string | null
         }
         Insert: {
           common_mistakes?: Json
@@ -175,11 +231,13 @@ export type Database = {
           cultural_note?: string
           dialogue?: Json
           estimated_minutes?: number
+          flashcards?: Json
           goal_pt?: string
           grammar_tip?: string
           id?: string
           intro_pt?: string
           is_free?: boolean
+          mastery_threshold?: number
           module_id: string
           phrases?: Json
           pronunciation_tip?: string
@@ -188,6 +246,7 @@ export type Database = {
           sort_order?: number
           title_en: string
           title_pt: string
+          warmup_pt?: string | null
         }
         Update: {
           common_mistakes?: Json
@@ -195,11 +254,13 @@ export type Database = {
           cultural_note?: string
           dialogue?: Json
           estimated_minutes?: number
+          flashcards?: Json
           goal_pt?: string
           grammar_tip?: string
           id?: string
           intro_pt?: string
           is_free?: boolean
+          mastery_threshold?: number
           module_id?: string
           phrases?: Json
           pronunciation_tip?: string
@@ -208,6 +269,7 @@ export type Database = {
           sort_order?: number
           title_en?: string
           title_pt?: string
+          warmup_pt?: string | null
         }
         Relationships: [
           {
@@ -257,22 +319,34 @@ export type Database = {
       }
       english_progress: {
         Row: {
+          attempts: number
+          best_score: number
           completed_at: string
+          current_step: number
           lesson_id: string
+          mastered_at: string | null
           quiz_correct: number
           quiz_total: number
           user_id: string
         }
         Insert: {
+          attempts?: number
+          best_score?: number
           completed_at?: string
+          current_step?: number
           lesson_id: string
+          mastered_at?: string | null
           quiz_correct?: number
           quiz_total?: number
           user_id: string
         }
         Update: {
+          attempts?: number
+          best_score?: number
           completed_at?: string
+          current_step?: number
           lesson_id?: string
+          mastered_at?: string | null
           quiz_correct?: number
           quiz_total?: number
           user_id?: string
