@@ -121,6 +121,23 @@ function AuditPanel() {
     }
   };
 
+  const handleExportCsv = () => {
+    const rows = filteredEvents;
+    if (!rows.length) {
+      toast.error("Nenhum evento para exportar");
+      return;
+    }
+    const csv = eventsToCsv(rows);
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `auditoria-eventos-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success(`CSV gerado (${rows.length} eventos)`);
+  };
+
   const t = stats.data?.totals;
   const alerts = stats.data?.risk_alerts ?? [];
   const highAlerts = alerts.filter((a) => a.risk_level === "high");
@@ -133,13 +150,19 @@ function AuditPanel() {
             <Shield className="size-6" /> Auditoria de Segurança
           </h1>
           <p className="text-sm text-muted-foreground">
-            Últimos 30 dias · Retenção automática: 180 dias
+            Janela: {sinceDays} dias · Retenção automática: 180 dias
           </p>
         </div>
-        <Button onClick={handleExport} disabled={exporting || !stats.data}>
-          <Download className="size-4" /> {exporting ? "Gerando…" : "Exportar PDF"}
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExportCsv} disabled={!filteredEvents.length}>
+            <FileSpreadsheet className="size-4" /> Exportar CSV
+          </Button>
+          <Button onClick={handleExport} disabled={exporting || !stats.data}>
+            <Download className="size-4" /> {exporting ? "Gerando…" : "Exportar PDF"}
+          </Button>
+        </div>
       </div>
+
 
       {highAlerts.length > 0 && (
         <Card className="border-destructive bg-destructive/5">
