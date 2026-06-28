@@ -166,8 +166,72 @@ export const recordApplication = createServerFn({ method: "POST" })
       follow_up_due_at: followUp,
       attached_media_ids: data.attachedMediaIds ?? [],
       attached_video_id: data.attachedVideoId ?? null,
+      gmail_thread_id: data.gmailThreadId ?? null,
+      gmail_message_id: data.gmailMessageId ?? null,
     }).select("id").single();
 
     if (error) throw new Error(error.message);
     return { id: app.id, followUpDueAt: followUp };
+  });
+
+// Check Gmail threads for any inbound reply on the user's pending applications.
+// Marks responded_at when a thread has a message NOT sent by the user (i.e. inbound).
+const CheckRepliesInput = z.object({}).optional();
+export const checkApplicationReplies = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => CheckRepliesInput.parse(input ?? {}))
+  .handler(async ({ context }) => {
+    const { supabase, userId, claims } = context;
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    const gmailKey = process.env.GOOGLE_MAIL_API_KEY;
+    if (!lovableKey || !gmailKey) {
+      return { checked: 0, newReplies: 0, error: "Gmail não conectado" };
+    }
+    const ownerEmail = (claims as { email?: string } | undefined)?.email?.toLowerCase() ?? "";
+
+    // Fetch applications with a thread id and no response yet
+    const { data: apps } = await supabase
+      .from("applications")
+      .select("id, gmail_thread_id, sent_at")
+      .eq("owner_id", userId)
+      .is("responded_at", null)
+      .not("gmail_thread_id", "is", null)
+      .order("sent_at", { ascending: false })
+      .limit(50);
+
+    if (!apps?.length) return { checked: 0, newReplies: 0 };
+
+    let newReplies = 0;
+    const nowIso = new Date().toISOString();
+
+    for (const app of apps) {
+      try {
+        const res = await fetch(
+          `https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/threads/${app.gmail_thread_id}?format=metadata&metadataHeaders=From`,
+          { headers: { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": gmailKey } },
+        );
+        if (!res.ok) continue;
+        const thread = (await res.json()) as {
+          messages?: Array<{ payload?: { headers?: Array<{ name: string; value: string }> } }>;
+        };
+        const msgs = thread.messages ?? [];
+        // Look for any message whose From is NOT the user themselves.
+        const inbound = msgs.find((m) => {
+          const from = (m.payload?.headers ?? []).find((h) => h.name.toLowerCase() === "from")?.value ?? "";
+          return ownerEmail && !from.toLowerCase().includes(ownerEmail);
+        });
+        if (inbound) {
+          await supabase.from("applications")
+            .update({ responded_at: nowIso, status: "responded", last_reply_check_at: nowIso })
+            .eq("id", app.id);
+          newReplies++;
+        } else {
+          await supabase.from("applications").update({ last_reply_check_at: nowIso }).eq("id", app.id);
+        }
+      } catch {
+        // ignore individual failures, keep checking the rest
+      }
+    }
+
+    return { checked: apps.length, newReplies };
   });
