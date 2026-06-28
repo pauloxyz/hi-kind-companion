@@ -613,6 +613,24 @@ export type Database = {
         }
         Relationships: []
       }
+      rate_limit_buckets: {
+        Row: {
+          count: number
+          key: string
+          window_start: string
+        }
+        Insert: {
+          count?: number
+          key: string
+          window_start?: string
+        }
+        Update: {
+          count?: number
+          key?: string
+          window_start?: string
+        }
+        Relationships: []
+      }
       resume_experiences: {
         Row: {
           description_en: string | null
@@ -1022,6 +1040,10 @@ export type Database = {
       }
     }
     Functions: {
+      check_rate_limit: {
+        Args: { _key: string; _max: number; _window_seconds: number }
+        Returns: boolean
+      }
       escalate_high_risk_alerts: { Args: never; Returns: number }
       has_role: {
         Args: {
@@ -1031,6 +1053,7 @@ export type Database = {
         Returns: boolean
       }
       is_pro: { Args: { _user_id: string }; Returns: boolean }
+      purge_rate_limit_buckets: { Args: never; Returns: number }
       purge_security_audit_log: { Args: never; Returns: number }
     }
     Enums: {
