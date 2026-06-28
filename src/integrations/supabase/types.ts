@@ -951,6 +951,18 @@ export type Database = {
         }
         Relationships: []
       }
+      security_risk_alerts: {
+        Row: {
+          auth_failures: number | null
+          hibp_blocks: number | null
+          hour: string | null
+          ip_address: unknown
+          risk_level: string | null
+          total_events: number | null
+          weak_blocks: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
       has_role: {
@@ -961,6 +973,7 @@ export type Database = {
         Returns: boolean
       }
       is_pro: { Args: { _user_id: string }; Returns: boolean }
+      purge_security_audit_log: { Args: never; Returns: number }
     }
     Enums: {
       app_role: "admin" | "user"

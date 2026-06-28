@@ -2,8 +2,8 @@ import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-route
 import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
-  Send, Bell, Building2, Stamp, LogOut, Languages, Menu, X, Sparkles, GraduationCap,
-  Sun, Moon, Monitor,
+  Send, Bell, Building2, Stamp, LogOut, Menu, X, Sparkles, GraduationCap,
+  Sun, Moon, Monitor, Shield,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
@@ -66,11 +66,18 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const [open, setOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [unreadReplies, setUnreadReplies] = useState(0);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     supabase.from("my_profile").select("onboarding_completed_at").maybeSingle().then(({ data }) => {
       if (!cancelled) setShowOnboarding(!data?.onboarding_completed_at);
+    });
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return;
+      supabase.rpc("has_role", { _user_id: data.user.id, _role: "admin" }).then(({ data: ok }) => {
+        if (!cancelled) setIsAdmin(!!ok);
+      });
     });
     const lastSeen = typeof window !== "undefined" ? window.localStorage.getItem("lastSeenRespondedAt") : null;
     const since = lastSeen ? new Date(Number(lastSeen)).toISOString() : new Date(0).toISOString();
@@ -152,6 +159,17 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <div className="space-y-0.5">{g.items.map(renderItem)}</div>
           </div>
         ))}
+
+        {isAdmin && (
+          <div className="mt-5">
+            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+              Admin
+            </p>
+            <div className="space-y-0.5">
+              {renderItem({ to: "/app/auditoria", labelKey: "Auditoria", icon: Shield })}
+            </div>
+          </div>
+        )}
       </nav>
 
       <div className="border-t bg-card/40 p-3 space-y-3">
