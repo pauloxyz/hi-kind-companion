@@ -31,12 +31,24 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [unreadReplies, setUnreadReplies] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     supabase.from("my_profile").select("onboarding_completed_at").maybeSingle().then(({ data }) => {
       if (!cancelled) setShowOnboarding(!data?.onboarding_completed_at);
     });
+    // Count unread replies = responded_at after lastSeenRespondedAt in localStorage
+    const lastSeen = typeof window !== "undefined" ? window.localStorage.getItem("lastSeenRespondedAt") : null;
+    const since = lastSeen ? new Date(Number(lastSeen)).toISOString() : new Date(0).toISOString();
+    supabase
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .not("responded_at", "is", null)
+      .gte("responded_at", since)
+      .then(({ count }) => {
+        if (!cancelled) setUnreadReplies(count ?? 0);
+      });
     return () => { cancelled = true; };
   }, [pathname]);
 
@@ -61,6 +73,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         {items.map((it) => {
           const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
           const Icon = it.icon;
+          const showBadge = it.to === "/app/candidaturas" && unreadReplies > 0;
           return (
             <Link
               key={it.to}
@@ -76,7 +89,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
               )}
             >
               <Icon className="size-4" />
-              <span>{t(it.labelKey)}</span>
+              <span className="flex-1">{t(it.labelKey)}</span>
+              {showBadge && (
+                <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-green-600 px-1.5 text-[10px] font-bold text-white">
+                  {unreadReplies}
+                </span>
+              )}
             </Link>
           );
         })}
