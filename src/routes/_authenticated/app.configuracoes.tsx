@@ -43,9 +43,30 @@ function ConfiguracoesPage() {
   const changeEmailFn = useServerFn(changeEmailWithReauth);
   const deleteAccountFn = useServerFn(deleteOwnAccount);
   const signOutAllFn = useServerFn(signOutEverywhere);
+  const exportDataFn = useServerFn(exportMyData);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [signingOutAll, setSigningOutAll] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      const data = await exportDataFn();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `meus-dados-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Dados exportados com sucesso");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao exportar dados");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const handleSignOutEverywhere = async () => {
     if (!confirm("Encerrar todas as outras sessões? Você precisará fazer login novamente em todos os dispositivos.")) return;
