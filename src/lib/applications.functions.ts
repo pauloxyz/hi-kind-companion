@@ -171,6 +171,13 @@ export const recordApplication = createServerFn({ method: "POST" })
     }).select("id").single();
 
     if (error) throw new Error(error.message);
+
+    // Auto-complete onboarding the moment the first application is recorded.
+    await supabase.from("my_profile")
+      .update({ onboarding_completed_at: new Date().toISOString() })
+      .eq("owner_id", userId)
+      .is("onboarding_completed_at", null);
+
     return { id: app.id, followUpDueAt: followUp };
   });
 
