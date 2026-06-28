@@ -74,6 +74,7 @@ const PLANS: Plan[] = [
     price: "R$ 14,90",
     priceNote: "por mês · pago anual (R$ 178,80)",
     cta: "Economizar 25%",
+    priceId: "pro_yearly",
     features: [
       { ok: true, text: "Tudo do Pro" },
       { ok: true, text: "Economia de R$ 60/ano" },
