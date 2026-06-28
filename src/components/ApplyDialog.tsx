@@ -5,11 +5,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, Mail, Sparkles, Send, AlertTriangle } from "lucide-react";
+import { Loader2, Mail, Sparkles, Send, AlertTriangle, Eye, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
 import { sendApplicationEmail } from "@/lib/gmail.functions";
-import { detectFraud } from "@/lib/score";
+import { detectFraud, isPersonalEmailDomain } from "@/lib/score";
 import type { Database } from "@/integrations/supabase/types";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"];
