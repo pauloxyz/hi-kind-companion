@@ -266,23 +266,13 @@ function AuditPanel() {
     );
   };
 
-  const ackAlert = (a: { hour: string; ip_address: string | null }) => {
-    const next = { ...acks, [alertKey(a)]: { at: new Date().toISOString() } };
-    setAcks(next);
-    saveAcks(next);
-    toast.success("Alerta tratado");
-  };
-  const unackAlert = (a: { hour: string; ip_address: string | null }) => {
-    const next = { ...acks };
-    delete next[alertKey(a)];
-    setAcks(next);
-    saveAcks(next);
-  };
-
   const t = stats.data?.totals;
   const allAlerts = stats.data?.risk_alerts ?? [];
-  const visibleAlerts = hideAcked ? allAlerts.filter((a) => !acks[alertKey(a)]) : allAlerts;
+  const visibleAlerts = hideAcked ? allAlerts.filter((a) => !acksByKey[alertKey(a)]) : allAlerts;
   const highAlerts = visibleAlerts.filter((a) => a.risk_level === "high");
+  const ackedHiddenCount = hideAcked
+    ? allAlerts.filter((a) => acksByKey[alertKey(a)]).length
+    : 0;
 
   return (
     <div className="space-y-6">
