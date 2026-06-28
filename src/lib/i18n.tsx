@@ -5,6 +5,7 @@ type Dict = Record<string, { pt: string; en: string }>;
 
 const dict: Dict = {
   app_name: { pt: "VaiPraLá", en: "VaiPraLá" },
+  comecar: { pt: "Começar aqui", en: "Start here" },
   dashboard: { pt: "Dashboard", en: "Dashboard" },
   profile: { pt: "Meu Perfil", en: "My Profile" },
   resume: { pt: "Currículo", en: "Resume" },
