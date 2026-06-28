@@ -41,8 +41,27 @@ function ConfiguracoesPage() {
   const logEvent = useServerFn(logAccountEvent);
   const changeEmailFn = useServerFn(changeEmailWithReauth);
   const deleteAccountFn = useServerFn(deleteOwnAccount);
+  const signOutAllFn = useServerFn(signOutEverywhere);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [signingOutAll, setSigningOutAll] = useState(false);
+
+  const handleSignOutEverywhere = async () => {
+    if (!confirm("Encerrar todas as outras sessões? Você precisará fazer login novamente em todos os dispositivos.")) return;
+    setSigningOutAll(true);
+    try {
+      await signOutAllFn();
+      toast.success("Todas as sessões foram encerradas. Faça login novamente.");
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await supabase.auth.signOut();
+      navigate({ to: "/auth", replace: true });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao encerrar sessões");
+    } finally {
+      setSigningOutAll(false);
+    }
+  };
 
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
