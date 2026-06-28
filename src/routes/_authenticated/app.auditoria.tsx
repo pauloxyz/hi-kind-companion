@@ -102,6 +102,10 @@ function sevVariant(lvl: string): "default" | "destructive" | "secondary" {
 function AuditPanel() {
   const fetchStats = useServerFn(getAuditStats);
   const fetchEvents = useServerFn(listAuditEvents);
+  const fetchAcks = useServerFn(listAlertAcks);
+  const ackFn = useServerFn(ackAlert);
+  const unackFn = useServerFn(unackAlert);
+  const queryClient = useQueryClient();
   const [filter, setFilter] = useState<string>("");
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [search, setSearch] = useState<string>("");
@@ -111,12 +115,9 @@ function AuditPanel() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(50);
   const [selected, setSelected] = useState<AuditEvent | null>(null);
-  const [acks, setAcks] = useState<Record<string, { at: string; note?: string }>>({});
   const [hideAcked, setHideAcked] = useState(true);
-
-  useEffect(() => {
-    setAcks(loadAcks());
-  }, []);
+  const [ackTarget, setAckTarget] = useState<{ hour: string; ip_address: string | null; risk_level: string } | null>(null);
+  const [ackNote, setAckNote] = useState("");
 
   const stats = useQuery({
     queryKey: ["audit-stats"],
@@ -126,6 +127,39 @@ function AuditPanel() {
     queryKey: ["audit-events", filter, sinceDays],
     queryFn: () =>
       fetchEvents({ data: { event_type: filter || undefined, limit: 500, since_days: sinceDays } }),
+  });
+  const acksQuery = useQuery({
+    queryKey: ["audit-alert-acks"],
+    queryFn: () => fetchAcks(),
+  });
+  const acksByKey = useMemo(() => {
+    const m: Record<string, { note: string | null; acked_at: string }> = {};
+    for (const r of acksQuery.data ?? []) m[r.alert_key] = { note: r.note, acked_at: r.acked_at };
+    return m;
+  }, [acksQuery.data]);
+
+  const ackMutation = useMutation({
+    mutationFn: (input: {
+      alert_key: string;
+      hour: string;
+      ip_address: string | null;
+      risk_level: string;
+      note?: string;
+    }) => ackFn({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit-alert-acks"] });
+      queryClient.invalidateQueries({ queryKey: ["audit-events"] });
+      toast.success("Alerta tratado");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Falha ao tratar alerta"),
+  });
+  const unackMutation = useMutation({
+    mutationFn: (alert_key: string) => unackFn({ data: { alert_key } }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["audit-alert-acks"] });
+      toast.success("Alerta reaberto");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Falha ao reabrir"),
   });
 
   // Reset page on filter changes
