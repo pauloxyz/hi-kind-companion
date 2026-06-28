@@ -35,6 +35,7 @@ import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
+import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 import { Route as AuthenticatedAppInglesModuleRouteImport } from './routes/_authenticated/app.ingles.$module'
@@ -177,6 +178,11 @@ const AuthenticatedAppInglesIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAppInglesRoute,
   } as any)
+const ApiPublicHooksUptimeRoute = ApiPublicHooksUptimeRouteImport.update({
+  id: '/api/public/hooks/uptime',
+  path: '/api/public/hooks/uptime',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksImportDolFeedRoute =
   ApiPublicHooksImportDolFeedRouteImport.update({
     id: '/api/public/hooks/import-dol-feed',
@@ -236,6 +242,7 @@ export interface FileRoutesByFullPath {
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/app/ingles/$module/': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -266,6 +273,7 @@ export interface FileRoutesByTo {
   '/app': typeof AuthenticatedAppIndexRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -300,6 +308,7 @@ export interface FileRoutesById {
   '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/_authenticated/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/_authenticated/app/ingles/$module/': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -334,6 +343,7 @@ export interface FileRouteTypes {
     | '/app/ingles/$module'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/api/public/hooks/uptime'
     | '/app/ingles/'
     | '/app/ingles/$module/$lesson'
     | '/app/ingles/$module/'
@@ -364,6 +374,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/api/public/hooks/uptime'
     | '/app/ingles'
     | '/app/ingles/$module/$lesson'
     | '/app/ingles/$module'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/ingles/$module'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/api/public/hooks/uptime'
     | '/_authenticated/app/ingles/'
     | '/_authenticated/app/ingles/$module/$lesson'
     | '/_authenticated/app/ingles/$module/'
@@ -416,6 +428,7 @@ export interface RootRouteChildren {
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
+  ApiPublicHooksUptimeRoute: typeof ApiPublicHooksUptimeRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -602,6 +615,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppInglesIndexRouteImport
       parentRoute: typeof AuthenticatedAppInglesRoute
     }
+    '/api/public/hooks/uptime': {
+      id: '/api/public/hooks/uptime'
+      path: '/api/public/hooks/uptime'
+      fullPath: '/api/public/hooks/uptime'
+      preLoaderRoute: typeof ApiPublicHooksUptimeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/import-dol-feed': {
       id: '/api/public/hooks/import-dol-feed'
       path: '/api/public/hooks/import-dol-feed'
@@ -726,6 +746,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
+  ApiPublicHooksUptimeRoute: ApiPublicHooksUptimeRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -922,6 +922,36 @@ export type Database = {
         }
         Relationships: []
       }
+      uptime_checks: {
+        Row: {
+          checked_at: string
+          checks: Json | null
+          error: string | null
+          http_status: number | null
+          id: string
+          latency_ms: number | null
+          status: string
+        }
+        Insert: {
+          checked_at?: string
+          checks?: Json | null
+          error?: string | null
+          http_status?: number | null
+          id?: string
+          latency_ms?: number | null
+          status: string
+        }
+        Update: {
+          checked_at?: string
+          checks?: Json | null
+          error?: string | null
+          http_status?: number | null
+          id?: string
+          latency_ms?: number | null
+          status?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           created_at: string
@@ -1055,6 +1085,7 @@ export type Database = {
       is_pro: { Args: { _user_id: string }; Returns: boolean }
       purge_rate_limit_buckets: { Args: never; Returns: number }
       purge_security_audit_log: { Args: never; Returns: number }
+      purge_uptime_checks: { Args: never; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"

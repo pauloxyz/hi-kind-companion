@@ -47,6 +47,7 @@ import { getAuditStats, listAuditEvents, type AuditEvent } from "@/lib/security-
 import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
+import { UptimePanel } from "@/components/UptimePanel";
 
 const EVENT_TYPES = [
   { v: "", label: "Todos os tipos" },
@@ -323,6 +324,8 @@ function AuditPanel() {
           </CardContent>
         </Card>
       )}
+
+      <UptimePanel />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi icon={<Lock className="size-4" aria-hidden="true" />} label={tr("audit_kpi_hibp")} value={t?.hibp ?? 0} />
