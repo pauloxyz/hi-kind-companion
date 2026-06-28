@@ -130,6 +130,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <FraudBanner />
         </div>
       </main>
+      <OnboardingTour />
     </div>
   );
 }
