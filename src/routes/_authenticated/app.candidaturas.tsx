@@ -154,6 +154,15 @@ function Page() {
                 {r.follow_up_due_at && (<span>Follow-up: {new Date(r.follow_up_due_at).toLocaleDateString("pt-BR")}</span>)}
                 {r.jobs?.recruitment_email && (<a href={`mailto:${r.jobs.recruitment_email}`} className="inline-flex items-center gap-1 text-primary hover:underline"><Mail className="h-3 w-3" />{r.jobs.recruitment_email}</a>)}
               </div>
+              {r.reply_snippet && (
+                <div className="mt-2 rounded-md border-l-4 border-green-600 bg-green-600/5 p-2 text-xs">
+                  <div className="font-medium text-green-700 dark:text-green-400">
+                    📩 Resposta {r.reply_from ? `de ${r.reply_from}` : ""}
+                    {r.reply_received_at && <span className="ml-1 text-muted-foreground">· {new Date(r.reply_received_at).toLocaleString("pt-BR")}</span>}
+                  </div>
+                  <div className="mt-1 text-foreground/80 line-clamp-3">{r.reply_snippet}</div>
+                </div>
+              )}
               {!r.responded_at && (
                 <div className="pt-1">
                   <Button size="sm" variant="outline" onClick={() => markResponded(r.id)}>Marcar como respondido</Button>
