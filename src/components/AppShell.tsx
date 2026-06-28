@@ -30,6 +30,19 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("my_profile").select("onboarding_completed_at").maybeSingle().then(({ data }) => {
+      if (!cancelled) setShowOnboarding(!data?.onboarding_completed_at);
+    });
+    return () => { cancelled = true; };
+  }, [pathname]);
+
+  const items: NavItem[] = showOnboarding
+    ? [{ to: "/app/comecar", labelKey: "comecar", icon: Sparkles, highlight: true }, ...baseItems]
+    : baseItems;
 
   const onLogout = async () => {
     await supabase.auth.signOut();
