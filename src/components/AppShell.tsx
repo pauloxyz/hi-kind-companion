@@ -67,6 +67,7 @@ const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] 
 export function AppShell({ children }: { children?: ReactNode }) {
   const { t, lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
+  const logAccount = useServerFn(logAccountEvent);
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
