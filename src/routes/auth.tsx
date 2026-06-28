@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { useI18n, I18nProvider } from "@/lib/i18n";
 import logo from "@/assets/vaiprala-logo.png";
 import farmBg from "@/assets/auth-farm-bg.jpg";
-import { PasswordStrength } from "@/components/PasswordStrength";
+import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStrength";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -71,6 +71,10 @@ function AuthPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (mode === "signup" && !isPasswordAcceptable(password)) {
+      toast.error("Senha muito fraca. Use 8+ caracteres misturando letras, números e símbolos.");
+      return;
+    }
     setLoading(true);
     try {
       if (mode === "signin") {
