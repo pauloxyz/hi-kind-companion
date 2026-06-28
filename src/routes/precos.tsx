@@ -1,6 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { Check, X, ArrowRight, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { useStripeCheckout } from "@/hooks/useStripeCheckout";
+import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/vaiprala-logo.png";
 
 export const Route = createFileRoute("/precos")({
@@ -25,6 +29,7 @@ type Plan = {
   cta: string;
   features: Array<{ ok: boolean; text: string }>;
   badge?: string;
+  priceId?: string;
 };
 
 const PLANS: Plan[] = [
@@ -52,6 +57,7 @@ const PLANS: Plan[] = [
     highlight: true,
     badge: "Mais escolhido",
     cta: "Assinar Pro",
+    priceId: "pro_monthly",
     features: [
       { ok: true, text: "Tudo do Grátis, sem limites" },
       { ok: true, text: "Candidaturas ilimitadas" },
@@ -68,6 +74,7 @@ const PLANS: Plan[] = [
     price: "R$ 14,90",
     priceNote: "por mês · pago anual (R$ 178,80)",
     cta: "Economizar 25%",
+    priceId: "pro_yearly",
     features: [
       { ok: true, text: "Tudo do Pro" },
       { ok: true, text: "Economia de R$ 60/ano" },
@@ -78,8 +85,35 @@ const PLANS: Plan[] = [
 ];
 
 function PricingPage() {
+  const { openCheckout, closeCheckout, isOpen, checkoutElement } = useStripeCheckout();
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUser({ id: data.user.id, email: data.user.email ?? undefined });
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email ?? undefined } : null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const handleSubscribe = (priceId: string) => {
+    if (!user) {
+      window.location.href = `/auth?redirect=/precos`;
+      return;
+    }
+    openCheckout({
+      priceId,
+      customerEmail: user.email,
+      userId: user.id,
+      returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <PaymentTestModeBanner />
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -89,6 +123,7 @@ function PricingPage() {
           <Link to="/auth"><Button size="sm">Começar grátis</Button></Link>
         </div>
       </header>
+
 
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
@@ -116,11 +151,21 @@ function PricingPage() {
                 <span className="text-4xl font-bold">{p.price}</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">{p.priceNote}</p>
-              <Link to="/auth" className="mt-5">
-                <Button className="w-full" variant={p.highlight ? "default" : "outline"}>
+              {p.priceId ? (
+                <Button
+                  className="mt-5 w-full"
+                  variant={p.highlight ? "default" : "outline"}
+                  onClick={() => handleSubscribe(p.priceId!)}
+                >
                   {p.cta} <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
-              </Link>
+              ) : (
+                <Link to="/auth" className="mt-5">
+                  <Button className="w-full" variant={p.highlight ? "default" : "outline"}>
+                    {p.cta} <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                </Link>
+              )}
               <ul className="mt-6 space-y-2 text-sm">
                 {p.features.map((f) => (
                   <li key={f.text} className="flex items-start gap-2">
@@ -152,6 +197,22 @@ function PricingPage() {
           ))}
         </div>
       </section>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-background rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={closeCheckout}
+              className="absolute top-3 right-3 z-10 rounded-full bg-background border h-9 w-9 flex items-center justify-center hover:bg-muted"
+              aria-label="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="p-2">{checkoutElement}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
