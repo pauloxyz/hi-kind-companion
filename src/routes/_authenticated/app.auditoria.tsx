@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useI18n } from "@/lib/i18n";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
@@ -107,6 +108,7 @@ function AuditPanel() {
   const ackFn = useServerFn(ackAlert);
   const unackFn = useServerFn(unackAlert);
   const queryClient = useQueryClient();
+  const { t: tr } = useI18n();
   const [filter, setFilter] = useState<string>("");
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [search, setSearch] = useState<string>("");
@@ -280,26 +282,36 @@ function AuditPanel() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="size-6" /> Auditoria de Segurança
+            <Shield className="size-6" aria-hidden="true" /> {tr("audit_title")}
           </h1>
           <p className="text-sm text-muted-foreground">
-            Janela: {sinceDays} dias · Retenção automática: 180 dias
+            {tr("audit_window")}: {sinceDays} {tr("audit_days")} · {tr("audit_retention")}: 180 {tr("audit_days")}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={handleExportCsv} disabled={!filteredEvents.length}>
-            <FileSpreadsheet className="size-4" /> Exportar CSV
+          <Button
+            variant="outline"
+            onClick={handleExportCsv}
+            disabled={!filteredEvents.length}
+            aria-label={tr("audit_export_csv")}
+          >
+            <FileSpreadsheet className="size-4" aria-hidden="true" /> {tr("audit_export_csv")}
           </Button>
-          <Button onClick={handleExport} disabled={exporting || !stats.data}>
-            <Download className="size-4" /> {exporting ? "Gerando…" : "Exportar PDF"}
+          <Button
+            onClick={handleExport}
+            disabled={exporting || !stats.data}
+            aria-label={tr("audit_export_pdf")}
+          >
+            <Download className="size-4" aria-hidden="true" />{" "}
+            {exporting ? tr("audit_generating") : tr("audit_export_pdf")}
           </Button>
         </div>
       </div>
 
       {highAlerts.length > 0 && (
-        <Card className="border-destructive bg-destructive/5">
+        <Card className="border-destructive bg-destructive/5" role="alert">
           <CardContent className="p-4 flex items-start gap-3">
-            <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" />
+            <AlertTriangle className="size-5 text-destructive shrink-0 mt-0.5" aria-hidden="true" />
             <div className="text-sm">
               <p className="font-semibold text-destructive">
                 {highAlerts.length} alerta(s) de risco ALTO não tratado(s) nas últimas 24h
@@ -313,19 +325,20 @@ function AuditPanel() {
       )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Kpi icon={<Lock className="size-4" />} label="HIBP Blocks" value={t?.hibp ?? 0} />
-        <Kpi icon={<KeyRound className="size-4" />} label="Senhas fracas" value={t?.weak ?? 0} />
-        <Kpi icon={<AlertTriangle className="size-4" />} label="Falhas auth" value={t?.auth_fail ?? 0} />
-        <Kpi icon={<Eye className="size-4" />} label="Acessos PII" value={t?.pii ?? 0} />
+        <Kpi icon={<Lock className="size-4" aria-hidden="true" />} label={tr("audit_kpi_hibp")} value={t?.hibp ?? 0} />
+        <Kpi icon={<KeyRound className="size-4" aria-hidden="true" />} label={tr("audit_kpi_weak")} value={t?.weak ?? 0} />
+        <Kpi icon={<AlertTriangle className="size-4" aria-hidden="true" />} label={tr("audit_kpi_auth_fail")} value={t?.auth_fail ?? 0} />
+        <Kpi icon={<Eye className="size-4" aria-hidden="true" />} label={tr("audit_kpi_pii")} value={t?.pii ?? 0} />
       </div>
 
       <Tabs defaultValue="alerts">
         <TabsList>
-          <TabsTrigger value="alerts">Alertas de Risco</TabsTrigger>
-          <TabsTrigger value="events">Eventos</TabsTrigger>
-          <TabsTrigger value="trend">Tendência</TabsTrigger>
-          <TabsTrigger value="retention">Retenção</TabsTrigger>
+          <TabsTrigger value="alerts">{tr("audit_tab_alerts")}</TabsTrigger>
+          <TabsTrigger value="events">{tr("audit_tab_events")}</TabsTrigger>
+          <TabsTrigger value="trend">{tr("audit_tab_trend")}</TabsTrigger>
+          <TabsTrigger value="retention">{tr("audit_tab_retention")}</TabsTrigger>
         </TabsList>
+
 
         <TabsContent value="alerts">
           <Card>
@@ -339,7 +352,7 @@ function AuditPanel() {
                 )}
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={() => setHideAcked((v) => !v)}>
-                {hideAcked ? "Mostrar tratados" : "Ocultar tratados"}
+                {hideAcked ? tr("audit_show_acked") : tr("audit_hide_acked")}
               </Button>
             </CardHeader>
             <CardContent>
@@ -401,8 +414,9 @@ function AuditPanel() {
                               variant="ghost"
                               disabled={unackMutation.isPending}
                               onClick={() => unackMutation.mutate(key)}
+                              aria-label={tr("audit_reopen")}
                             >
-                              <RotateCcw className="size-3.5" /> Reabrir
+                              <RotateCcw className="size-3.5" aria-hidden="true" /> {tr("audit_reopen")}
                             </Button>
                           ) : (
                             <Button
@@ -416,8 +430,9 @@ function AuditPanel() {
                                 });
                                 setAckNote("");
                               }}
+                              aria-label={tr("audit_acknowledge")}
                             >
-                              <Check className="size-3.5" /> Tratar
+                              <Check className="size-3.5" aria-hidden="true" /> {tr("audit_acknowledge")}
                             </Button>
                           )}
                         </TableCell>
@@ -477,11 +492,14 @@ function AuditPanel() {
                 </div>
               </div>
               <div className="relative">
-                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <label htmlFor="audit-search" className="sr-only">{tr("audit_search_placeholder")}</label>
                 <Input
+                  id="audit-search"
+                  type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por IP, recurso, user_id, hash, metadata…"
+                  placeholder={tr("audit_search_placeholder")}
                   className="pl-8"
                 />
               </div>
@@ -842,6 +860,7 @@ function RetentionTab() {
                           }))
                         }
                         className="w-24 ml-auto text-right"
+                        aria-label={`Dias de retenção para ${p.event_type}`}
                       />
                     </TableCell>
                     <TableCell className="text-xs text-muted-foreground">

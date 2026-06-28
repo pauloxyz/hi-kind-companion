@@ -44,6 +44,43 @@ const dict: Dict = {
   mass_apply: { pt: "Aplicação em massa", en: "Bulk apply", es: "Postulación masiva" },
   refresh_jobs: { pt: "🔄 Buscar vagas agora", en: "🔄 Fetch jobs now", es: "🔄 Buscar vacantes ahora" },
   backfill_jobs: { pt: "Backfill últimos 15 dias", en: "Backfill last 15 days", es: "Recargar últimos 15 días" },
+
+  // Audit panel
+  audit_title: { pt: "Auditoria de Segurança", en: "Security Audit", es: "Auditoría de Seguridad" },
+  audit_window: { pt: "Janela", en: "Window", es: "Ventana" },
+  audit_retention: { pt: "Retenção automática", en: "Auto retention", es: "Retención automática" },
+  audit_days: { pt: "dias", en: "days", es: "días" },
+  audit_export_csv: { pt: "Exportar CSV", en: "Export CSV", es: "Exportar CSV" },
+  audit_export_pdf: { pt: "Exportar PDF", en: "Export PDF", es: "Exportar PDF" },
+  audit_generating: { pt: "Gerando…", en: "Generating…", es: "Generando…" },
+  audit_tab_alerts: { pt: "Alertas de Risco", en: "Risk Alerts", es: "Alertas de Riesgo" },
+  audit_tab_events: { pt: "Eventos", en: "Events", es: "Eventos" },
+  audit_tab_trend: { pt: "Tendência", en: "Trend", es: "Tendencia" },
+  audit_tab_retention: { pt: "Retenção", en: "Retention", es: "Retención" },
+  audit_show_acked: { pt: "Mostrar tratados", en: "Show acknowledged", es: "Mostrar tratados" },
+  audit_hide_acked: { pt: "Ocultar tratados", en: "Hide acknowledged", es: "Ocultar tratados" },
+  audit_search_placeholder: { pt: "Buscar por IP, recurso, user_id, hash, metadata…", en: "Search by IP, resource, user_id, hash, metadata…", es: "Buscar por IP, recurso, user_id, hash, metadata…" },
+  audit_kpi_hibp: { pt: "HIBP bloqueados", en: "HIBP blocks", es: "HIBP bloqueados" },
+  audit_kpi_weak: { pt: "Senhas fracas", en: "Weak passwords", es: "Contraseñas débiles" },
+  audit_kpi_auth_fail: { pt: "Falhas auth", en: "Auth failures", es: "Fallos de auth" },
+  audit_kpi_pii: { pt: "Acessos PII", en: "PII accesses", es: "Accesos PII" },
+  audit_action: { pt: "Ação", en: "Action", es: "Acción" },
+  audit_reopen: { pt: "Reabrir", en: "Reopen", es: "Reabrir" },
+  audit_acknowledge: { pt: "Tratar", en: "Acknowledge", es: "Tratar" },
+
+  // Settings
+  settings_title: { pt: "Configurações", en: "Settings", es: "Configuración" },
+  settings_language: { pt: "Idioma", en: "Language", es: "Idioma" },
+  settings_theme: { pt: "Tema", en: "Theme", es: "Tema" },
+  settings_security: { pt: "Segurança", en: "Security", es: "Seguridad" },
+  settings_export_data: { pt: "Exportar meus dados", en: "Export my data", es: "Exportar mis datos" },
+  settings_delete_account: { pt: "Excluir conta", en: "Delete account", es: "Eliminar cuenta" },
+  settings_change_email: { pt: "Alterar e-mail", en: "Change email", es: "Cambiar correo" },
+
+  // Common
+  cancel: { pt: "Cancelar", en: "Cancel", es: "Cancelar" },
+  close: { pt: "Fechar", en: "Close", es: "Cerrar" },
+  copy: { pt: "Copiar", en: "Copy", es: "Copiar" },
 };
 
 type I18nCtx = { lang: Lang; setLang: (l: Lang) => void; t: (k: keyof typeof dict | string) => string };
@@ -53,11 +90,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("pt");
   useEffect(() => {
     const saved = typeof window !== "undefined" ? (localStorage.getItem("lang") as Lang | null) : null;
-    if (saved === "pt" || saved === "en" || saved === "es") setLangState(saved);
+    const initial: Lang = saved === "pt" || saved === "en" || saved === "es" ? saved : "pt";
+    setLangState(initial);
+    if (typeof document !== "undefined") document.documentElement.lang = initial;
   }, []);
   const setLang = (l: Lang) => {
     setLangState(l);
     if (typeof window !== "undefined") localStorage.setItem("lang", l);
+    if (typeof document !== "undefined") document.documentElement.lang = l;
   };
   const t = (k: string) => (dict[k] ? dict[k][lang] : k);
   return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
