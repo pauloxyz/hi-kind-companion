@@ -67,7 +67,23 @@ function Page() {
   }
 
   useEffect(() => {
-    void (async () => { await loadRows(); setLoading(false); })();
+    void (async () => {
+      await loadRows();
+      setLoading(false);
+      // Background auto-check for replies (silent). Only if it hasn't run in the last 30 min.
+      const KEY = "lastReplyCheckAt";
+      const last = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
+      const stale = !last || Date.now() - Number(last) > 30 * 60 * 1000;
+      if (!stale) return;
+      try {
+        const r = await checkReplies({ data: {} });
+        if (typeof window !== "undefined") window.localStorage.setItem(KEY, String(Date.now()));
+        if (r && r.newReplies > 0) {
+          toast.success(`${r.newReplies} nova(s) resposta(s) detectada(s) no Gmail!`);
+          await loadRows();
+        }
+      } catch { /* silent */ }
+    })();
   }, []);
 
   async function markResponded(id: string) {
