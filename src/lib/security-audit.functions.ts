@@ -19,6 +19,13 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database } from "@/integrations/supabase/types";
 
 type AnonEvent = "hibp_block" | "weak_password_block" | "auth_failure";
+type AccountEvent =
+  | "password_changed"
+  | "password_change_failed"
+  | "email_change_requested"
+  | "email_change_failed"
+  | "account_deletion_requested"
+  | "settings_viewed";
 
 function hashEmail(email: string): string {
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
