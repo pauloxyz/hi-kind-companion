@@ -352,7 +352,7 @@ function AuditPanel() {
                 )}
               </CardTitle>
               <Button variant="ghost" size="sm" onClick={() => setHideAcked((v) => !v)}>
-                {hideAcked ? "Mostrar tratados" : "Ocultar tratados"}
+                {hideAcked ? tr("audit_show_acked") : tr("audit_hide_acked")}
               </Button>
             </CardHeader>
             <CardContent>
@@ -490,11 +490,14 @@ function AuditPanel() {
                 </div>
               </div>
               <div className="relative">
-                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                <label htmlFor="audit-search" className="sr-only">{tr("audit_search_placeholder")}</label>
                 <Input
+                  id="audit-search"
+                  type="search"
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Buscar por IP, recurso, user_id, hash, metadata…"
+                  placeholder={tr("audit_search_placeholder")}
                   className="pl-8"
                 />
               </div>
