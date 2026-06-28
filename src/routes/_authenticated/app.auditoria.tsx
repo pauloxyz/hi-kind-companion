@@ -820,7 +820,7 @@ function RetentionTab() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {policies.map((p) => {
+              {policies.map((p: RetentionPolicy) => {
                 const pending = edits[p.event_type];
                 const current = pending ?? p.retain_days;
                 const dirty = pending !== undefined && pending !== p.retain_days;
