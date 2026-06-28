@@ -107,17 +107,13 @@ function ConfiguracoesPage() {
       return;
     }
     setDeleting(true);
-    try {
-      const { error } = await supabase.rpc("request_account_deletion" as never);
-      if (error) throw error;
-      await supabase.auth.signOut();
-      toast.success("Conta agendada para exclusão. Você foi desconectado.");
-      navigate({ to: "/", replace: true });
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Não foi possível excluir a conta.");
-    } finally {
-      setDeleting(false);
-    }
+    const subject = encodeURIComponent("Solicitação de exclusão de conta");
+    const body = encodeURIComponent(
+      `Olá,\n\nSolicito a exclusão permanente da minha conta.\n\nE-mail: ${email}\nID: ${userId ?? ""}\n`,
+    );
+    window.location.href = `mailto:suporte@vaiprala.com?subject=${subject}&body=${body}`;
+    toast.success("Abrimos seu e-mail para enviar a solicitação ao suporte.");
+    setDeleting(false);
   };
 
   if (loading) {

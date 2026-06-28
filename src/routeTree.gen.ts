@@ -28,6 +28,7 @@ import { Route as AuthenticatedAppInglesRouteImport } from './routes/_authentica
 import { Route as AuthenticatedAppFollowupsRouteImport } from './routes/_authenticated/app.followups'
 import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_authenticated/app.empregadores'
 import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
+import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app.configuracoes'
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
@@ -135,6 +136,12 @@ const AuthenticatedAppCurriculoRoute =
     path: '/app/curriculo',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppConfiguracoesRoute =
+  AuthenticatedAppConfiguracoesRouteImport.update({
+    id: '/app/configuracoes',
+    path: '/app/configuracoes',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppComecarRoute = AuthenticatedAppComecarRouteImport.update({
   id: '/app/comecar',
   path: '/app/comecar',
@@ -201,6 +208,7 @@ export interface FileRoutesByFullPath {
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
+  '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
@@ -230,6 +238,7 @@ export interface FileRoutesByTo {
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
+  '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
@@ -259,6 +268,7 @@ export interface FileRoutesById {
   '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
+  '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
   '/_authenticated/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/_authenticated/app/followups': typeof AuthenticatedAppFollowupsRoute
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
+    | '/app/configuracoes'
     | '/app/curriculo'
     | '/app/empregadores'
     | '/app/followups'
@@ -319,6 +330,7 @@ export interface FileRouteTypes {
     | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
+    | '/app/configuracoes'
     | '/app/curriculo'
     | '/app/empregadores'
     | '/app/followups'
@@ -347,6 +359,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/auditoria'
     | '/_authenticated/app/candidaturas'
     | '/_authenticated/app/comecar'
+    | '/_authenticated/app/configuracoes'
     | '/_authenticated/app/curriculo'
     | '/_authenticated/app/empregadores'
     | '/_authenticated/app/followups'
@@ -514,6 +527,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCurriculoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/configuracoes': {
+      id: '/_authenticated/app/configuracoes'
+      path: '/app/configuracoes'
+      fullPath: '/app/configuracoes'
+      preLoaderRoute: typeof AuthenticatedAppConfiguracoesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/comecar': {
       id: '/_authenticated/app/comecar'
       path: '/app/comecar'
@@ -619,6 +639,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
   AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
   AuthenticatedAppComecarRoute: typeof AuthenticatedAppComecarRoute
+  AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
   AuthenticatedAppCurriculoRoute: typeof AuthenticatedAppCurriculoRoute
   AuthenticatedAppEmpregadoresRoute: typeof AuthenticatedAppEmpregadoresRoute
   AuthenticatedAppFollowupsRoute: typeof AuthenticatedAppFollowupsRoute
@@ -635,6 +656,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppAuditoriaRoute: AuthenticatedAppAuditoriaRoute,
   AuthenticatedAppCandidaturasRoute: AuthenticatedAppCandidaturasRoute,
   AuthenticatedAppComecarRoute: AuthenticatedAppComecarRoute,
+  AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
   AuthenticatedAppCurriculoRoute: AuthenticatedAppCurriculoRoute,
   AuthenticatedAppEmpregadoresRoute: AuthenticatedAppEmpregadoresRoute,
   AuthenticatedAppFollowupsRoute: AuthenticatedAppFollowupsRoute,
@@ -666,13 +688,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
