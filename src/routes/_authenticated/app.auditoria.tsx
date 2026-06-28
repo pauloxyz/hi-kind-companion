@@ -615,6 +615,10 @@ function AuditPanel() {
             </CardContent>
           </Card>
         </TabsContent>
+
+        <TabsContent value="retention">
+          <RetentionTab />
+        </TabsContent>
       </Tabs>
 
       <EventDetailsDialog event={selected} onClose={() => setSelected(null)} />
