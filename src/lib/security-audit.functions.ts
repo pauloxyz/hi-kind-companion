@@ -25,7 +25,9 @@ type AccountEvent =
   | "email_change_requested"
   | "email_change_failed"
   | "account_deletion_requested"
-  | "settings_viewed";
+  | "settings_viewed"
+  | "language_changed"
+  | "theme_changed";
 
 function hashEmail(email: string): string {
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
@@ -109,6 +111,8 @@ export const logAccountEvent = createServerFn({ method: "POST" })
       "email_change_failed",
       "account_deletion_requested",
       "settings_viewed",
+      "language_changed",
+      "theme_changed",
     ];
     if (!input || !allowed.includes(input.event_type)) throw new Error("invalid event_type");
     return input;

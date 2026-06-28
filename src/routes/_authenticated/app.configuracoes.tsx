@@ -260,7 +260,12 @@ function ConfiguracoesPage() {
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    onClick={() => setLang(opt.code)}
+                    onClick={() => {
+                      if (lang !== opt.code) {
+                        setLang(opt.code);
+                        logEvent({ data: { event_type: "language_changed", metadata: { to: opt.code, from: lang } } }).catch(() => {});
+                      }
+                    }}
                     className={cn(
                       "flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       selected
@@ -286,7 +291,12 @@ function ConfiguracoesPage() {
                     type="button"
                     role="radio"
                     aria-checked={selected}
-                    onClick={() => setTheme(code)}
+                    onClick={() => {
+                      if (theme !== code) {
+                        setTheme(code);
+                        logEvent({ data: { event_type: "theme_changed", metadata: { to: code, from: theme } } }).catch(() => {});
+                      }
+                    }}
                     className={cn(
                       "flex items-center justify-center gap-2 rounded-md border py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       selected
