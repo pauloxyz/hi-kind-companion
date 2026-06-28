@@ -37,9 +37,10 @@ function ConfiguracoesPage() {
   const { lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
   const logEvent = useServerFn(logAccountEvent);
-
-
-
+  const changeEmailFn = useServerFn(changeEmailWithReauth);
+  const deleteAccountFn = useServerFn(deleteOwnAccount);
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   const [email, setEmail] = useState("");
   const [userId, setUserId] = useState<string | null>(null);
@@ -50,12 +51,14 @@ function ConfiguracoesPage() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [savingPwd, setSavingPwd] = useState(false);
 
-  // change email
+  // change email — re-auth required
   const [newEmail, setNewEmail] = useState("");
+  const [emailReauthPwd, setEmailReauthPwd] = useState("");
   const [savingEmail, setSavingEmail] = useState(false);
 
-  // delete account
+  // delete account — re-auth required
   const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleteReauthPwd, setDeleteReauthPwd] = useState("");
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
