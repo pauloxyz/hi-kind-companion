@@ -25,6 +25,7 @@ import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authent
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
+import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -110,6 +111,12 @@ const ApiPublicHooksImportDolFeedRoute =
     path: '/api/public/hooks/import-dol-feed',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicHooksCheckRepliesRoute =
+  ApiPublicHooksCheckRepliesRouteImport.update({
+    id: '/api/public/hooks/check-replies',
+    path: '/api/public/hooks/check-replies',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -126,6 +133,7 @@ export interface FileRoutesByFullPath {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRoutesByTo {
@@ -143,6 +151,7 @@ export interface FileRoutesByTo {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRoutesById {
@@ -162,6 +171,7 @@ export interface FileRoutesById {
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
   '/_authenticated/app/visto': typeof AuthenticatedAppVistoRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
 }
 export interface FileRouteTypes {
@@ -181,6 +191,7 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/app/'
+    | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -198,6 +209,7 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/app'
+    | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
   id:
     | '__root__'
@@ -216,6 +228,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/video'
     | '/_authenticated/app/visto'
     | '/_authenticated/app/'
+    | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
   fileRoutesById: FileRoutesById
 }
@@ -224,6 +237,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   VSlugRoute: typeof VSlugRoute
+  ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
 }
 
@@ -341,6 +355,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksImportDolFeedRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/check-replies': {
+      id: '/api/public/hooks/check-replies'
+      path: '/api/public/hooks/check-replies'
+      fullPath: '/api/public/hooks/check-replies'
+      preLoaderRoute: typeof ApiPublicHooksCheckRepliesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -380,6 +401,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   VSlugRoute: VSlugRoute,
+  ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
 }
 export const routeTree = rootRouteImport
