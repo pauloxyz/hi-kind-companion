@@ -94,6 +94,19 @@ export function detectFraud(...texts: Array<string | null | undefined>): { isSus
   return { isSuspicious: reasons.length > 0, reasons: Array.from(new Set(reasons)) };
 }
 
+// Personal webmail domains used as recruiter contact — legal but unusual for serious H-2A operations.
+const PERSONAL_EMAIL_DOMAINS = new Set([
+  "gmail.com", "yahoo.com", "hotmail.com", "outlook.com", "aol.com",
+  "icloud.com", "live.com", "msn.com", "protonmail.com", "ymail.com",
+  "uol.com.br", "bol.com.br", "terra.com.br",
+]);
+export function isPersonalEmailDomain(email: string | null | undefined): boolean {
+  if (!email) return false;
+  const m = email.toLowerCase().match(/@([^>\s]+)/);
+  if (!m) return false;
+  return PERSONAL_EMAIL_DOMAINS.has(m[1].trim());
+}
+
 // ---------- Top Pick / Quality medal ----------
 // Ranking baseado em dados oficiais:
 // • AEWR 2025 por estado (DOL/OFLC, flag.dol.gov, vigente desde 16/dez/2024)
