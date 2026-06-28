@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useI18n } from "@/lib/i18n";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import { pdf } from "@react-pdf/renderer";
@@ -107,6 +108,7 @@ function AuditPanel() {
   const ackFn = useServerFn(ackAlert);
   const unackFn = useServerFn(unackAlert);
   const queryClient = useQueryClient();
+  const { t: tr } = useI18n();
   const [filter, setFilter] = useState<string>("");
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [search, setSearch] = useState<string>("");
