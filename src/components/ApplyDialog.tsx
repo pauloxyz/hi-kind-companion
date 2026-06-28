@@ -28,6 +28,7 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
   const [sending, setSending] = useState(false);
   const [attachedMediaIds, setAttachedMediaIds] = useState<string[]>([]);
   const [attachedVideoId, setAttachedVideoId] = useState<string | null>(null);
+  const [duplicateWarning, setDuplicateWarning] = useState<string | null>(null);
   const gen = useServerFn(generateCoverLetter);
   const record = useServerFn(recordApplication);
   const sendEmail = useServerFn(sendApplicationEmail);
@@ -39,6 +40,26 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
     if (job && open) {
       const title = job.job_title ?? "H-2A position";
       setSubject(`H-2A Application — ${title}`);
+      setDuplicateWarning(null);
+      // Check for recent application to the same employer
+      if (job.employer_name) {
+        const since = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString();
+        import("@/integrations/supabase/client").then(({ supabase }) => {
+          supabase
+            .from("applications")
+            .select("sent_at, jobs!inner(employer_name, job_title)")
+            .gte("sent_at", since)
+            .eq("jobs.employer_name", job.employer_name!)
+            .then(({ data }) => {
+              if (data && data.length > 0) {
+                const last = data[0];
+                setDuplicateWarning(
+                  `Você já se candidatou a este empregador (${job.employer_name}) ${data.length}x nos últimos 14 dias. Última: ${last.sent_at ? new Date(last.sent_at).toLocaleDateString("pt-BR") : "—"}.`,
+                );
+              }
+            });
+        });
+      }
     }
   }, [job, open]);
 
