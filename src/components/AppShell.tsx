@@ -1,8 +1,8 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
-  Send, Bell, Building2, Stamp, LogOut, Languages, Menu, X,
+  Send, Bell, Building2, Stamp, LogOut, Languages, Menu, X, Sparkles,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
@@ -11,8 +11,8 @@ import { Button } from "@/components/ui/button";
 import { FraudBanner } from "./StrategyBanner";
 import logoUrl from "@/assets/vaiprala-logo.png";
 
-type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean };
-const items: NavItem[] = [
+type NavItem = { to: string; labelKey: string; icon: typeof LayoutDashboard; exact?: boolean; highlight?: boolean };
+const baseItems: NavItem[] = [
   { to: "/app", labelKey: "dashboard", icon: LayoutDashboard, exact: true },
   { to: "/app/perfil", labelKey: "profile", icon: User },
   { to: "/app/curriculo", labelKey: "resume", icon: FileText },
@@ -30,6 +30,19 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    supabase.from("my_profile").select("onboarding_completed_at").maybeSingle().then(({ data }) => {
+      if (!cancelled) setShowOnboarding(!data?.onboarding_completed_at);
+    });
+    return () => { cancelled = true; };
+  }, [pathname]);
+
+  const items: NavItem[] = showOnboarding
+    ? [{ to: "/app/comecar", labelKey: "comecar", icon: Sparkles, highlight: true }, ...baseItems]
+    : baseItems;
 
   const onLogout = async () => {
     await supabase.auth.signOut();
@@ -55,7 +68,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
               onClick={() => setOpen(false)}
               className={cn(
                 "flex items-center gap-2 rounded-md px-3 py-2 text-sm",
-                active ? "bg-primary text-primary-foreground" : "hover:bg-accent",
+                active
+                  ? "bg-primary text-primary-foreground"
+                  : it.highlight
+                    ? "bg-primary/10 text-primary font-medium hover:bg-primary/15"
+                    : "hover:bg-accent",
               )}
             >
               <Icon className="size-4" />
