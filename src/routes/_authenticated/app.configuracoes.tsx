@@ -353,7 +353,7 @@ function ConfiguracoesPage() {
             Zona de perigo
           </CardTitle>
           <CardDescription>
-            A exclusão da conta remove permanentemente seus dados, candidaturas e perfil público.
+            A exclusão da conta remove permanentemente seus dados, candidaturas e perfil público. Esta ação é irreversível.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -368,10 +368,23 @@ function ConfiguracoesPage() {
               placeholder="EXCLUIR"
             />
           </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="delete-reauth-pwd" className="flex items-center gap-1.5">
+              <ShieldAlert className="size-3.5" /> Confirme sua senha atual
+            </Label>
+            <Input
+              id="delete-reauth-pwd"
+              type="password"
+              value={deleteReauthPwd}
+              onChange={(e) => setDeleteReauthPwd(e.target.value)}
+              autoComplete="current-password"
+              placeholder="••••••••"
+            />
+          </div>
           <Button
             variant="destructive"
             onClick={handleDeleteAccount}
-            disabled={deleting || deleteConfirm !== "EXCLUIR"}
+            disabled={deleting || deleteConfirm !== "EXCLUIR" || !deleteReauthPwd}
           >
             {deleting && <Loader2 className="size-4 animate-spin" />}
             Excluir minha conta
