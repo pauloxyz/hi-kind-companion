@@ -9,20 +9,7 @@ export const Route = createFileRoute("/api/public/seed-english")({
       POST: async ({ request }) => {
         const token = request.headers.get("x-seed-token");
         if (token !== SEED_TOKEN) return new Response("nope", { status: 401 });
-        const body = (await request.json()) as {
-          lessons: Array<{
-            _lesson_id: string;
-            warmup_pt: string;
-            phrases: unknown;
-            dialogue: unknown;
-            flashcards: unknown;
-            quiz: unknown;
-            grammar_tip: string;
-            pronunciation_tip: string;
-            common_mistakes: unknown;
-            cultural_note: string;
-          }>;
-        };
+        const body = (await request.json()) as { lessons: Array<Record<string, any>> };
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const results: Array<{ id: string; ok: boolean; error?: string }> = [];
         for (const l of body.lessons) {

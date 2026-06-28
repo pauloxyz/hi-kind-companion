@@ -18,6 +18,7 @@ import { Route as VagasH2aStateRouteImport } from './routes/vagas-h2a.$state'
 import { Route as VSlugRouteImport } from './routes/v.$slug'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
+import { Route as ApiPublicSeedEnglishRouteImport } from './routes/api/public/seed-english'
 import { Route as AuthenticatedAppVistoRouteImport } from './routes/_authenticated/app.visto'
 import { Route as AuthenticatedAppVideoRouteImport } from './routes/_authenticated/app.video'
 import { Route as AuthenticatedAppVagasRouteImport } from './routes/_authenticated/app.vagas'
@@ -79,6 +80,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const ApiPublicSeedEnglishRoute = ApiPublicSeedEnglishRouteImport.update({
+  id: '/api/public/seed-english',
+  path: '/api/public/seed-english',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedAppVistoRoute = AuthenticatedAppVistoRouteImport.update({
   id: '/app/visto',
@@ -195,6 +201,7 @@ export interface FileRoutesByFullPath {
   '/app/vagas': typeof AuthenticatedAppVagasRoute
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
+  '/api/public/seed-english': typeof ApiPublicSeedEnglishRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
@@ -221,6 +228,7 @@ export interface FileRoutesByTo {
   '/app/vagas': typeof AuthenticatedAppVagasRoute
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRoute
+  '/api/public/seed-english': typeof ApiPublicSeedEnglishRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/_authenticated/app/vagas': typeof AuthenticatedAppVagasRoute
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
   '/_authenticated/app/visto': typeof AuthenticatedAppVistoRoute
+  '/api/public/seed-english': typeof ApiPublicSeedEnglishRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
@@ -278,6 +287,7 @@ export interface FileRouteTypes {
     | '/app/vagas'
     | '/app/video'
     | '/app/visto'
+    | '/api/public/seed-english'
     | '/app/'
     | '/app/ingles/$module'
     | '/api/public/hooks/check-replies'
@@ -304,6 +314,7 @@ export interface FileRouteTypes {
     | '/app/vagas'
     | '/app/video'
     | '/app/visto'
+    | '/api/public/seed-english'
     | '/app'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
@@ -331,6 +342,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/vagas'
     | '/_authenticated/app/video'
     | '/_authenticated/app/visto'
+    | '/api/public/seed-english'
     | '/_authenticated/app/'
     | '/_authenticated/app/ingles/$module'
     | '/api/public/hooks/check-replies'
@@ -349,6 +361,7 @@ export interface RootRouteChildren {
   VSlugRoute: typeof VSlugRoute
   VagasH2aStateRoute: typeof VagasH2aStateRoute
   VagasH2aIndexRoute: typeof VagasH2aIndexRoute
+  ApiPublicSeedEnglishRoute: typeof ApiPublicSeedEnglishRoute
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
 }
@@ -417,6 +430,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/api/public/seed-english': {
+      id: '/api/public/seed-english'
+      path: '/api/public/seed-english'
+      fullPath: '/api/public/seed-english'
+      preLoaderRoute: typeof ApiPublicSeedEnglishRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/visto': {
       id: '/_authenticated/app/visto'
@@ -617,6 +637,7 @@ const rootRouteChildren: RootRouteChildren = {
   VSlugRoute: VSlugRoute,
   VagasH2aStateRoute: VagasH2aStateRoute,
   VagasH2aIndexRoute: VagasH2aIndexRoute,
+  ApiPublicSeedEnglishRoute: ApiPublicSeedEnglishRoute,
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
 }
