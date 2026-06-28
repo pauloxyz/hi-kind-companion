@@ -617,6 +617,61 @@ function AuditPanel() {
       </Tabs>
 
       <EventDetailsDialog event={selected} onClose={() => setSelected(null)} />
+
+      <Dialog open={!!ackTarget} onOpenChange={(o) => !o && setAckTarget(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Tratar alerta de risco</DialogTitle>
+            <DialogDescription>
+              Adicione uma nota opcional descrevendo a investigação ou a ação tomada.
+            </DialogDescription>
+          </DialogHeader>
+          {ackTarget && (
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-[80px_1fr] gap-x-3 gap-y-1">
+                <span className="text-muted-foreground">Hora</span>
+                <span>{new Date(ackTarget.hour).toLocaleString("pt-BR")}</span>
+                <span className="text-muted-foreground">IP</span>
+                <span className="font-mono text-xs">{ackTarget.ip_address ?? "—"}</span>
+                <span className="text-muted-foreground">Risco</span>
+                <span>
+                  <Badge variant={sevVariant(ackTarget.risk_level)}>
+                    {ackTarget.risk_level.toUpperCase()}
+                  </Badge>
+                </span>
+              </div>
+              <Textarea
+                value={ackNote}
+                onChange={(e) => setAckNote(e.target.value)}
+                placeholder="Ex.: IP bloqueado no firewall; usuário notificado…"
+                maxLength={1000}
+                rows={4}
+              />
+            </div>
+          )}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAckTarget(null)}>Cancelar</Button>
+            <Button
+              disabled={ackMutation.isPending || !ackTarget}
+              onClick={() => {
+                if (!ackTarget) return;
+                ackMutation.mutate(
+                  {
+                    alert_key: alertKey(ackTarget),
+                    hour: ackTarget.hour,
+                    ip_address: ackTarget.ip_address,
+                    risk_level: ackTarget.risk_level,
+                    note: ackNote.trim() || undefined,
+                  },
+                  { onSuccess: () => setAckTarget(null) },
+                );
+              }}
+            >
+              Marcar como tratado
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
