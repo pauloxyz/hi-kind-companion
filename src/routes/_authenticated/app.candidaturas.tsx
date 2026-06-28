@@ -19,6 +19,9 @@ type Row = {
   follow_up_sent_at: string | null;
   responded_at: string | null;
   cover_letter_en: string | null;
+  reply_snippet: string | null;
+  reply_from: string | null;
+  reply_received_at: string | null;
   jobs: { job_title: string | null; employer_name: string | null; worksite_state: string | null; worksite_city: string | null; recruitment_email: string | null; external_case_number: string | null } | null;
 };
 
@@ -60,7 +63,7 @@ function Page() {
   async function loadRows() {
     const { data, error } = await supabase
       .from("applications")
-      .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
+      .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,reply_snippet,reply_from,reply_received_at,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
       .order("sent_at", { ascending: false });
     if (error) toast.error(error.message);
     setRows((data as Row[]) ?? []);
@@ -151,6 +154,15 @@ function Page() {
                 {r.follow_up_due_at && (<span>Follow-up: {new Date(r.follow_up_due_at).toLocaleDateString("pt-BR")}</span>)}
                 {r.jobs?.recruitment_email && (<a href={`mailto:${r.jobs.recruitment_email}`} className="inline-flex items-center gap-1 text-primary hover:underline"><Mail className="h-3 w-3" />{r.jobs.recruitment_email}</a>)}
               </div>
+              {r.reply_snippet && (
+                <div className="mt-2 rounded-md border-l-4 border-green-600 bg-green-600/5 p-2 text-xs">
+                  <div className="font-medium text-green-700 dark:text-green-400">
+                    📩 Resposta {r.reply_from ? `de ${r.reply_from}` : ""}
+                    {r.reply_received_at && <span className="ml-1 text-muted-foreground">· {new Date(r.reply_received_at).toLocaleString("pt-BR")}</span>}
+                  </div>
+                  <div className="mt-1 text-foreground/80 line-clamp-3">{r.reply_snippet}</div>
+                </div>
+              )}
               {!r.responded_at && (
                 <div className="pt-1">
                   <Button size="sm" variant="outline" onClick={() => markResponded(r.id)}>Marcar como respondido</Button>

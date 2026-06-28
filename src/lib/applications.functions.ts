@@ -214,29 +214,37 @@ export const checkApplicationReplies = createServerFn({ method: "POST" })
     for (const app of apps) {
       try {
         const res = await fetch(
-          `https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/threads/${app.gmail_thread_id}?format=metadata&metadataHeaders=From`,
+          `https://connector-gateway.lovable.dev/google_mail/gmail/v1/users/me/threads/${app.gmail_thread_id}?format=metadata&metadataHeaders=From&metadataHeaders=Date`,
           { headers: { Authorization: `Bearer ${lovableKey}`, "X-Connection-Api-Key": gmailKey } },
         );
         if (!res.ok) continue;
         const thread = (await res.json()) as {
-          messages?: Array<{ payload?: { headers?: Array<{ name: string; value: string }> } }>;
+          messages?: Array<{ id?: string; snippet?: string; internalDate?: string; payload?: { headers?: Array<{ name: string; value: string }> } }>;
         };
         const msgs = thread.messages ?? [];
-        // Look for any message whose From is NOT the user themselves.
         const inbound = msgs.find((m) => {
           const from = (m.payload?.headers ?? []).find((h) => h.name.toLowerCase() === "from")?.value ?? "";
           return ownerEmail && !from.toLowerCase().includes(ownerEmail);
         });
         if (inbound) {
+          const from = (inbound.payload?.headers ?? []).find((h) => h.name.toLowerCase() === "from")?.value ?? null;
+          const receivedAt = inbound.internalDate ? new Date(Number(inbound.internalDate)).toISOString() : nowIso;
           await supabase.from("applications")
-            .update({ responded_at: nowIso, status: "responded", last_reply_check_at: nowIso })
+            .update({
+              responded_at: nowIso,
+              status: "responded",
+              last_reply_check_at: nowIso,
+              reply_snippet: inbound.snippet ?? null,
+              reply_from: from,
+              reply_received_at: receivedAt,
+            } as never)
             .eq("id", app.id);
           newReplies++;
         } else {
           await supabase.from("applications").update({ last_reply_check_at: nowIso }).eq("id", app.id);
         }
       } catch {
-        // ignore individual failures, keep checking the rest
+        // ignore individual failures
       }
     }
 

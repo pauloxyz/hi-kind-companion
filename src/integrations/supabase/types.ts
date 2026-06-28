@@ -30,6 +30,9 @@ export type Database = {
           last_reply_check_at: string | null
           notes: string | null
           owner_id: string
+          reply_from: string | null
+          reply_received_at: string | null
+          reply_snippet: string | null
           responded_at: string | null
           resume_id: string | null
           sent_at: string | null
@@ -50,6 +53,9 @@ export type Database = {
           last_reply_check_at?: string | null
           notes?: string | null
           owner_id: string
+          reply_from?: string | null
+          reply_received_at?: string | null
+          reply_snippet?: string | null
           responded_at?: string | null
           resume_id?: string | null
           sent_at?: string | null
@@ -70,6 +76,9 @@ export type Database = {
           last_reply_check_at?: string | null
           notes?: string | null
           owner_id?: string
+          reply_from?: string | null
+          reply_received_at?: string | null
+          reply_snippet?: string | null
           responded_at?: string | null
           resume_id?: string | null
           sent_at?: string | null
