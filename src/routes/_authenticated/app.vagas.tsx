@@ -17,6 +17,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { triggerDolImport } from "@/lib/jobs.functions";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
+import { sendApplicationEmail } from "@/lib/gmail.functions";
 import { ApplyDialog } from "@/components/ApplyDialog";
 import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/score";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
