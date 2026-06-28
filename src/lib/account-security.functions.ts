@@ -72,6 +72,8 @@ export const changeEmailWithReauth = createServerFn({ method: "POST" })
     if (email.toLowerCase() === data.new_email.toLowerCase()) {
       throw new Error("O novo e-mail é igual ao atual");
     }
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    await enforceRateLimit(`reauth_email:${context.userId}`, 5, 900);
     const ok = await verifyPassword(email, data.password);
     if (!ok) {
       await logAccount(context, "reauth_failed", { action: "change_email" });
