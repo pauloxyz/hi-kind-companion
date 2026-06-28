@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Lock, CheckCircle2, ChevronRight, Clock } from "lucide-react";
+import { ChevronLeft, Lock, CheckCircle2, ChevronRight, Clock, Trophy } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/ingles/$module/")({
   component: ModulePage,
@@ -37,8 +37,10 @@ function ModulePage() {
   const { data: progress } = useQuery({
     queryKey: ["english-progress"],
     queryFn: async () => {
-      const { data } = await supabase.from("english_progress").select("lesson_id");
-      return new Set((data ?? []).map((r) => r.lesson_id));
+      const { data } = await supabase.from("english_progress").select("lesson_id, mastered_at, best_score");
+      const map = new Map<string, { mastered: boolean; bestScore: number }>();
+      (data ?? []).forEach((r) => map.set(r.lesson_id, { mastered: !!r.mastered_at, bestScore: Number(r.best_score ?? 0) }));
+      return map;
     },
   });
 
@@ -64,7 +66,9 @@ function ModulePage() {
       <div className="space-y-3">
         {lessons.map((l, i) => {
           const locked = !l.is_free && !isPro;
-          const done = progress?.has(l.id);
+          const prog = progress?.get(l.id);
+          const mastered = !!prog?.mastered;
+          const attempted = !!prog;
           return (
             <Link
               key={l.id}
@@ -74,8 +78,8 @@ function ModulePage() {
             >
               <Card className={locked ? "opacity-70" : "hover:shadow-md transition-shadow"}>
                 <CardContent className="flex items-start gap-4 p-4">
-                  <div className="inline-flex items-center justify-center h-9 w-9 rounded-full bg-primary/10 text-primary font-semibold text-sm shrink-0">
-                    {i + 1}
+                  <div className={`inline-flex items-center justify-center h-9 w-9 rounded-full font-semibold text-sm shrink-0 ${mastered ? "bg-amber-500 text-white" : "bg-primary/10 text-primary"}`}>
+                    {mastered ? <Trophy className="h-4 w-4" /> : i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -85,7 +89,8 @@ function ModulePage() {
                       ) : (
                         <Badge className="text-[10px] bg-primary/15 text-primary hover:bg-primary/15">Pro</Badge>
                       )}
-                      {done && <CheckCircle2 className="h-4 w-4 text-green-600" />}
+                      {mastered && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-500 text-white gap-1"><Trophy className="h-3 w-3" /> Dominada</Badge>}
+                      {attempted && !mastered && <Badge variant="outline" className="text-[10px]">{Math.round((prog?.bestScore ?? 0) * 100)}%</Badge>}
                     </div>
                     {l.goal_pt && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{l.goal_pt}</p>}
                     <div className="flex items-center gap-3 mt-2 text-[11px] text-muted-foreground">
