@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -11,9 +11,11 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStrength";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, Sun, Moon, Monitor, AlertTriangle } from "lucide-react";
+import { Loader2, Sun, Moon, Monitor, AlertTriangle, ShieldAlert } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { logAccountEvent } from "@/lib/security-audit.functions";
+import { changeEmailWithReauth, deleteOwnAccount } from "@/lib/account-security.functions";
+import { useQueryClient } from "@tanstack/react-query";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfiguracoesPage,
