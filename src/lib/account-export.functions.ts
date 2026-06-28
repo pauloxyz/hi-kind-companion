@@ -28,7 +28,11 @@ const USER_ID_TABLES = ["subscriptions"] as const;
 export const exportMyData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    const { enforceRateLimit } = await import("./rate-limit.server");
+    // 3 exports per user per day — generous but stops abuse
+    await enforceRateLimit(`data_export:${context.userId}`, 3, 86400);
     const tables: Record<string, Row[]> = {};
+
 
     const client = context.supabase as unknown as {
       from: (t: string) => {
