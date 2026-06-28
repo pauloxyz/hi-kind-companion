@@ -11,11 +11,13 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStrength";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { Loader2, Sun, Moon, Monitor, AlertTriangle, ShieldAlert } from "lucide-react";
+import { Loader2, Sun, Moon, Monitor, AlertTriangle, ShieldAlert, LogOut } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { logAccountEvent } from "@/lib/security-audit.functions";
 import { changeEmailWithReauth, deleteOwnAccount } from "@/lib/account-security.functions";
+import { signOutEverywhere } from "@/lib/account-sessions.functions";
 import { useQueryClient } from "@tanstack/react-query";
+import { MfaCard } from "@/components/MfaCard";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfiguracoesPage,
