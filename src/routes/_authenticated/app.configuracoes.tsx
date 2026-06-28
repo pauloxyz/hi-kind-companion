@@ -12,6 +12,8 @@ import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStr
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Loader2, Sun, Moon, Monitor, AlertTriangle } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { logAccountEvent } from "@/lib/security-audit.functions";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfiguracoesPage,
