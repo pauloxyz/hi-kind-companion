@@ -197,6 +197,22 @@ function PricingPage() {
           ))}
         </div>
       </section>
+
+      {isOpen && (
+        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-background rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto relative">
+            <button
+              onClick={closeCheckout}
+              className="absolute top-3 right-3 z-10 rounded-full bg-background border h-9 w-9 flex items-center justify-center hover:bg-muted"
+              aria-label="Fechar"
+            >
+              <X className="h-4 w-4" />
+            </button>
+            <div className="p-2">{checkoutElement}</div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
