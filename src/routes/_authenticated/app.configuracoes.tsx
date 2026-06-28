@@ -108,20 +108,23 @@ function ConfiguracoesPage() {
 
   const handleChangeEmail = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail || newEmail === email) return;
+    if (!newEmail || newEmail === email || !emailReauthPwd) return;
     setSavingEmail(true);
-    const { error } = await supabase.auth.updateUser({ email: newEmail });
-    setSavingEmail(false);
-    if (error) {
-      toast.error(error.message);
+    try {
+      await changeEmailFn({ data: { password: emailReauthPwd, new_email: newEmail } });
+      toast.success("Enviamos um link de confirmação para o novo e-mail.");
+      setNewEmail("");
+      setEmailReauthPwd("");
+      logEvent({ data: { event_type: "email_change_requested" } }).catch(() => {});
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao atualizar e-mail";
+      toast.error(msg);
       logEvent({
-        data: { event_type: "email_change_failed", metadata: { message: error.message.slice(0, 200) } },
+        data: { event_type: "email_change_failed", metadata: { message: msg.slice(0, 200) } },
       }).catch(() => {});
-      return;
+    } finally {
+      setSavingEmail(false);
     }
-    toast.success("Enviamos um link de confirmação para o novo e-mail.");
-    setNewEmail("");
-    logEvent({ data: { event_type: "email_change_requested" } }).catch(() => {});
   };
 
   const handleDeleteAccount = async () => {
@@ -129,15 +132,25 @@ function ConfiguracoesPage() {
       toast.error('Digite "EXCLUIR" para confirmar.');
       return;
     }
+    if (!deleteReauthPwd) {
+      toast.error("Confirme sua senha atual.");
+      return;
+    }
     setDeleting(true);
-    const subject = encodeURIComponent("Solicitação de exclusão de conta");
-    const body = encodeURIComponent(
-      `Olá,\n\nSolicito a exclusão permanente da minha conta.\n\nE-mail: ${email}\nID: ${userId ?? ""}\n`,
-    );
-    logEvent({ data: { event_type: "account_deletion_requested" } }).catch(() => {});
-    window.location.href = `mailto:suporte@vaiprala.com?subject=${subject}&body=${body}`;
-    toast.success("Abrimos seu e-mail para enviar a solicitação ao suporte.");
-    setDeleting(false);
+    try {
+      logEvent({ data: { event_type: "account_deletion_requested" } }).catch(() => {});
+      await deleteAccountFn({ data: { password: deleteReauthPwd } });
+      toast.success("Conta excluída. Até logo.");
+      await queryClient.cancelQueries();
+      queryClient.clear();
+      await supabase.auth.signOut();
+      navigate({ to: "/auth", replace: true });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Falha ao excluir conta";
+      toast.error(msg);
+    } finally {
+      setDeleting(false);
+    }
   };
 
   if (loading) {
