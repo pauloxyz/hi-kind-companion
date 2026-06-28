@@ -17,7 +17,7 @@ function ModulePage() {
     queryFn: async () => {
       const { data } = await supabase
         .from("english_modules")
-        .select("id, slug, title_pt, description_pt, english_lessons(id, slug, title_pt, intro_pt, sort_order, is_free)")
+        .select("id, slug, title_pt, description_pt, level, english_lessons(id, slug, title_pt, intro_pt, goal_pt, sort_order, is_free, estimated_minutes)")
         .eq("slug", slug)
         .maybeSingle();
       return data;
