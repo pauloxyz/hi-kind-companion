@@ -34,6 +34,8 @@ const THEME_OPTIONS: { code: Theme; label: string; Icon: typeof Sun }[] = [
 function ConfiguracoesPage() {
   const { lang, setLang } = useI18n();
   const { theme, setTheme } = useTheme();
+  const logEvent = useServerFn(logAccountEvent);
+
 
 
 
