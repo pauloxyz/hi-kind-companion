@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { CheckCircle2, Circle, ArrowRight } from "lucide-react";
+import {
+  CheckCircle2, Circle, ArrowRight, Sparkles, FileText, Video, Send,
+  Shield, Globe2, Zap,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/comecar")({
   component: OnboardingPage,
@@ -25,11 +28,12 @@ type StepKey = (typeof STEPS)[number]["key"];
 
 function OnboardingPage() {
   const navigate = useNavigate();
-  const [step, setStep] = useState<number>(0);
+  // step = -1 → welcome / intro screen. 0..3 → real steps.
+  const [step, setStep] = useState<number>(-1);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [firstName, setFirstName] = useState<string>("");
 
-  // Step 1 form
   const [profile, setProfile] = useState({
     full_name: "", phone: "", country: "Brazil",
     has_prior_h2_experience: false, languages: ["pt"] as string[],
@@ -43,16 +47,17 @@ function OnboardingPage() {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
       setUserId(u.user.id);
-      const [{ data: p }, { data: exps }, { data: video }, { data: apps }] = await Promise.all([
+      const email = u.user.email ?? "";
+      setFirstName(email.split("@")[0].split(/[._-]/)[0] || "");
+
+      const [{ data: p }, { data: exps }, { data: video }, { data: media }, { data: apps }] = await Promise.all([
         supabase.from("my_profile").select("*").maybeSingle(),
         supabase.from("resume_experiences").select("id").limit(1),
         supabase.from("intro_video").select("id").eq("is_active", true).limit(1).maybeSingle(),
         supabase.from("work_media").select("id").limit(1),
+        supabase.from("applications").select("id").limit(1),
       ]);
-      if (p?.onboarding_completed_at) {
-        navigate({ to: "/app", replace: true });
-        return;
-      }
+
       if (p) setProfile({
         full_name: p.full_name ?? "", phone: p.phone ?? "", country: p.country ?? "Brazil",
         has_prior_h2_experience: !!p.has_prior_h2_experience, languages: p.languages ?? ["pt"],
@@ -60,13 +65,23 @@ function OnboardingPage() {
       const done = {
         profile: !!(p?.full_name && p?.phone),
         experience: (exps?.length ?? 0) > 0,
-        video: !!video || (apps?.length ?? 0) > 0,
-        "first-apply": false,
+        video: !!video || (media?.length ?? 0) > 0,
+        "first-apply": (apps?.length ?? 0) > 0,
       };
       setCompleted(done);
-      // Start at first incomplete step
-      const firstIncomplete = STEPS.findIndex((s) => !done[s.key]);
-      setStep(firstIncomplete === -1 ? 0 : firstIncomplete);
+      // If user already has all 4 done, mark onboarding complete and send to dashboard
+      if (p?.onboarding_completed_at && Object.values(done).every(Boolean)) {
+        navigate({ to: "/app", replace: true });
+        return;
+      }
+      // Returning user with something already done: skip welcome, go to first pending step
+      const hasAny = Object.values(done).some(Boolean);
+      if (hasAny) {
+        const firstIncomplete = STEPS.findIndex((s) => !done[s.key]);
+        setStep(firstIncomplete === -1 ? 3 : firstIncomplete);
+      } else {
+        setStep(-1); // brand new → welcome
+      }
       setLoading(false);
     })();
   }, [navigate]);
@@ -92,21 +107,75 @@ function OnboardingPage() {
       { owner_id: userId, onboarding_completed_at: new Date().toISOString() },
       { onConflict: "owner_id" },
     );
-    toast.success("Onboarding completo! Bem-vindo ao VaiPraLá 🇧🇷→🇺🇸");
+    toast.success("Tudo pronto! Bem-vindo ao VaiPraLá 🇧🇷→🇺🇸");
     navigate({ to: "/app", replace: true });
   };
 
   if (loading) return <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
 
+  // ---------- WELCOME SCREEN ----------
+  if (step === -1) {
+    return (
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="text-center space-y-3 py-4">
+          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium">
+            <Sparkles className="h-3.5 w-3.5" /> Bem-vindo{firstName ? `, ${firstName}` : ""}!
+          </div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
+            Sua jornada para trabalhar legalmente nos EUA começa aqui 🇺🇸
+          </h1>
+          <p className="text-base text-muted-foreground max-w-2xl mx-auto">
+            O VaiPraLá conecta você a vagas H-2A reais (visto de trabalho agrícola sazonal), escreve sua
+            carta de apresentação em inglês com IA e envia direto do seu Gmail para o empregador.
+          </p>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-3">
+          <FeatureCard icon={Globe2} title="Vagas oficiais"
+            desc="Importadas direto do Departamento do Trabalho dos EUA (DOL). Sem intermediários, sem fraude." />
+          <FeatureCard icon={Zap} title="Carta com IA em inglês"
+            desc="Não precisa falar inglês. A IA escreve uma carta profissional baseada na sua experiência." />
+          <FeatureCard icon={Shield} title="Anti-fraude embutido"
+            desc="Avisamos se a vaga tem sinais suspeitos. Nunca pague para conseguir uma H-2A." />
+        </div>
+
+        <Card className="border-primary/30">
+          <CardHeader>
+            <CardTitle className="text-lg">Como vai funcionar agora</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2.5 text-sm">
+            <Stepline n={1} icon={Sparkles} title="Conte quem você é" desc="Nome, contato, país (1 minuto)." />
+            <Stepline n={2} icon={FileText} title="Liste sua experiência" desc="Roça, café, gado, máquinas — vale tudo. Mesmo informal." />
+            <Stepline n={3} icon={Video} title="Grave um vídeo curto (opcional)" desc="Candidatos com vídeo recebem até 3x mais respostas." />
+            <Stepline n={4} icon={Send} title="Aplique na sua primeira vaga" desc="Você escolhe a vaga, a IA escreve, o Gmail envia." />
+          </CardContent>
+        </Card>
+
+        <div className="flex flex-col sm:flex-row gap-2">
+          <Button size="lg" className="flex-1" onClick={() => setStep(0)}>
+            Vamos começar <ArrowRight className="ml-2 h-4 w-4" />
+          </Button>
+          <Button size="lg" variant="ghost" onClick={finish}>
+            Já conheço, ir direto ao app
+          </Button>
+        </div>
+        <p className="text-xs text-center text-muted-foreground">
+          Leva uns 5 minutos. Você pode pausar e voltar a qualquer momento — seu progresso fica salvo.
+        </p>
+      </div>
+    );
+  }
+
+  // ---------- STEP-BY-STEP ----------
   const completedCount = Object.values(completed).filter(Boolean).length;
   const progressPct = (completedCount / STEPS.length) * 100;
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Vamos começar! 🌽</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Vamos preparar seu perfil 🌽</h1>
         <p className="text-sm text-muted-foreground">
-          4 passos rápidos para você estar pronto para aplicar nas vagas H-2A.
+          4 passos rápidos. Quanto mais completo seu perfil, maior a chance de o empregador responder.
         </p>
         <div className="space-y-1.5 pt-2">
           <div className="flex justify-between text-xs text-muted-foreground">
@@ -117,7 +186,6 @@ function OnboardingPage() {
         </div>
       </div>
 
-      {/* Step pills */}
       <div className="grid grid-cols-4 gap-2">
         {STEPS.map((s, i) => (
           <button
@@ -141,7 +209,6 @@ function OnboardingPage() {
         ))}
       </div>
 
-      {/* Step content */}
       {step === 0 && (
         <Card>
           <CardHeader><CardTitle>Quem é você?</CardTitle></CardHeader>
@@ -161,7 +228,10 @@ function OnboardingPage() {
               </div>
             </div>
             <div className="flex items-center justify-between rounded-md border p-3">
-              <Label>Já participei de programa H-2 antes</Label>
+              <div>
+                <Label>Já participei de programa H-2 antes</Label>
+                <p className="text-xs text-muted-foreground">Conta muito para o empregador.</p>
+              </div>
               <Switch checked={profile.has_prior_h2_experience} onCheckedChange={(v) => setProfile({ ...profile, has_prior_h2_experience: v })} />
             </div>
             <Button onClick={saveProfile} className="w-full">Salvar e continuar <ArrowRight className="ml-2 h-4 w-4" /></Button>
@@ -195,7 +265,10 @@ function OnboardingPage() {
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Candidatos com vídeo recebem <strong>3x mais respostas</strong>. 90 segundos em inglês simples bastam.
-              Você também pode subir fotos de trabalho.
+              Você também pode subir fotos do trabalho.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              💡 Na aba <strong>Mídia</strong>, marque suas melhores fotos com ⭐ — só as destacadas aparecem no link enviado ao empregador.
             </p>
             <div className="flex flex-wrap gap-2">
               <Link to="/app/video"><Button variant="outline">Gravar vídeo</Button></Link>
@@ -212,6 +285,7 @@ function OnboardingPage() {
           <CardContent className="space-y-3">
             <p className="text-sm text-muted-foreground">
               Tudo pronto! Vá para vagas, escolha uma que combine com você, e a IA escreve a carta em inglês automaticamente.
+              Depois é só revisar e enviar.
             </p>
             <div className="flex flex-wrap gap-2">
               <Link to="/app/vagas" className="flex-1">
@@ -222,6 +296,34 @@ function OnboardingPage() {
           </CardContent>
         </Card>
       )}
+    </div>
+  );
+}
+
+function FeatureCard({ icon: Icon, title, desc }: { icon: typeof Sparkles; title: string; desc: string }) {
+  return (
+    <div className="rounded-lg border bg-card p-4 space-y-1.5">
+      <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
+        <Icon className="h-4 w-4" />
+      </div>
+      <div className="font-semibold text-sm">{title}</div>
+      <div className="text-xs text-muted-foreground leading-relaxed">{desc}</div>
+    </div>
+  );
+}
+
+function Stepline({ n, icon: Icon, title, desc }: { n: number; icon: typeof Sparkles; title: string; desc: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
+        {n}
+      </div>
+      <div className="flex-1">
+        <div className="flex items-center gap-1.5 text-sm font-medium">
+          <Icon className="h-3.5 w-3.5 text-muted-foreground" /> {title}
+        </div>
+        <div className="text-xs text-muted-foreground">{desc}</div>
+      </div>
     </div>
   );
 }
