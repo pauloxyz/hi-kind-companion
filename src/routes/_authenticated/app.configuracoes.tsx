@@ -319,6 +319,26 @@ function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
+      {/* Exportar dados */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Download className="size-5" /> Exportar meus dados
+          </CardTitle>
+          <CardDescription>
+            Baixe uma cópia em JSON de todos os dados associados à sua conta (LGPD/GDPR).
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button variant="outline" disabled={exporting} onClick={handleExportData}>
+            {exporting && <Loader2 className="size-4 animate-spin" />}
+            Baixar meus dados (JSON)
+          </Button>
+        </CardContent>
+      </Card>
+
+
+
 
       {/* Preferências */}
       <Card>
