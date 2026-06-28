@@ -10,6 +10,7 @@ import { useI18n, I18nProvider } from "@/lib/i18n";
 import logo from "@/assets/vaiprala-logo.png";
 import farmBg from "@/assets/auth-farm-bg.jpg";
 import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStrength";
+import { logSecurityEvent } from "@/lib/security-audit.functions";
 
 export const Route = createFileRoute("/auth")({
   head: () => ({
@@ -73,19 +74,33 @@ function AuthPage() {
     e.preventDefault();
     if (mode === "signup" && !isPasswordAcceptable(password)) {
       toast.error("Senha muito fraca. Use 8+ caracteres misturando letras, números e símbolos.");
+      void logSecurityEvent({ data: { event_type: "weak_password_block", email } }).catch(() => {});
       return;
     }
     setLoading(true);
     try {
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
+        if (error) {
+          void logSecurityEvent({ data: { event_type: "auth_failure", email, metadata: { reason: error.message } } }).catch(() => {});
+          throw error;
+        }
       } else {
         const { error } = await supabase.auth.signUp({
           email, password,
           options: { emailRedirectTo: window.location.origin + "/app" },
         });
-        if (error) throw error;
+        if (error) {
+          const isHibp = /weak|pwned|leaked|known.*easy.*guess/i.test(error.message);
+          void logSecurityEvent({
+            data: {
+              event_type: isHibp ? "hibp_block" : "auth_failure",
+              email,
+              metadata: { reason: error.message, status: (error as { status?: number }).status ?? null },
+            },
+          }).catch(() => {});
+          throw error;
+        }
       }
       navigate({ to: "/app", replace: true });
     } catch (err) {
