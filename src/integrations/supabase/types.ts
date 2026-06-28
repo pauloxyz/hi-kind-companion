@@ -1022,6 +1022,7 @@ export type Database = {
       }
     }
     Functions: {
+      escalate_high_risk_alerts: { Args: never; Returns: number }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
