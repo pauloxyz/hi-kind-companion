@@ -511,7 +511,7 @@ function DialogueStep({
       </Card>
       <div className="flex justify-between">
         <Button variant="outline" onClick={onBack}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
-        <Button onClick={onNext} size="lg" className="gap-2">Próximo: Flashcards <ChevronRight className="h-4 w-4" /></Button>
+        <Button onClick={onNext} size="lg" className="gap-2">Próximo: Listening <ChevronRight className="h-4 w-4" /></Button>
       </div>
     </div>
   );
