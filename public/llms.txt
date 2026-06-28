@@ -1,0 +1,16 @@
+# VaiPraLá
+
+> Plataforma gratuita que conecta trabalhadores rurais brasileiros a vagas H-2A oficiais (Departamento do Trabalho dos EUA), com carta em inglês gerada por IA, curso de inglês e checklist do visto.
+
+VaiPraLá ajuda candidatos brasileiros a encontrar e se candidatar a vagas reais de trabalho temporário agrícola (visto H-2A) nos Estados Unidos. O acesso às vagas é gratuito; um plano Pro opcional adiciona candidaturas ilimitadas, alertas e follow-up automático.
+
+## Pages
+
+- [Início](/): Visão geral da plataforma, depoimentos e como começar.
+- [Preços](/precos): Planos Grátis e Pro (a partir de R$ 19,90/mês).
+- [Vagas H-2A por estado](/vagas-h2a): Índice de todos os estados dos EUA com vagas H-2A abertas.
+
+## Optional
+
+- [Vagas H-2A na Flórida](/vagas-h2a/fl): Exemplo de página estadual com vagas oficiais.
+- [Vagas H-2A na Califórnia](/vagas-h2a/ca): Exemplo de página estadual com vagas oficiais.
