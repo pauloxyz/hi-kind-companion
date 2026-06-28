@@ -776,3 +776,105 @@ function Kpi({ icon, label, value }: { icon: React.ReactNode; label: string; val
     </Card>
   );
 }
+
+function RetentionTab() {
+  const fetchPolicies = useServerFn(listRetentionPolicies);
+  const upsertFn = useServerFn(upsertRetentionPolicy);
+  const queryClient = useQueryClient();
+  const { data: policies = [], isLoading } = useQuery({
+    queryKey: ["security-retention-policies"],
+    queryFn: () => fetchPolicies(),
+  });
+
+  const mutation = useMutation({
+    mutationFn: (input: { event_type: string; retain_days: number }) => upsertFn({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["security-retention-policies"] });
+      toast.success("Política atualizada");
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const [edits, setEdits] = useState<Record<string, number>>({});
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Política de retenção por tipo de evento</CardTitle>
+        <CardDescription>
+          Define quantos dias cada tipo de evento permanece no log antes do purge automático (rodando diariamente às 03:00). Mínimo 7 dias, máximo 3650 (10 anos).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo de evento</TableHead>
+                <TableHead className="text-right">Dias de retenção</TableHead>
+                <TableHead>Última atualização</TableHead>
+                <TableHead className="text-right">Ação</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {policies.map((p) => {
+                const pending = edits[p.event_type];
+                const current = pending ?? p.retain_days;
+                const dirty = pending !== undefined && pending !== p.retain_days;
+                return (
+                  <TableRow key={p.event_type}>
+                    <TableCell>
+                      <Badge variant="outline">{p.event_type}</Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        min={7}
+                        max={3650}
+                        value={current}
+                        onChange={(e) =>
+                          setEdits((prev) => ({
+                            ...prev,
+                            [p.event_type]: Number(e.target.value) || 0,
+                          }))
+                        }
+                        className="w-24 ml-auto text-right"
+                      />
+                    </TableCell>
+                    <TableCell className="text-xs text-muted-foreground">
+                      {new Date(p.updated_at).toLocaleString("pt-BR")}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        variant={dirty ? "default" : "ghost"}
+                        disabled={!dirty || mutation.isPending || current < 7 || current > 3650}
+                        onClick={() =>
+                          mutation.mutate(
+                            { event_type: p.event_type, retain_days: current },
+                            {
+                              onSuccess: () =>
+                                setEdits((prev) => {
+                                  const n = { ...prev };
+                                  delete n[p.event_type];
+                                  return n;
+                                }),
+                            },
+                          )
+                        }
+                      >
+                        Salvar
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
