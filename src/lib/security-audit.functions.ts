@@ -25,7 +25,9 @@ type AccountEvent =
   | "email_change_requested"
   | "email_change_failed"
   | "account_deletion_requested"
-  | "settings_viewed";
+  | "settings_viewed"
+  | "language_changed"
+  | "theme_changed";
 
 function hashEmail(email: string): string {
   return createHash("sha256").update(email.trim().toLowerCase()).digest("hex");
