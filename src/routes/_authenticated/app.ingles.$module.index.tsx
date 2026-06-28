@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, Lock, CheckCircle2, ChevronRight } from "lucide-react";
+import { ChevronLeft, Lock, CheckCircle2, ChevronRight, Clock } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/ingles/$module/")({
   component: ModulePage,
