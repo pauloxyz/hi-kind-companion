@@ -54,17 +54,20 @@ function exportCsv(rows: Row[]) {
 function Page() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checking, setChecking] = useState(false);
+  const checkReplies = useServerFn(checkApplicationReplies);
+
+  async function loadRows() {
+    const { data, error } = await supabase
+      .from("applications")
+      .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
+      .order("sent_at", { ascending: false });
+    if (error) toast.error(error.message);
+    setRows((data as Row[]) ?? []);
+  }
 
   useEffect(() => {
-    void (async () => {
-      const { data, error } = await supabase
-        .from("applications")
-        .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
-        .order("sent_at", { ascending: false });
-      if (error) toast.error(error.message);
-      setRows((data as Row[]) ?? []);
-      setLoading(false);
-    })();
+    void (async () => { await loadRows(); setLoading(false); })();
   }, []);
 
   async function markResponded(id: string) {
@@ -73,17 +76,39 @@ function Page() {
     setRows((rs) => rs.map((r) => r.id === id ? { ...r, responded_at: new Date().toISOString(), status: "responded" } : r));
   }
 
+  async function handleCheckReplies() {
+    setChecking(true);
+    try {
+      const r = await checkReplies({ data: {} });
+      if (r.error) { toast.error(r.error); return; }
+      if (r.newReplies > 0) {
+        toast.success(`${r.newReplies} nova(s) resposta(s) detectada(s)!`);
+        await loadRows();
+      } else {
+        toast.message(`Verificado ${r.checked} candidatura(s) — nenhuma resposta nova ainda.`);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao verificar respostas");
+    } finally { setChecking(false); }
+  }
+
   const total = rows.length;
   const pending = rows.filter((r) => !r.responded_at).length;
   const responded = rows.filter((r) => !!r.responded_at).length;
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h1 className="text-2xl font-bold">Candidaturas</h1>
-        <Button size="sm" variant="outline" onClick={() => exportCsv(rows)} disabled={!rows.length}>
-          <Download className="h-4 w-4 mr-1" /> Exportar CSV
-        </Button>
+        <div className="flex gap-2">
+          <Button size="sm" variant="outline" onClick={handleCheckReplies} disabled={checking || pending === 0}>
+            {checking ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+            Verificar respostas no Gmail
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => exportCsv(rows)} disabled={!rows.length}>
+            <Download className="h-4 w-4 mr-1" /> Exportar CSV
+          </Button>
+        </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
