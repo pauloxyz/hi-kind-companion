@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -36,6 +37,11 @@ import { Route as AuthenticatedAppInglesModuleRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppInglesModuleIndexRouteImport } from './routes/_authenticated/app.ingles.$module.index'
 import { Route as AuthenticatedAppInglesModuleLessonRouteImport } from './routes/_authenticated/app.ingles.$module.$lesson'
 
+const ResetPasswordRoute = ResetPasswordRouteImport.update({
+  id: '/reset-password',
+  path: '/reset-password',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrecosRoute = PrecosRouteImport.update({
   id: '/precos',
   path: '/precos',
@@ -180,6 +186,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/precos': typeof PrecosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
@@ -207,6 +214,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/precos': typeof PrecosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/precos': typeof PrecosRoute
+  '/reset-password': typeof ResetPasswordRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/precos'
+    | '/reset-password'
     | '/checkout/return'
     | '/v/$slug'
     | '/vagas-h2a/$state'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/precos'
+    | '/reset-password'
     | '/checkout/return'
     | '/v/$slug'
     | '/vagas-h2a/$state'
@@ -316,6 +327,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/precos'
+    | '/reset-password'
     | '/checkout/return'
     | '/v/$slug'
     | '/vagas-h2a/$state'
@@ -345,6 +357,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   PrecosRoute: typeof PrecosRoute
+  ResetPasswordRoute: typeof ResetPasswordRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   VSlugRoute: typeof VSlugRoute
   VagasH2aStateRoute: typeof VagasH2aStateRoute
@@ -355,6 +368,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/reset-password': {
+      id: '/reset-password'
+      path: '/reset-password'
+      fullPath: '/reset-password'
+      preLoaderRoute: typeof ResetPasswordRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/precos': {
       id: '/precos'
       path: '/precos'
@@ -613,6 +633,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   PrecosRoute: PrecosRoute,
+  ResetPasswordRoute: ResetPasswordRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
   VSlugRoute: VSlugRoute,
   VagasH2aStateRoute: VagasH2aStateRoute,
