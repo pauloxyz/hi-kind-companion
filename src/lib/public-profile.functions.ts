@@ -104,3 +104,14 @@ export const trackProfileView = createServerFn({ method: "POST" })
     });
     return { ok: true };
   });
+
+export const listPublicProfileSlugs = createServerFn({ method: "GET" }).handler(async () => {
+  const sb = publicClient();
+  const { data } = await sb
+    .from("my_profile")
+    .select("public_slug")
+    .eq("public_page_enabled", true)
+    .not("public_slug", "is", null)
+    .limit(5000);
+  return { slugs: (data ?? []).map((r) => r.public_slug as string).filter(Boolean) };
+});
