@@ -145,6 +145,7 @@ function Page() {
   const importFn = useServerFn(triggerDolImport);
   const genFn = useServerFn(generateCoverLetter);
   const recordFn = useServerFn(recordApplication);
+  const sendFn = useServerFn(sendApplicationEmail);
 
   async function load() {
     setLoading(true);
