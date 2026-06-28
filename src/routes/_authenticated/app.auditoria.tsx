@@ -90,19 +90,6 @@ function alertKey(a: { hour: string; ip_address: string | null }): string {
   return `${a.hour}|${a.ip_address ?? ""}`;
 }
 
-function loadAcks(): Record<string, { at: string; note?: string }> {
-  if (typeof window === "undefined") return {};
-  try {
-    return JSON.parse(window.localStorage.getItem(ACK_STORAGE_KEY) || "{}");
-  } catch {
-    return {};
-  }
-}
-
-function saveAcks(acks: Record<string, { at: string; note?: string }>) {
-  window.localStorage.setItem(ACK_STORAGE_KEY, JSON.stringify(acks));
-}
-
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
   component: AuditPanel,
 });
