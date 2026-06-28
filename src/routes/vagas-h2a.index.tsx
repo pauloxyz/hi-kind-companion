@@ -59,7 +59,7 @@ function StatesIndex() {
           as vagas abertas, salário ofertado e número de posições.
         </p>
         <div className="mt-8 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-          {states.map((s) => (
+          {states.map((s: { state: string; count: number }) => (
             <Link
               key={s.state}
               to="/vagas-h2a/$state"
