@@ -42,13 +42,46 @@ export const Route = createFileRoute("/vagas-h2a/$state")({
     const count = loaderData?.jobs.length ?? 0;
     const title = `Vagas H-2A em ${name} — ${count} oportunidades | VaiPraLá`;
     const desc = `Veja ${count} vagas H-2A abertas em fazendas de ${name}. Salário, datas e empregadores oficiais do Departamento do Trabalho dos EUA.`;
+    const path = `/vagas-h2a/${params.state.toLowerCase()}`;
     return {
       meta: [
         { title },
         { name: "description", content: desc },
         { property: "og:title", content: title },
         { property: "og:description", content: desc },
+        { property: "og:url", content: path },
       ],
+      links: [{ rel: "canonical", href: path }],
+      scripts: [{
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "ItemList",
+          name: `Vagas H-2A em ${name}`,
+          numberOfItems: count,
+          itemListElement: (loaderData?.jobs ?? []).slice(0, 25).map((j: Job, i: number) => ({
+            "@type": "ListItem",
+            position: i + 1,
+            item: {
+              "@type": "JobPosting",
+              title: j.job_title ?? "H-2A Farmworker",
+              hiringOrganization: { "@type": "Organization", name: j.employer_name ?? "US Farm Employer" },
+              jobLocation: {
+                "@type": "Place",
+                address: { "@type": "PostalAddress", addressLocality: j.worksite_city ?? undefined, addressRegion: code, addressCountry: "US" },
+              },
+              datePosted: j.start_date ?? undefined,
+              validThrough: j.end_date ?? undefined,
+              employmentType: "TEMPORARY",
+              baseSalary: j.wage_offered ? {
+                "@type": "MonetaryAmount",
+                currency: "USD",
+                value: { "@type": "QuantitativeValue", value: j.wage_offered, unitText: (j.wage_unit ?? "HOUR").toUpperCase() },
+              } : undefined,
+            },
+          })),
+        }),
+      }],
     };
   },
   notFoundComponent: () => (

@@ -31,7 +31,9 @@ export const Route = createFileRoute("/vagas-h2a/")({
         content:
           "Encontre vagas de trabalho rural temporário (H-2A) em qualquer estado americano. Atualizado direto do DOL.",
       },
+      { property: "og:url", content: "/vagas-h2a" },
     ],
+    links: [{ rel: "canonical", href: "/vagas-h2a" }],
   }),
   loader: () => listPublicJobStates(),
   component: StatesIndex,

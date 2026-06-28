@@ -11,14 +11,19 @@ export const Route = createFileRoute("/v/$slug")({
   head: ({ loaderData, params }) => {
     const name = loaderData?.profile.full_name ?? "Candidato H-2A";
     const headline = loaderData?.profile.public_headline ?? "Disponível para a próxima safra nos EUA";
+    const path = `/v/${params.slug}`;
+    const image = (loaderData?.profile as { photo_url?: string | null })?.photo_url ?? undefined;
     return {
       meta: [
         { title: `${name} — H-2A Candidate` },
         { name: "description", content: headline },
         { property: "og:title", content: `${name} — H-2A Candidate` },
         { property: "og:description", content: headline },
-        { property: "og:url", content: `/v/${params.slug}` },
+        { property: "og:url", content: path },
+        { property: "og:type", content: "profile" },
+        ...(image ? [{ property: "og:image", content: image } as const, { name: "twitter:image", content: image } as const] : []),
       ],
+      links: [{ rel: "canonical", href: path }],
     };
   },
   errorComponent: ({ error }) => <div className="p-8 text-center text-sm text-muted-foreground">Erro: {error.message}</div>,

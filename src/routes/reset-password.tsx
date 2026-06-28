@@ -16,6 +16,7 @@ export const Route = createFileRoute("/reset-password")({
     meta: [
       { title: "VaiPraLá — Redefinir senha" },
       { name: "description", content: "Crie uma nova senha para sua conta VaiPraLá." },
+      { name: "robots", content: "noindex,nofollow" },
     ],
   }),
   component: () => (

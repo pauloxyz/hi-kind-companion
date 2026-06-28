@@ -3,6 +3,12 @@ import { CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/checkout/return")({
+  head: () => ({
+    meta: [
+      { title: "VaiPraLá — Pagamento" },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
+  }),
   validateSearch: (search: Record<string, unknown>): { session_id?: string } => ({
     session_id: typeof search.session_id === "string" ? search.session_id : undefined,
   }),
