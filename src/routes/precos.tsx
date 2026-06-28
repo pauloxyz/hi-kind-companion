@@ -85,8 +85,35 @@ const PLANS: Plan[] = [
 ];
 
 function PricingPage() {
+  const { openCheckout, closeCheckout, isOpen, checkoutElement } = useStripeCheckout();
+  const [user, setUser] = useState<{ id: string; email?: string } | null>(null);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data }) => {
+      if (data.user) setUser({ id: data.user.id, email: data.user.email ?? undefined });
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_e, session) => {
+      setUser(session?.user ? { id: session.user.id, email: session.user.email ?? undefined } : null);
+    });
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  const handleSubscribe = (priceId: string) => {
+    if (!user) {
+      window.location.href = `/auth?redirect=/precos`;
+      return;
+    }
+    openCheckout({
+      priceId,
+      customerEmail: user.email,
+      userId: user.id,
+      returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background">
+      <PaymentTestModeBanner />
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
@@ -96,6 +123,7 @@ function PricingPage() {
           <Link to="/auth"><Button size="sm">Começar grátis</Button></Link>
         </div>
       </header>
+
 
       <section className="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 text-center">
         <h1 className="text-4xl sm:text-5xl font-bold tracking-tight">
