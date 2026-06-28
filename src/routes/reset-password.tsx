@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { ThemeProvider } from "@/lib/theme";
 import logo from "@/assets/vaiprala-logo.png";
 import farmBg from "@/assets/auth-farm-bg.jpg";
-import { PasswordStrength } from "@/components/PasswordStrength";
+import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStrength";
 
 export const Route = createFileRoute("/reset-password")({
   ssr: false,
@@ -50,7 +50,9 @@ function ResetPasswordPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (password.length < 8) return toast.error("Mínimo 8 caracteres.");
+    if (!isPasswordAcceptable(password)) {
+      return toast.error("Senha muito fraca. Use 8+ caracteres misturando letras, números e símbolos.");
+    }
     if (password !== confirm) return toast.error("As senhas não coincidem.");
     setLoading(true);
     try {
@@ -127,7 +129,11 @@ function ResetPasswordPage() {
                   minLength={8}
                 />
               </div>
-              <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>
+              <Button
+                type="submit"
+                className="w-full h-11 text-base font-semibold"
+                disabled={loading || !isPasswordAcceptable(password) || password !== confirm}
+              >
                 {loading ? "Salvando…" : "Salvar nova senha"}
               </Button>
             </form>
