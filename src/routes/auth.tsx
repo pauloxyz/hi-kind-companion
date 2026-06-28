@@ -261,7 +261,11 @@ function AuthPage() {
                     </div>
                   )}
                 </div>
-                <Button type="submit" className="w-full h-11 text-base font-semibold" disabled={loading}>
+                <Button
+                  type="submit"
+                  className="w-full h-11 text-base font-semibold"
+                  disabled={loading || (mode === "signup" && !isPasswordAcceptable(password))}
+                >
                   {loading ? "..." : mode === "signin" ? t("login") : "Criar conta grátis"}
                 </Button>
               </form>
