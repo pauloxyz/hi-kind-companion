@@ -9,15 +9,27 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "VaiPraLá — Da roça brasileira para a fazenda americana | Visto H-2A" },
-      { name: "description", content: "Plataforma gratuita que conecta trabalhadores rurais brasileiros a vagas H-2A reais nos Estados Unidos. Vagas DOL ao vivo, carta em inglês com IA, vídeo de apresentação e checklist do visto." },
+      { name: "description", content: "Plataforma que conecta trabalhadores rurais brasileiros a vagas H-2A reais nos EUA. Vagas oficiais do DOL, carta em inglês com IA, vídeo de apresentação e checklist do visto. Grátis para começar." },
       { property: "og:title", content: "VaiPraLá — Visto H-2A para brasileiros" },
       { property: "og:description", content: "Vagas reais de fazendas americanas, cartas em inglês com IA, vídeo de apresentação e acompanhamento do visto." },
-      { property: "og:type", content: "website" },
+      { property: "og:url", content: "/" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
+    links: [{ rel: "canonical", href: "/" }],
+    scripts: [{
+      type: "application/ld+json",
+      children: JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "Organization",
+        name: "VaiPraLá",
+        description: "Plataforma para trabalhadores rurais brasileiros aplicarem em vagas H-2A nos EUA.",
+        url: "/",
+      }),
+    }],
   }),
   component: Landing,
 });
+
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
@@ -37,8 +49,11 @@ function Landing() {
           <nav className="hidden md:flex items-center gap-6 text-sm">
             <a href="#como-funciona" className="text-muted-foreground hover:text-foreground">Como funciona</a>
             <a href="#recursos" className="text-muted-foreground hover:text-foreground">Recursos</a>
+            <Link to="/precos" className="text-muted-foreground hover:text-foreground">Preços</Link>
+            <Link to="/vagas-h2a" className="text-muted-foreground hover:text-foreground">Vagas</Link>
             <a href="#faq" className="text-muted-foreground hover:text-foreground">FAQ</a>
           </nav>
+
           <div className="flex items-center gap-2">
             {signedIn ? (
               <Link to="/app"><Button size="sm">Abrir meu app</Button></Link>

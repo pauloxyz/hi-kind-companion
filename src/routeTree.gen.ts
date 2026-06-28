@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -29,6 +30,11 @@ import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_auth
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 
+const PrecosRoute = PrecosRouteImport.update({
+  id: '/precos',
+  path: '/precos',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -133,6 +139,7 @@ const ApiPublicHooksCheckRepliesRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/precos': typeof PrecosRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
@@ -153,6 +160,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/precos': typeof PrecosRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
@@ -175,6 +183,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/precos': typeof PrecosRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
@@ -197,6 +206,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/precos'
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/'
@@ -217,6 +227,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/precos'
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a'
@@ -238,6 +249,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/precos'
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/'
@@ -260,6 +272,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  PrecosRoute: typeof PrecosRoute
   VSlugRoute: typeof VSlugRoute
   VagasH2aStateRoute: typeof VagasH2aStateRoute
   VagasH2aIndexRoute: typeof VagasH2aIndexRoute
@@ -269,6 +282,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/precos': {
+      id: '/precos'
+      path: '/precos'
+      fullPath: '/precos'
+      preLoaderRoute: typeof PrecosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -440,6 +460,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  PrecosRoute: PrecosRoute,
   VSlugRoute: VSlugRoute,
   VagasH2aStateRoute: VagasH2aStateRoute,
   VagasH2aIndexRoute: VagasH2aIndexRoute,
@@ -449,13 +470,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
