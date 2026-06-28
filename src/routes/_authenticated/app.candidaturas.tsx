@@ -26,6 +26,10 @@ type Row = {
 };
 
 function statusBadge(r: Row) {
+  const s = r.status ?? "";
+  if (s === "hired" || s === "offer") return <Badge className="bg-emerald-600">🎉 Oferta / Contratado</Badge>;
+  if (s === "interview") return <Badge className="bg-violet-600">📅 Entrevista marcada</Badge>;
+  if (s === "rejected") return <Badge variant="destructive">Rejeitada</Badge>;
   if (r.responded_at) return <Badge className="bg-green-600">Respondeu</Badge>;
   if (r.follow_up_sent_at) return <Badge className="bg-blue-600">Follow-up enviado</Badge>;
   if (r.follow_up_due_at && new Date(r.follow_up_due_at) < new Date()) return <Badge className="bg-orange-500">Follow-up devido</Badge>;
