@@ -758,6 +758,185 @@ function MasteryStep({
   );
 }
 
+// ============ STEP 3: Listening ============
+function ListeningStep({
+  items, onSpeak, playingKey, onNext, onBack,
+}: {
+  items: ListeningItem[];
+  onSpeak: (text: string, key: string) => void;
+  playingKey: string | null;
+  onNext: () => void;
+  onBack: () => void;
+}) {
+  const [answers, setAnswers] = useState<Record<number, string | number>>({});
+  const [revealed, setRevealed] = useState<Record<number, boolean>>({});
+
+  if (!items || items.length === 0) {
+    return (
+      <div className="space-y-4">
+        <Card className="bg-muted/40">
+          <CardContent className="p-6 text-center text-sm text-muted-foreground">
+            Esta lição ainda não tem exercícios de listening.
+          </CardContent>
+        </Card>
+        <div className="flex justify-between">
+          <Button variant="outline" onClick={onBack}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
+          <Button onClick={onNext} size="lg" className="gap-2">Próximo: Flashcards <ChevronRight className="h-4 w-4" /></Button>
+        </div>
+      </div>
+    );
+  }
+
+  const check = (i: number, item: ListeningItem): boolean | null => {
+    const a = answers[i];
+    if (a == null || !revealed[i]) return null;
+    if (item.type === "mc") return Number(a) === item.correct;
+    return String(a).trim().toLowerCase() === item.answer.trim().toLowerCase();
+  };
+
+  const correctCount = items.reduce((acc, it, i) => acc + (check(i, it) === true ? 1 : 0), 0);
+  const answered = items.every((_, i) => answers[i] != null && revealed[i]);
+
+  return (
+    <div className="space-y-4">
+      <Card className="border-primary/30 bg-primary/5">
+        <CardContent className="p-4 flex items-start gap-3">
+          <Headphones className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-sm">Treine seu ouvido</p>
+            <p className="text-xs text-muted-foreground">
+              {items.length} exercícios: ouça o áudio, escolha ou digite a resposta. Use o áudio quantas vezes precisar.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {items.map((item, i) => {
+        const status = check(i, item);
+        return (
+          <Card key={i} className={cn(
+            "border-2 transition-colors",
+            status === true && "border-emerald-500/50 bg-emerald-500/5",
+            status === false && "border-red-500/50 bg-red-500/5",
+            status === null && "border-border",
+          )}>
+            <CardContent className="p-4 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium">
+                  <span className="text-muted-foreground">{i + 1}.</span> {item.type === "mc" ? item.question_pt : item.prompt_pt}
+                </p>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => onSpeak(item.audio_text, `ls${i}`)}
+                  disabled={playingKey === `ls${i}`}
+                  className="gap-1.5 shrink-0"
+                >
+                  {playingKey === `ls${i}` ? <Loader2 className="h-4 w-4 animate-spin" /> : <Play className="h-4 w-4 fill-current" />}
+                  Tocar
+                </Button>
+              </div>
+
+              {item.type === "mc" ? (
+                <div className="space-y-1.5">
+                  {item.options.map((opt, oi) => {
+                    const selected = answers[i] === oi;
+                    const isRight = item.correct === oi;
+                    const showRight = revealed[i] && isRight;
+                    const showWrong = revealed[i] && selected && !isRight;
+                    return (
+                      <button
+                        key={oi}
+                        onClick={() => !revealed[i] && setAnswers(prev => ({ ...prev, [i]: oi }))}
+                        disabled={revealed[i]}
+                        className={cn(
+                          "w-full text-left px-3 py-2 rounded-md border text-sm transition-colors",
+                          !revealed[i] && selected && "border-primary bg-primary/10",
+                          !revealed[i] && !selected && "border-border hover:bg-muted",
+                          showRight && "border-emerald-500 bg-emerald-500/10",
+                          showWrong && "border-red-500 bg-red-500/10",
+                          revealed[i] && !showRight && !showWrong && "opacity-60",
+                        )}
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          {showRight && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
+                          {showWrong && <XCircle className="h-4 w-4 text-red-500" />}
+                          {opt}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <p className="font-mono text-sm bg-muted/50 px-3 py-2 rounded-md">
+                    {item.template}
+                  </p>
+                  <Input
+                    placeholder="Digite a palavra que ouviu..."
+                    value={(answers[i] as string) ?? ""}
+                    onChange={e => !revealed[i] && setAnswers(prev => ({ ...prev, [i]: e.target.value }))}
+                    disabled={revealed[i]}
+                    onKeyDown={e => {
+                      if (e.key === "Enter" && answers[i] != null && !revealed[i]) {
+                        setRevealed(prev => ({ ...prev, [i]: true }));
+                      }
+                    }}
+                  />
+                  {revealed[i] && (
+                    <p className={cn(
+                      "text-xs",
+                      status ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+                    )}>
+                      {status ? `✓ Correto: "${item.answer}"` : `✗ A resposta era: "${item.answer}"`}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {!revealed[i] ? (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="w-full"
+                  disabled={answers[i] == null || (item.type === "fill" && !String(answers[i]).trim())}
+                  onClick={() => setRevealed(prev => ({ ...prev, [i]: true }))}
+                >
+                  Verificar
+                </Button>
+              ) : (
+                <p className="text-xs text-center text-muted-foreground">
+                  Áudio: <span className="italic">"{item.audio_text}"</span>
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
+
+      {answered && (
+        <Card className={cn(
+          "border-2",
+          correctCount === items.length ? "border-emerald-500 bg-emerald-500/10" : "border-amber-500 bg-amber-500/10",
+        )}>
+          <CardContent className="p-4 text-center">
+            <p className="font-bold">
+              {correctCount}/{items.length} corretos
+              {correctCount === items.length && " — orelha americana ativada 🎧"}
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onBack}><ChevronLeft className="h-4 w-4" /> Voltar</Button>
+        <Button onClick={onNext} size="lg" className="gap-2">Próximo: Flashcards <ChevronRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  );
+}
+
+
 // ============ Floating Coach Sam chat ============
 function CoachSamFab({ lesson, chat }: { lesson: any; chat: (msgs: ChatMsg[]) => Promise<string> }) {
   const [open, setOpen] = useState(false);
