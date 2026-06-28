@@ -273,6 +273,32 @@ function ConfiguracoesPage() {
         </CardContent>
       </Card>
 
+      {/* 2FA */}
+      <MfaCard />
+
+      {/* Sessões */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LogOut className="size-5" /> Sessões ativas
+          </CardTitle>
+          <CardDescription>
+            Encerre o acesso em todos os dispositivos onde você está logado. Será necessário fazer login novamente em todos eles.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="outline"
+            disabled={signingOutAll}
+            onClick={handleSignOutEverywhere}
+          >
+            {signingOutAll && <Loader2 className="size-4 animate-spin" />}
+            Encerrar todas as outras sessões
+          </Button>
+        </CardContent>
+      </Card>
+
+
       {/* Preferências */}
       <Card>
         <CardHeader>
