@@ -17,6 +17,7 @@ const dict: Dict = {
   followups: { pt: "Follow-ups", en: "Follow-ups", es: "Seguimientos" },
   employers: { pt: "Empregadores", en: "Employers", es: "Empleadores" },
   visa: { pt: "Checklist do Visto", en: "Visa Checklist", es: "Lista de la Visa" },
+  settings: { pt: "Configurações", en: "Settings", es: "Configuración" },
   logout: { pt: "Sair", en: "Sign out", es: "Cerrar sesión" },
   login: { pt: "Entrar", en: "Sign in", es: "Iniciar sesión" },
   email: { pt: "E-mail", en: "Email", es: "Correo electrónico" },
