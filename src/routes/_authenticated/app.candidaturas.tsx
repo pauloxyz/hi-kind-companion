@@ -104,11 +104,13 @@ function Page() {
   }
 
   async function setStatus(id: string, status: "interview" | "offer" | "rejected") {
-    const patch: Record<string, unknown> = { status };
-    if (!rows.find((r) => r.id === id)?.responded_at) patch.responded_at = new Date().toISOString();
-    const { error } = await supabase.from("applications").update(patch).eq("id", id);
+    const nowIso = new Date().toISOString();
+    const current = rows.find((r) => r.id === id);
+    const patch: { status: string; responded_at?: string } = { status };
+    if (!current?.responded_at) patch.responded_at = nowIso;
+    const { error } = await supabase.from("applications").update(patch as never).eq("id", id);
     if (error) { toast.error(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } as Row : r));
+    setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
     toast.success("Status atualizado");
   }
 
