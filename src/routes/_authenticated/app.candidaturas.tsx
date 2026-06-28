@@ -62,6 +62,7 @@ function Page() {
   const [rows, setRows] = useState<Row[]>([]);
   const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
+  const [filter, setFilter] = useState<"all" | "pending" | "responded" | "interview" | "offer" | "rejected">("all");
   const checkReplies = useServerFn(checkApplicationReplies);
 
   async function loadRows() {
