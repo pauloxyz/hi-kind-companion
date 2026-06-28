@@ -12,7 +12,7 @@ import {
   ChevronLeft, Volume2, Loader2, CheckCircle2, XCircle, Send, Sparkles, Lock,
   Target, MessagesSquare, BookOpen, AudioLines, AlertTriangle, Globe2, Clock,
   Flame, RotateCcw, Trophy, ChevronRight, Brain, GraduationCap, Eye, EyeOff,
-  Check, X,
+  Check, X, Headphones, Play,
 } from "lucide-react";
 import {
   speakText, tutorChat, submitMasteryQuiz, reviewFlashcard, updateStudyStep,
@@ -25,12 +25,16 @@ type DialogueLine = { speaker: string; en: string; pt: string };
 type Mistake = { wrong: string; right: string; explanation_pt: string };
 type QuizItem = { q: string; options: string[]; correct: number };
 type Flashcard = { front: string; back: string; hint?: string; example?: string };
+type ListeningMc = { type: "mc"; audio_text: string; question_pt: string; options: string[]; correct: number };
+type ListeningFill = { type: "fill"; audio_text: string; prompt_pt: string; template: string; answer: string };
+type ListeningItem = ListeningMc | ListeningFill;
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 const STEPS = [
   { key: "warmup", label: "Aquecimento", icon: Target },
   { key: "vocab", label: "Vocabulário", icon: BookOpen },
   { key: "dialogue", label: "Diálogo", icon: MessagesSquare },
+  { key: "listening", label: "Listening", icon: Headphones },
   { key: "flashcards", label: "Flashcards", icon: Brain },
   { key: "mastery", label: "Maestria", icon: Trophy },
 ] as const;
