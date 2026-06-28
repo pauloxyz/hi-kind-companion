@@ -66,7 +66,7 @@ function LessonPage() {
       if (!mod) return null;
       const { data } = await supabase
         .from("english_lessons")
-        .select("id, slug, title_pt, title_en, intro_pt, goal_pt, warmup_pt, phrases, dialogue, flashcards, grammar_tip, pronunciation_tip, common_mistakes, cultural_note, quiz, is_free, estimated_minutes, mastery_threshold, module_id")
+        .select("id, slug, title_pt, title_en, intro_pt, goal_pt, warmup_pt, phrases, dialogue, flashcards, grammar_tip, pronunciation_tip, common_mistakes, cultural_note, quiz, listening_quiz, is_free, estimated_minutes, mastery_threshold, module_id")
         .eq("module_id", mod.id)
         .eq("slug", lessonSlug)
         .maybeSingle();
@@ -158,6 +158,7 @@ function LessonPage() {
   const mistakes = (lesson.common_mistakes ?? []) as Mistake[];
   const quiz = (lesson.quiz ?? []) as QuizItem[];
   const flashcards = (lesson.flashcards ?? []) as Flashcard[];
+  const listening = (lesson.listening_quiz ?? []) as ListeningItem[];
   const threshold = Number(lesson.mastery_threshold ?? 0.9);
   const mastered = !!progress?.prog?.mastered_at;
   const bestScore = Number(progress?.prog?.best_score ?? 0);
@@ -262,6 +263,16 @@ function LessonPage() {
       )}
 
       {step === 3 && (
+        <ListeningStep
+          items={listening}
+          onSpeak={onSpeak}
+          playingKey={playingKey}
+          onNext={() => goToStep(4)}
+          onBack={() => goToStep(2)}
+        />
+      )}
+
+      {step === 4 && (
         <FlashcardsStep
           flashcards={flashcards}
           reviewMap={reviewMap}
@@ -272,12 +283,12 @@ function LessonPage() {
           onSpeak={onSpeak}
           playingKey={playingKey}
           allMastered={allCardsMastered}
-          onNext={() => goToStep(4)}
-          onBack={() => goToStep(2)}
+          onNext={() => goToStep(5)}
+          onBack={() => goToStep(3)}
         />
       )}
 
-      {step === 4 && (
+      {step === 5 && (
         <MasteryStep
           quiz={quiz}
           threshold={threshold}
@@ -290,7 +301,7 @@ function LessonPage() {
             qc.invalidateQueries({ queryKey: ["english-progress"] });
             return r;
           }}
-          onBack={() => goToStep(3)}
+          onBack={() => goToStep(4)}
         />
       )}
 
