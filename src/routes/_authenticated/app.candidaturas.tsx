@@ -19,6 +19,9 @@ type Row = {
   follow_up_sent_at: string | null;
   responded_at: string | null;
   cover_letter_en: string | null;
+  reply_snippet: string | null;
+  reply_from: string | null;
+  reply_received_at: string | null;
   jobs: { job_title: string | null; employer_name: string | null; worksite_state: string | null; worksite_city: string | null; recruitment_email: string | null; external_case_number: string | null } | null;
 };
 
