@@ -64,7 +64,10 @@ function ConfiguracoesPage() {
       setUserId(data.user?.id ?? null);
       setLoading(false);
     });
+    // audit: settings opened
+    logEvent({ data: { event_type: "settings_viewed" } }).catch(() => {});
     return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleChangePassword = async (e: React.FormEvent) => {
