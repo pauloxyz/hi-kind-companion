@@ -52,12 +52,16 @@ export const logSecurityEvent = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data }) => {
+    const { ip, ua } = clientHints();
+    // rate-limit per IP: 30 anon security events / 5 min
+    const { checkRateLimit } = await import("./rate-limit.server");
+    const allowed = await checkRateLimit(`sec_evt:${ip ?? "unknown"}`, 30, 300);
+    if (!allowed) return { ok: false, throttled: true } as const;
     const supabase = createClient<Database>(
       process.env.SUPABASE_URL!,
       process.env.SUPABASE_PUBLISHABLE_KEY!,
       { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
     );
-    const { ip, ua } = clientHints();
     const { error } = await supabase.from("security_audit_log").insert({
       event_type: data.event_type,
       email_hash: data.email ? hashEmail(data.email) : null,
