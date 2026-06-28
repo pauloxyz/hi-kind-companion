@@ -430,8 +430,9 @@ function AuditPanel() {
                                 });
                                 setAckNote("");
                               }}
+                              aria-label={tr("audit_acknowledge")}
                             >
-                              <Check className="size-3.5" /> Tratar
+                              <Check className="size-3.5" aria-hidden="true" /> {tr("audit_acknowledge")}
                             </Button>
                           )}
                         </TableCell>
