@@ -43,6 +43,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getAuditStats, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
+import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
 
 const EVENT_TYPES = [
