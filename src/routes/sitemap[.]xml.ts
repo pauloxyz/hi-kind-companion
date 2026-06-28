@@ -24,7 +24,7 @@ export const Route = createFileRoute("/sitemap.xml")({
         try {
           const { states } = await listPublicJobStates();
           for (const s of states ?? []) {
-            const code = (s.code ?? s).toString().toLowerCase();
+            const code = s.state?.toLowerCase();
             if (code) entries.push({ path: `/vagas-h2a/${code}`, changefreq: "daily", priority: "0.7" });
           }
         } catch {
