@@ -12,7 +12,7 @@ export const Route = createFileRoute("/v/$slug")({
     const name = loaderData?.profile.full_name ?? "Candidato H-2A";
     const headline = loaderData?.profile.public_headline ?? "Disponível para a próxima safra nos EUA";
     const path = `/v/${params.slug}`;
-    const image = loaderData?.profile.photo_url ?? undefined;
+    const image = (loaderData?.profile as { photo_url?: string | null })?.photo_url ?? undefined;
     return {
       meta: [
         { title: `${name} — H-2A Candidate` },
