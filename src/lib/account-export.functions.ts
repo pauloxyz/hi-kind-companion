@@ -5,7 +5,9 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-const USER_TABLES = [
+type Row = Record<string, string | number | boolean | null>;
+
+const OWNER_ID_TABLES = [
   "my_profile",
   "resumes",
   "resume_experiences",
@@ -17,55 +19,50 @@ const USER_TABLES = [
   "intro_video",
   "english_progress",
   "english_flashcard_reviews",
-  "subscriptions",
   "job_alerts",
 ] as const;
 
-export type UserDataExport = {
-  exported_at: string;
-  user_id: string;
-  tables: Record<string, unknown[]>;
-};
+const USER_ID_TABLES = ["subscriptions"] as const;
 
 export const exportMyData = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const out: UserDataExport = {
-      exported_at: new Date().toISOString(),
-      user_id: context.userId,
-      tables: {},
+    const tables: Record<string, Row[]> = {};
+
+    const client = context.supabase as unknown as {
+      from: (t: string) => {
+        select: (cols: string) => {
+          eq: (col: string, val: string) => Promise<{ data: Row[] | null; error: unknown }>;
+        };
+      };
     };
 
-    // Each query is scoped by RLS to the caller; we still filter for safety
-    // and to avoid surprises with tables that allow public reads.
-    const results = await Promise.all(
-      USER_TABLES.map(async (t) => {
-        const { data, error } = await context.supabase
-          .from(t)
-          .select("*")
-          .eq("owner_id", context.userId);
-        if (error) {
-          // owner column may differ for some tables (e.g. subscriptions uses user_id);
-          // fall back gracefully so one missing column doesn't break the whole export.
-          const alt = await context.supabase
-            .from(t)
-            .select("*")
-            .eq("user_id", context.userId);
-          return [t, alt.data ?? []] as const;
-        }
-        return [t, data ?? []] as const;
-      }),
-    );
+    for (const t of OWNER_ID_TABLES) {
+      const { data } = await client.from(t).select("*").eq("owner_id", context.userId);
+      tables[t] = data ?? [];
+    }
+    for (const t of USER_ID_TABLES) {
+      const { data } = await client.from(t).select("*").eq("user_id", context.userId);
+      tables[t] = data ?? [];
+    }
 
-    for (const [t, rows] of results) out.tables[t] = rows;
+    await client
+      .from("security_audit_log")
+      .select("id")
+      .eq("id", "noop")
+      .catch(() => {});
 
-    // Audit the export request
+    // Audit the export request via the typed client
     await context.supabase.from("security_audit_log").insert({
       event_type: "admin_action",
       user_id: context.userId,
       resource: "data_export",
-      metadata: { table_count: USER_TABLES.length } as never,
+      metadata: { table_count: OWNER_ID_TABLES.length + USER_ID_TABLES.length } as never,
     });
 
-    return out;
+    return {
+      exported_at: new Date().toISOString(),
+      user_id: context.userId,
+      tables,
+    };
   });
