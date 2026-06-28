@@ -29,6 +29,7 @@ type Plan = {
   cta: string;
   features: Array<{ ok: boolean; text: string }>;
   badge?: string;
+  priceId?: string;
 };
 
 const PLANS: Plan[] = [
