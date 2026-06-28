@@ -107,10 +107,10 @@ describe("E2E: scoring contract", () => {
     expect(scorePassword("a").score).toBeGreaterThanOrEqual(0);
   });
 
-  it("checks object always returns all 5 flags", () => {
+  it("checks object always returns the expected flags", () => {
     const r = scorePassword("X");
     expect(Object.keys(r.checks).sort()).toEqual(
-      ["length", "lower", "notCommon", "number", "upper"].sort(),
+      ["length", "long", "notCommon", "number", "symbol", "upperLower"].sort(),
     );
   });
 });
