@@ -21,7 +21,7 @@ export type AuditEvent = {
   ip_address: string | null;
   user_agent: string | null;
   resource: string | null;
-  metadata: Record<string, unknown>;
+  metadata: unknown;
   created_at: string;
 };
 
@@ -46,7 +46,7 @@ export const listAuditEvents = createServerFn({ method: "POST" })
     if (data.event_type) q = q.eq("event_type", data.event_type);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return rows as AuditEvent[];
+    return (rows ?? []) as AuditEvent[];
   });
 
 export type AuditStats = {

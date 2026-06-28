@@ -30,6 +30,7 @@ import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
+import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
@@ -145,6 +146,12 @@ const AuthenticatedAppCandidaturasRoute =
     path: '/app/candidaturas',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppAuditoriaRoute =
+  AuthenticatedAppAuditoriaRouteImport.update({
+    id: '/app/auditoria',
+    path: '/app/auditoria',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppInglesIndexRoute =
   AuthenticatedAppInglesIndexRouteImport.update({
     id: '/',
@@ -191,6 +198,7 @@ export interface FileRoutesByFullPath {
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
@@ -219,6 +227,7 @@ export interface FileRoutesByTo {
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
+  '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
@@ -247,6 +256,7 @@ export interface FileRoutesById {
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
   '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/'
+    | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
     | '/app/curriculo'
@@ -305,6 +316,7 @@ export interface FileRouteTypes {
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a'
+    | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
     | '/app/curriculo'
@@ -332,6 +344,7 @@ export interface FileRouteTypes {
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/'
+    | '/_authenticated/app/auditoria'
     | '/_authenticated/app/candidaturas'
     | '/_authenticated/app/comecar'
     | '/_authenticated/app/curriculo'
@@ -515,6 +528,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppCandidaturasRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/auditoria': {
+      id: '/_authenticated/app/auditoria'
+      path: '/app/auditoria'
+      fullPath: '/app/auditoria'
+      preLoaderRoute: typeof AuthenticatedAppAuditoriaRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/ingles/': {
       id: '/_authenticated/app/ingles/'
       path: '/'
@@ -596,6 +616,7 @@ const AuthenticatedAppInglesRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
   AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
   AuthenticatedAppComecarRoute: typeof AuthenticatedAppComecarRoute
   AuthenticatedAppCurriculoRoute: typeof AuthenticatedAppCurriculoRoute
@@ -611,6 +632,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAppAuditoriaRoute: AuthenticatedAppAuditoriaRoute,
   AuthenticatedAppCandidaturasRoute: AuthenticatedAppCandidaturasRoute,
   AuthenticatedAppComecarRoute: AuthenticatedAppComecarRoute,
   AuthenticatedAppCurriculoRoute: AuthenticatedAppCurriculoRoute,
