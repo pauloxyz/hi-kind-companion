@@ -16,7 +16,7 @@ function Page() {
   const qc = useQueryClient();
   const list = useServerFn(listEmployers);
   const update = useServerFn(updateEmployer);
-  const { data: emps = [] } = useQuery({ queryKey: ["employers"], queryFn: () => list() });
+  const { data: emps = [], isPending } = useQuery({ queryKey: ["employers"], queryFn: () => list() });
 
   async function save(id: string, patch: any) {
     await update({ data: { id, ...patch } });
