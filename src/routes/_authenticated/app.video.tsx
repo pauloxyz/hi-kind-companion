@@ -11,6 +11,7 @@ import { generateVideoScript, normalizeYouTubeUrl } from "@/lib/video-script.fun
 import { toast } from "sonner";
 import { Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle } from "lucide-react";
 import { pdf, Document, Page as PdfPage, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { PdfBrandedFooter, PdfLogo } from "@/components/PdfLogo";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
 
