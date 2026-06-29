@@ -323,8 +323,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
 
         {isAdmin && (
-          <section>
-            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/70">
+          <section aria-label="Admin">
+            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/40">
               Admin
             </h3>
             <div className="space-y-0.5">
@@ -336,8 +336,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </nav>
 
       {/* Footer */}
-      <div className="mt-auto p-4 bg-black/20 border-t border-emerald-900/50 space-y-2">
-        <div role="radiogroup" aria-label="Idioma" className="flex items-center gap-1 bg-emerald-950/40 rounded-lg p-1">
+      <div className="mt-auto p-4 bg-black/20 border-t border-sidebar-border space-y-2">
+        <div role="radiogroup" aria-label="Idioma" className="flex items-center gap-1 bg-sidebar/60 rounded-lg p-1">
           {LANG_OPTIONS.map((opt) => {
             const selected = lang === opt.code;
             return (
@@ -354,8 +354,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   }
                 }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]",
-                  selected ? "bg-[#b56d2d] text-white shadow" : "text-emerald-200/60 hover:text-white",
+                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  selected ? "bg-sidebar-primary text-sidebar-primary-foreground shadow" : "text-sidebar-foreground/60 hover:text-sidebar-foreground",
                 )}
               >
                 <span aria-hidden className="text-sm leading-none">{opt.flag}</span>
@@ -365,7 +365,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           })}
         </div>
 
-        <div role="radiogroup" aria-label="Tema visual" className="flex items-center gap-1 bg-emerald-950/40 rounded-lg p-1">
+        <div role="radiogroup" aria-label="Tema visual" className="flex items-center gap-1 bg-sidebar/60 rounded-lg p-1">
           {(
             [
               { code: "light", label: "Claro", Icon: Sun },
@@ -388,8 +388,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   }
                 }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]",
-                  selected ? "bg-[#b56d2d] text-white shadow" : "text-emerald-200/60 hover:text-white",
+                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  selected ? "bg-sidebar-primary text-sidebar-primary-foreground shadow" : "text-sidebar-foreground/60 hover:text-sidebar-foreground",
                 )}
               >
                 <Icon className="size-3.5" aria-hidden />
@@ -402,7 +402,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <button
           type="button"
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-red-400/70 hover:text-red-300 hover:bg-red-500/10 transition-colors text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          className="w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-accent-red/80 hover:text-accent-red hover:bg-accent-red/10 transition-colors text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-red"
         >
           <LogOut className="size-4" aria-hidden />
           <span className="flex-1 text-left">{t("logout")}</span>
@@ -410,6 +410,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </div>
     </aside>
   );
+
 
   return (
     <div className="flex min-h-dvh bg-background">
