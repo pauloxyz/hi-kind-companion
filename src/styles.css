@@ -160,6 +160,13 @@
   --accent-red: oklch(0.68 0.21 27);
   --accent-gold: oklch(0.7 0.14 55);
 
+  --success: oklch(0.62 0.14 150);
+  --success-foreground: oklch(0.12 0.02 150);
+  --warning: oklch(0.75 0.16 70);
+  --warning-foreground: oklch(0.18 0.04 70);
+  --info: oklch(0.65 0.13 235);
+  --info-foreground: oklch(0.14 0.02 235);
+
   --destructive: oklch(0.68 0.21 27);
   --destructive-foreground: oklch(0.95 0.015 85);
 
