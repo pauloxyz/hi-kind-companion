@@ -96,7 +96,7 @@ function alertKey(a: { hour: string; ip_address: string | null }): string {
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
   beforeLoad: async () => {
     try {
-      await requireAdminAccess();
+      await requireAdminAccess({ data: { route: "/app/auditoria" } });
     } catch {
       throw redirect({ to: "/app" });
     }
@@ -919,11 +919,23 @@ function DeniedAdminCard({ sinceDays }: { sinceDays: number }) {
     queryKey: ["admin-denied-summary", sinceDays],
     queryFn: () => fetchDenied({ data: { since_days: sinceDays } }),
   });
+  const [routeFilter, setRouteFilter] = useState("");
+  const [userFilter, setUserFilter] = useState("");
   const data = q.data;
   const peak = useMemo(() => {
     if (!data?.daily?.length) return 0;
     return data.daily.reduce((m, d) => (d.count > m ? d.count : m), 0);
   }, [data]);
+  const filteredRoutes = useMemo(() => {
+    if (!data?.by_route) return [];
+    const f = routeFilter.trim().toLowerCase();
+    return f ? data.by_route.filter((r) => r.route.toLowerCase().includes(f)) : data.by_route;
+  }, [data, routeFilter]);
+  const filteredUsers = useMemo(() => {
+    if (!data?.by_user) return [];
+    const f = userFilter.trim().toLowerCase();
+    return f ? data.by_user.filter((u) => u.user_id.toLowerCase().includes(f)) : data.by_user;
+  }, [data, userFilter]);
 
   return (
     <Card>
@@ -944,60 +956,121 @@ function DeniedAdminCard({ sinceDays }: { sinceDays: number }) {
         ) : !data?.total ? (
           <p className="text-sm text-muted-foreground">Nenhuma tentativa negada no período. 🎉</p>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Por rota / endpoint
-              </p>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Recurso</TableHead>
-                    <TableHead className="text-right">Bloqueios</TableHead>
-                    <TableHead>Último</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.by_route.map((r) => (
-                    <TableRow key={r.route}>
-                      <TableCell className="font-mono text-xs">{r.route}</TableCell>
-                      <TableCell className="text-right">{r.count}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(r.last_at).toLocaleString()}
-                      </TableCell>
+          <>
+            {data.daily.length > 0 && (
+              <div className="rounded-md border bg-muted/30 p-3">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Tendência diária
+                </p>
+                <div className="flex items-end gap-1 h-16">
+                  {data.daily.map((d) => {
+                    const h = peak > 0 ? Math.max(8, Math.round((d.count / peak) * 100)) : 8;
+                    return (
+                      <div key={d.day} className="flex-1 flex flex-col items-center gap-1" title={`${d.day}: ${d.count}`}>
+                        <div className="w-full bg-primary/70 rounded-sm" style={{ height: `${h}%` }} />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                  <span>{data.daily[0]?.day}</span>
+                  <span>{data.daily[data.daily.length - 1]?.day}</span>
+                </div>
+              </div>
+            )}
+
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Por rota / endpoint
+                  </p>
+                  <Input
+                    value={routeFilter}
+                    onChange={(e) => setRouteFilter(e.target.value)}
+                    placeholder="Filtrar rota…"
+                    className="h-7 text-xs w-40"
+                    aria-label="Filtrar por rota"
+                  />
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Recurso</TableHead>
+                      <TableHead className="text-right">Bloqueios</TableHead>
+                      <TableHead>Último</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-            <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                Por usuário
-              </p>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>User ID</TableHead>
-                    <TableHead className="text-right">Bloqueios</TableHead>
-                    <TableHead>Último</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.by_user.map((u) => (
-                    <TableRow key={u.user_id}>
-                      <TableCell className="font-mono text-xs">{u.user_id.slice(0, 8)}…</TableCell>
-                      <TableCell className="text-right">{u.count}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {new Date(u.last_at).toLocaleString()}
-                      </TableCell>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredRoutes.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-xs text-muted-foreground text-center py-3">
+                          Nenhuma rota corresponde ao filtro.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredRoutes.map((r) => (
+                        <TableRow key={r.route}>
+                          <TableCell className="font-mono text-xs">{r.route}</TableCell>
+                          <TableCell className="text-right">{r.count}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(r.last_at).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    Por usuário
+                  </p>
+                  <Input
+                    value={userFilter}
+                    onChange={(e) => setUserFilter(e.target.value)}
+                    placeholder="Filtrar user id…"
+                    className="h-7 text-xs w-40"
+                    aria-label="Filtrar por usuário"
+                  />
+                </div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>User ID</TableHead>
+                      <TableHead className="text-right">Bloqueios</TableHead>
+                      <TableHead>Último</TableHead>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {filteredUsers.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-xs text-muted-foreground text-center py-3">
+                          Nenhum usuário corresponde ao filtro.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredUsers.map((u) => (
+                        <TableRow key={u.user_id}>
+                          <TableCell className="font-mono text-xs" title={u.user_id}>
+                            {u.user_id.slice(0, 8)}…
+                          </TableCell>
+                          <TableCell className="text-right">{u.count}</TableCell>
+                          <TableCell className="text-xs text-muted-foreground">
+                            {new Date(u.last_at).toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </div>
-          </div>
+          </>
         )}
       </CardContent>
+
     </Card>
   );
 }

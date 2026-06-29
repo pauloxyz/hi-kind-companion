@@ -58,7 +58,7 @@ import {
 export const Route = createFileRoute("/_authenticated/admin/seo")({
   beforeLoad: async () => {
     try {
-      await requireAdminAccess();
+      await requireAdminAccess({ data: { route: "/admin/seo" } });
     } catch {
       throw redirect({ to: "/app" });
     }

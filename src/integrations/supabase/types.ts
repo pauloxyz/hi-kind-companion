@@ -1137,6 +1137,7 @@ export type Database = {
       purge_rate_limit_buckets: { Args: never; Returns: number }
       purge_security_audit_log: { Args: never; Returns: number }
       purge_uptime_checks: { Args: never; Returns: undefined }
+      record_admin_denial: { Args: { _resource: string }; Returns: undefined }
     }
     Enums: {
       app_role: "admin" | "user"
