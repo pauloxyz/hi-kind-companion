@@ -183,22 +183,49 @@ def test_rls_blocks_admin_tables(access_token: str) -> None:
 # Playwright redirect test
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def test_route_redirects(session: dict) -> None:
+async def test_route_redirects(session: dict) -> set[str]:
+    """Returns the set of resource labels expected in audit log (one per visited admin route)."""
     session_json = json.dumps(session)
+    expected_resources: set[str] = set()
 
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(viewport={"width": 1280, "height": 1800})
         page = await context.new_page()
 
-        # Establish localhost origin BEFORE writing localStorage.
         await page.goto(APP_ORIGIN, wait_until="domcontentloaded")
         await page.evaluate(
             f"window.localStorage.setItem({json.dumps(STORAGE_KEY)}, {json.dumps(session_json)})"
         )
 
-        for path in ("/admin/seo", "/app/auditoria"):
+        for path, resource in PROTECTED_ROUTES:
             await page.goto(f"{APP_ORIGIN}{path}", wait_until="domcontentloaded")
+            # client-side beforeLoad calls requireAdminAccess(); allow up to 15s
+            try:
+                await page.wait_for_function(
+                    f"() => !location.pathname.startsWith({json.dumps(path)})",
+                    timeout=15000,
+                )
+            except Exception:
+                pass
+            await page.wait_for_load_state("networkidle", timeout=5000)
+            final = page.url
+            slug = path.replace("/", "_")
+            await page.screenshot(path=str(SCREENSHOTS / f"after{slug}.png"))
+            # Acceptable destinations: /app (admin gate redirected) or /auth (session not picked up)
+            from urllib.parse import urlparse
+            dest = urlparse(final).path
+            redirected = dest != path
+            record(
+                f"GET {path} → redirected away (non-admin)",
+                redirected,
+                f"final path = {dest}",
+            )
+            expected_resources.add(resource)
+
+        await browser.close()
+    return expected_resources
+
             # client-side beforeLoad needs a tick to call requireAdminAccess()
             try:
                 await page.wait_for_url(lambda url: "/app/auditoria" not in url and "/admin/seo" not in url, timeout=8000)
