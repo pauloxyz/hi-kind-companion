@@ -250,7 +250,8 @@ function VistoPage() {
 
   const updateDate = async (item: Item, field: "event_at" | "due_at", value: string) => {
     const iso = value ? new Date(value + "T12:00:00").toISOString() : null;
-    await supabase.from("visa_checklist_items").update({ [field]: iso }).eq("id", item.id);
+    const patch = field === "event_at" ? { event_at: iso } : { due_at: iso };
+    await supabase.from("visa_checklist_items").update(patch).eq("id", item.id);
     qc.invalidateQueries({ queryKey: ["visa-checklist"] });
   };
 
