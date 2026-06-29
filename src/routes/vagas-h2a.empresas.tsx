@@ -83,11 +83,11 @@ function EmpresasPage() {
               </tr>
             </thead>
             <tbody>
-              {employers.map((e) => (
+              {employers.map((e: Employer) => (
                 <tr key={e.name} className="border-t hover:bg-muted/30">
                   <td className="px-4 py-3 font-medium">{e.name}</td>
                   <td className="px-4 py-3">
-                    {e.states.slice(0, 3).map((s) => (
+                    {e.states.slice(0, 3).map((s: string) => (
                       <Link key={s} to="/vagas-h2a/$state" params={{ state: s.toLowerCase() }} className="inline-block mr-1.5 text-primary hover:underline">
                         {s}
                       </Link>
