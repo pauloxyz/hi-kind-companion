@@ -1133,6 +1133,39 @@ export type Database = {
           },
         ]
       }
+      visa_checklist_history: {
+        Row: {
+          action: string
+          created_at: string
+          details: Json
+          id: string
+          item_id: string
+          owner_id: string
+          step_key: string
+          step_label: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          details?: Json
+          id?: string
+          item_id: string
+          owner_id: string
+          step_key: string
+          step_label: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          details?: Json
+          id?: string
+          item_id?: string
+          owner_id?: string
+          step_key?: string
+          step_label?: string
+        }
+        Relationships: []
+      }
       visa_checklist_items: {
         Row: {
           completed_at: string | null
