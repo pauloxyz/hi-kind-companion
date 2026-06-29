@@ -183,13 +183,22 @@ jobs:
         env:
           CI: "1"
 
-      - name: Upload Playwright artifacts on failure
-        if: failure()
+      # Upload per-shard artifacts on any non-success outcome (failure OR
+      # cancellation/timeout) so recurring failures in the full suite always
+      # land with screenshots, videos, and traces attached to the run.
+      # `screenshot`/`trace`/`video` are configured as `retain-on-failure` in
+      # playwright.config.ts, so test-results/** contains the .png / .webm /
+      # .zip files Playwright produced for failing tests on this shard.
+      - name: Upload Playwright artifacts (shard ${{ matrix.shard }})
+        if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-shard-${{ matrix.shard }}
           path: |
-            test-results/**
+            test-results/**/*.png
+            test-results/**/*.webm
+            test-results/**/*.zip
+            test-results/**/error-context.md
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
