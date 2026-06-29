@@ -5,6 +5,13 @@ import { AppShell } from "@/components/AppShell";
 
 export const Route = createFileRoute("/_authenticated")({
   ssr: false,
+  head: () => ({
+    meta: [
+      { title: "Painel privado — VaiPraLá" },
+      { name: "description", content: "Área privada para candidatos VaiPraLá acompanharem perfil, candidaturas, documentos e preparação para vagas H-2A." },
+      { name: "robots", content: "noindex,nofollow" },
+    ],
+  }),
   beforeLoad: async () => {
     const { data, error } = await supabase.auth.getUser();
     if (error || !data.user) throw redirect({ to: "/auth" });
