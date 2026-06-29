@@ -31,11 +31,11 @@ const ACTION_META: Record<
   string,
   { icon: typeof CheckCircle2; label: string; tone: string }
 > = {
-  completed: { icon: CheckCircle2, label: "Etapa concluída", tone: "text-emerald-600 dark:text-emerald-400" },
+  completed: { icon: CheckCircle2, label: "Etapa concluída", tone: "text-success" },
   reopened: { icon: RotateCcw, label: "Etapa reaberta", tone: "text-muted-foreground" },
   event_at_set: { icon: Calendar, label: "Data de realização definida", tone: "text-primary" },
   event_at_cleared: { icon: Calendar, label: "Data de realização removida", tone: "text-muted-foreground" },
-  due_at_set: { icon: Calendar, label: "Prazo/agendamento definido", tone: "text-amber-600 dark:text-amber-400" },
+  due_at_set: { icon: Calendar, label: "Prazo/agendamento definido", tone: "text-warning" },
   due_at_cleared: { icon: Calendar, label: "Prazo removido", tone: "text-muted-foreground" },
   attachment_added: { icon: Paperclip, label: "Evidência anexada", tone: "text-primary" },
   attachment_removed: { icon: Trash2, label: "Evidência removida", tone: "text-destructive" },

@@ -151,9 +151,9 @@ function H2BGuidePage() {
             teto, o USCIS faz um sorteio aleatório.
           </p>
           <ul className="space-y-2 ml-1">
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Empregador americano abre a petição I-129 com o USCIS.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Se aprovada, o trabalhador agenda entrevista no consulado.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Em anos recentes houve liberação de vistos suplementares por demanda.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Empregador americano abre a petição I-129 com o USCIS.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Se aprovada, o trabalhador agenda entrevista no consulado.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Em anos recentes houve liberação de vistos suplementares por demanda.</li>
           </ul>
         </section>
 

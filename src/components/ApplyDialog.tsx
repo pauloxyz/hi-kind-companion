@@ -128,16 +128,16 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
             </div>
           )}
           {duplicateWarning && (
-            <div className="rounded-md border border-yellow-500 bg-yellow-500/10 p-2 text-xs">
-              <div className="flex items-start gap-2"><AlertTriangle className="h-3.5 w-3.5 text-yellow-700 mt-0.5" />
-                <div className="text-yellow-800 dark:text-yellow-300">{duplicateWarning}</div></div>
+            <div className="rounded-md border border-warning/40 bg-warning/10 p-2 text-xs">
+              <div className="flex items-start gap-2"><AlertTriangle className="h-3.5 w-3.5 text-warning mt-0.5" />
+                <div className="text-warning">{duplicateWarning}</div></div>
             </div>
           )}
           {personalEmail && (
-            <div className="rounded-md border-2 border-orange-500 bg-orange-500/10 p-3 text-sm">
-              <div className="flex items-start gap-2"><AlertTriangle className="h-4 w-4 text-orange-600 mt-0.5" />
+            <div className="rounded-md border-2 border-warning/40 bg-warning/10 p-3 text-sm">
+              <div className="flex items-start gap-2"><AlertTriangle className="h-4 w-4 text-warning mt-0.5" />
                 <div className="flex-1">
-                  <div className="font-semibold text-orange-700 dark:text-orange-400">Atenção: email pessoal</div>
+                  <div className="font-semibold text-warning">Atenção: email pessoal</div>
                   <div className="text-xs mt-1">
                     O contato <strong>{job?.recruitment_email}</strong> usa um domínio pessoal (Gmail/Hotmail/etc), não corporativo.
                     Empregadores H-2A sérios normalmente usam email da empresa. Verifique se a vaga é legítima antes de enviar.
@@ -192,7 +192,7 @@ export function ApplyDialog({ job, open, onOpenChange, onSent }: Props) {
           ) : (
             <Textarea value={letter} onChange={(e) => setLetter(e.target.value)} placeholder="Sua carta em inglês aparecerá aqui…" className="min-h-[280px] font-mono text-sm" />
           )}
-          {!job?.recruitment_email && (<p className="text-xs text-yellow-600">⚠️ Sem e-mail. Use telefone ({job?.recruitment_phone ?? "—"}) ou site.</p>)}
+          {!job?.recruitment_email && (<p className="text-xs text-warning">⚠️ Sem e-mail. Use telefone ({job?.recruitment_phone ?? "—"}) ou site.</p>)}
           {job?.recruitment_email && (
             <p className="text-xs text-muted-foreground">
               📧 Será enviado pelo seu Gmail conectado. Resposta do empregador chega na sua caixa de entrada normal.

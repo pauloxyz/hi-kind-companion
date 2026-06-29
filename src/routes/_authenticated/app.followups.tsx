@@ -13,6 +13,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Loader2, Mail, Sparkles, Send, Check } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -123,7 +124,25 @@ function Page() {
         Empregadores que receberam sua candidatura há ≥ 2 dias e ainda não responderam. Um lembrete educado costuma dobrar a taxa de resposta.
       </p>
 
-      {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+      {loading && (
+        <div className="grid gap-2" aria-busy="true" aria-label="Carregando follow-ups">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-5 w-16" />
+                </div>
+                <Skeleton className="h-3 w-2/3" />
+                <div className="flex gap-2 pt-1">
+                  <Skeleton className="h-8 w-44" />
+                  <Skeleton className="h-8 w-44" />
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
       <div className="grid gap-2">
         {rows.map((r) => (
@@ -136,7 +155,7 @@ function Page() {
                     {r.jobs?.employer_name} · {r.jobs?.worksite_city}, {r.jobs?.worksite_state}
                   </div>
                 </div>
-                <Badge className="bg-orange-500">Devido</Badge>
+                <Badge className="bg-warning">Devido</Badge>
               </div>
               <div className="text-xs text-muted-foreground">
                 Enviado em {r.sent_at ? new Date(r.sent_at).toLocaleDateString("pt-BR") : "—"}

@@ -38,14 +38,14 @@ function daysAgo(date: string | null): number | null {
 function freshnessBadge(date: string | null) {
   const d = daysAgo(date);
   if (d == null) return <Badge variant="outline">sem data</Badge>;
-  if (d <= 3) return <Badge className="bg-green-600 hover:bg-green-600">Nova ({d}d)</Badge>;
-  if (d <= 10) return <Badge className="bg-yellow-500 hover:bg-yellow-500 text-black">Recente ({d}d)</Badge>;
+  if (d <= 3) return <Badge className="bg-success hover:bg-success">Nova ({d}d)</Badge>;
+  if (d <= 10) return <Badge className="bg-warning hover:bg-warning text-black">Recente ({d}d)</Badge>;
   return <Badge variant="secondary">{d}d atrás</Badge>;
 }
 
 function matchBadge(score: number) {
-  if (score >= 80) return <Badge className="bg-emerald-600">Match {score}%</Badge>;
-  if (score >= 60) return <Badge className="bg-blue-600">Match {score}%</Badge>;
+  if (score >= 80) return <Badge className="bg-success">Match {score}%</Badge>;
+  if (score >= 60) return <Badge className="bg-info">Match {score}%</Badge>;
   return <Badge variant="outline">Match {score}%</Badge>;
 }
 
@@ -81,9 +81,9 @@ function classifyJob(title: string | null): JobCategory {
 function QualityMedal({ q }: { q: JobQuality }) {
   if (!q.level) return null;
   const cfg = {
-    gold: { emoji: "🥇", label: "Top Pick", cls: "bg-yellow-500 hover:bg-yellow-500 text-black border-yellow-600" },
+    gold: { emoji: "🥇", label: "Top Pick", cls: "bg-warning hover:bg-warning text-black border-warning/40" },
     silver: { emoji: "🥈", label: "Recomendada", cls: "bg-slate-300 hover:bg-slate-300 text-black border-slate-400" },
-    bronze: { emoji: "🥉", label: "Boa opção", cls: "bg-amber-700 hover:bg-amber-700 text-white border-amber-800" },
+    bronze: { emoji: "🥉", label: "Boa opção", cls: "bg-warning hover:bg-warning text-warning-foreground border-warning/40" },
   }[q.level];
   return (
     <TooltipProvider delayDuration={150}>
@@ -438,7 +438,7 @@ function Page() {
             <Bell className="mr-2 h-4 w-4" />
             Alertas
             {totalFreshAlerts > 0 && (
-              <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1.5 text-[10px] font-bold text-white">
+              <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
                 {totalFreshAlerts}
               </span>
             )}
@@ -582,7 +582,7 @@ function Page() {
                   <div className="flex flex-col items-end gap-1">
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => toggleSaved(j.id)}
                       aria-label={isSaved ? "Remover dos favoritos" : "Salvar nos favoritos"}>
-                      <Star className={`h-4 w-4 ${isSaved ? "fill-yellow-500 text-yellow-500" : "text-muted-foreground"}`} />
+                      <Star className={`h-4 w-4 ${isSaved ? "fill-warning text-warning" : "text-muted-foreground"}`} />
                     </Button>
                     <QualityMedal q={quality} />
                     {matchBadge(score)}
@@ -617,7 +617,7 @@ function Page() {
                       <Send className="mr-2 h-3.5 w-3.5" />{applied ? "Já candidatado" : "Candidatar"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => toggleSaved(j.id)}>
-                      <Star className={`mr-2 h-3.5 w-3.5 ${isSaved ? "fill-yellow-500 text-yellow-500" : ""}`} />
+                      <Star className={`mr-2 h-3.5 w-3.5 ${isSaved ? "fill-warning text-warning" : ""}`} />
                       {isSaved ? "Salvo" : "Salvar"}
                     </Button>
                   </div>
@@ -804,7 +804,7 @@ function Page() {
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           {m.fresh > 0 ? (
-                            <Badge className="bg-red-600 hover:bg-red-600">{m.fresh} nova(s)</Badge>
+                            <Badge className="bg-destructive hover:bg-destructive">{m.fresh} nova(s)</Badge>
                           ) : (
                             <Badge variant="outline">sem novidades</Badge>
                           )}

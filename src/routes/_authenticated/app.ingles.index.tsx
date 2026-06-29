@@ -13,8 +13,8 @@ const ICONS: Record<string, typeof BookOpen> = {
 };
 
 const LEVELS: Array<{ key: "basico" | "intermediario" | "avancado"; title: string; desc: string; accent: string }> = [
-  { key: "basico", title: "Básico", desc: "Sobreviver e se comunicar no essencial.", accent: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" },
-  { key: "intermediario", title: "Intermediário", desc: "Trabalhar com confiança nos EUA.", accent: "bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30" },
+  { key: "basico", title: "Básico", desc: "Sobreviver e se comunicar no essencial.", accent: "bg-success/15 text-success border-success/30" },
+  { key: "intermediario", title: "Intermediário", desc: "Trabalhar com confiança nos EUA.", accent: "bg-info/15 text-info border-info/30" },
   { key: "avancado", title: "Avançado", desc: "Negociar, liderar e voltar todo ano.", accent: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" },
 ];
 
@@ -91,7 +91,7 @@ function InglesIndex() {
                             <Clock className="h-3 w-3 mr-1" /> {total} lições
                           </Badge>
                           {done > 0 && (
-                            <Badge className="bg-green-600 hover:bg-green-600 text-white font-normal">
+                            <Badge className="bg-success hover:bg-success text-success-foreground font-normal">
                               <CheckCircle2 className="h-3 w-3 mr-1" /> {done}/{total}
                             </Badge>
                           )}

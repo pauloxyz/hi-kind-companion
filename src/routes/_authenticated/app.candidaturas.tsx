@@ -29,12 +29,12 @@ type Row = {
 
 function statusBadge(r: Row) {
   const s = r.status ?? "";
-  if (s === "hired" || s === "offer") return <Badge className="bg-emerald-600">🎉 Oferta / Contratado</Badge>;
-  if (s === "interview") return <Badge className="bg-violet-600">📅 Entrevista marcada</Badge>;
+  if (s === "hired" || s === "offer") return <Badge className="bg-success">🎉 Oferta / Contratado</Badge>;
+  if (s === "interview") return <Badge className="bg-info">📅 Entrevista marcada</Badge>;
   if (s === "rejected") return <Badge variant="destructive">Rejeitada</Badge>;
-  if (r.responded_at) return <Badge className="bg-green-600">Respondeu</Badge>;
-  if (r.follow_up_sent_at) return <Badge className="bg-blue-600">Follow-up enviado</Badge>;
-  if (r.follow_up_due_at && new Date(r.follow_up_due_at) < new Date()) return <Badge className="bg-orange-500">Follow-up devido</Badge>;
+  if (r.responded_at) return <Badge className="bg-success">Respondeu</Badge>;
+  if (r.follow_up_sent_at) return <Badge className="bg-info">Follow-up enviado</Badge>;
+  if (r.follow_up_due_at && new Date(r.follow_up_due_at) < new Date()) return <Badge className="bg-warning">Follow-up devido</Badge>;
   return <Badge variant="secondary">Enviado</Badge>;
 }
 
@@ -259,8 +259,8 @@ function Page() {
                 {r.jobs?.recruitment_email && (<a href={`mailto:${r.jobs.recruitment_email}`} className="inline-flex items-center gap-1 text-primary hover:underline"><Mail className="h-3 w-3" />{r.jobs.recruitment_email}</a>)}
               </div>
               {r.reply_snippet && (
-                <div className="mt-2 rounded-md border-l-4 border-green-600 bg-green-600/5 p-2 text-xs">
-                  <div className="font-medium text-green-700 dark:text-green-400">
+                <div className="mt-2 rounded-md border-l-4 border-success/40 bg-success/5 p-2 text-xs">
+                  <div className="font-medium text-success">
                     📩 Resposta {r.reply_from ? `de ${r.reply_from}` : ""}
                     {r.reply_received_at && <span className="ml-1 text-muted-foreground">· {new Date(r.reply_received_at).toLocaleString("pt-BR")}</span>}
                   </div>

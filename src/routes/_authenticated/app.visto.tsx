@@ -394,9 +394,9 @@ function VistoPage() {
       {reminders.length > 0 && (
         <section
           aria-labelledby="reminders-title"
-          className="rounded-xl border border-amber-500/40 bg-amber-500/[0.06] p-4"
+          className="rounded-xl border border-warning/40 bg-warning/[0.06] p-4"
         >
-          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+          <div className="flex items-center gap-2 text-warning">
             <Bell className="h-4 w-4" aria-hidden />
             <h2 id="reminders-title" className="text-sm font-semibold">
               Lembretes próximos
@@ -597,7 +597,7 @@ function ChecklistRow({
                         <AlertTriangle className="h-3 w-3" aria-hidden /> vencido
                       </span>
                     ) : isSoon ? (
-                      <span className="text-amber-600 dark:text-amber-400">
+                      <span className="text-warning">
                         em {dueDays} dia(s)
                       </span>
                     ) : null

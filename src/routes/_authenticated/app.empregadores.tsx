@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/empregadores")({ component: Page });
@@ -15,7 +16,7 @@ function Page() {
   const qc = useQueryClient();
   const list = useServerFn(listEmployers);
   const update = useServerFn(updateEmployer);
-  const { data: emps = [] } = useQuery({ queryKey: ["employers"], queryFn: () => list() });
+  const { data: emps = [], isPending } = useQuery({ queryKey: ["employers"], queryFn: () => list() });
 
   async function save(id: string, patch: any) {
     await update({ data: { id, ...patch } });
@@ -27,7 +28,26 @@ function Page() {
       <h1 className="text-2xl font-bold">Empregadores</h1>
       <p className="text-sm text-muted-foreground">Empregadores são criados automaticamente quando você se candidata. Use esta tela para anotar histórico e marcar suspeitos.</p>
 
-      {emps.length === 0 && (
+      {isPending && (
+        <div className="grid gap-3" aria-busy="true" aria-label="Carregando empregadores">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!isPending && emps.length === 0 && (
         <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">Nenhum empregador ainda — candidate-se a uma vaga para começar.</CardContent></Card>
       )}
 
@@ -40,7 +60,7 @@ function Page() {
                 <div className="flex gap-1 items-center">
                   {e.is_flagged_suspicious && <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Suspeito</Badge>}
                   <Badge variant="secondary">{e._apps} candidatura(s)</Badge>
-                  {e._responded > 0 && <Badge className="bg-green-600">{e._responded} respondeu</Badge>}
+                  {e._responded > 0 && <Badge className="bg-success">{e._responded} respondeu</Badge>}
                 </div>
               </CardTitle>
             </CardHeader>

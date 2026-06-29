@@ -246,10 +246,10 @@ function Page() {
         </div>
       </header>
 
-      <Card className={env === "production" && !dryRun ? "border-destructive" : "border-amber-500/50"}>
+      <Card className={env === "production" && !dryRun ? "border-destructive" : "border-warning/50"}>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
           <div className="flex items-start gap-3">
-            <ShieldAlert className={`h-5 w-5 mt-0.5 ${dryRun ? "text-amber-500" : "text-destructive"}`} />
+            <ShieldAlert className={`h-5 w-5 mt-0.5 ${dryRun ? "text-warning" : "text-destructive"}`} />
             <div>
               <p className="font-semibold text-sm">
                 Modo de execução: {dryRun ? "TESTE (dry-run)" : "ENVIO REAL"}
@@ -414,11 +414,11 @@ function Page() {
                     <div className="text-xs text-muted-foreground">etapas encontradas</div>
                     <div className="grid grid-cols-2 gap-2 pt-2 text-xs">
                       <div>
-                        <div className="font-semibold text-emerald-600">{s.enqueued}</div>
+                        <div className="font-semibold text-success">{s.enqueued}</div>
                         <div className="text-muted-foreground">{lastRun.data.dry_run ? "seriam enviados" : "enfileirados"}</div>
                       </div>
                       <div>
-                        <div className="font-semibold text-amber-600">{s.skipped}</div>
+                        <div className="font-semibold text-warning">{s.skipped}</div>
                         <div className="text-muted-foreground">suprimidos / duplicados</div>
                       </div>
                     </div>
@@ -493,10 +493,10 @@ function Page() {
               </Button>
               <div className="ml-auto flex flex-wrap gap-2 text-xs">
                 <Badge variant="outline">Total {totals.total}</Badge>
-                <Badge className="bg-emerald-600 text-white">{totals.sent} enviados</Badge>
+                <Badge className="bg-success text-success-foreground">{totals.sent} enviados</Badge>
                 <Badge className="bg-slate-500 text-white">{totals.pending} pendentes</Badge>
-                <Badge className="bg-amber-500 text-white">{totals.suppressed} suprimidos</Badge>
-                <Badge className="bg-destructive text-white">{totals.failed} falhas</Badge>
+                <Badge className="bg-warning text-warning-foreground">{totals.suppressed} suprimidos</Badge>
+                <Badge className="bg-destructive text-destructive-foreground">{totals.failed} falhas</Badge>
               </div>
             </div>
           </div>
@@ -540,9 +540,9 @@ function Page() {
 function StatusBadge({ status }: { status: string | null }) {
   const s = status ?? "—";
   const color =
-    s === "sent" ? "bg-emerald-600" :
+    s === "sent" ? "bg-success" :
     s === "pending" ? "bg-slate-500" :
-    s === "suppressed" ? "bg-amber-500" :
+    s === "suppressed" ? "bg-warning" :
     s === "bounced" || s === "complained" || s === "dlq" || s === "failed" ? "bg-destructive" :
     "bg-muted text-foreground";
   return <Badge className={color}>{s}</Badge>;
