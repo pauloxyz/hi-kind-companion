@@ -19,7 +19,8 @@ const HAS_SESSION = Boolean(STORAGE_KEY && SESSION_JSON);
 const VISUAL_OPTS = { maxDiffPixelRatio: 0.02, animations: "disabled" as const };
 
 async function bootSession(page: Page) {
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle").catch(() => {});
   await page.evaluate(
     ({ key, json }) => window.localStorage.setItem(key!, json!),
     { key: STORAGE_KEY, json: SESSION_JSON },
