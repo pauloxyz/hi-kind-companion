@@ -56,10 +56,33 @@ test.describe("keyboard-only Jornada H-2A walkthrough", () => {
       }).observe(node, { childList: true, characterData: true, subtree: true });
     });
 
-    // Tab into the sidebar; fall back to anchoring focus on the known
-    // top-level Painel link (id "nav-dashboard", the Jornada H-2A surface)
-    // if headless Chromium does not include offscreen sidebar items in the
-    // sequential focus order.
+    // Bring document focus to a known anchor before pressing Tab.
+    // In headless Chromium, a synthetic Tab from `body` sometimes
+    // produces no focus change; focusing <body> first is a no-op, so
+    // we click the main landmark to ensure the document has focus.
+    await page.locator("#main-content").click({ position: { x: 1, y: 1 } });
+    await page.evaluate(() => (document.activeElement as HTMLElement | null)?.blur());
+
+    // First Tab should land on the "Pular para o conteúdo" skip link,
+    // which is the documented first focus target of the AppShell. It
+    // must never fall back to <body>.
+    await page.keyboard.press("Tab");
+    const firstFocus = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      return {
+        tag: el?.tagName ?? null,
+        text: (el?.textContent ?? "").trim(),
+        href: (el as HTMLAnchorElement | null)?.getAttribute("href") ?? null,
+      };
+    });
+    expect(firstFocus.tag, "first Tab must move focus off <body>").not.toBe("BODY");
+    expect(
+      firstFocus.tag === "A" && firstFocus.href === "#main-content",
+      `expected first Tab to focus the skip link, got ${JSON.stringify(firstFocus)}`,
+    ).toBe(true);
+
+    // Continue tabbing toward the Painel/Jornada H-2A entry. If headless
+    // Chromium skips offscreen sidebar items, focus the known id directly.
     const reachedTarget = await tabUntil(page, async () =>
       page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
@@ -77,6 +100,9 @@ test.describe("keyboard-only Jornada H-2A walkthrough", () => {
     );
     if (!reachedTarget) {
       await page.locator("#nav-dashboard").first().focus();
+      // Verify the focus call actually took effect; never proceed with BODY.
+      const tag = await focusedTag(page);
+      expect(tag, "fallback focus on #nav-dashboard must not leave focus on BODY").not.toBe("BODY");
     }
     expect(await focusedTag(page)).not.toBe("BODY");
     await page.keyboard.press("Enter");
