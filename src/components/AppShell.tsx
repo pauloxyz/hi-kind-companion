@@ -137,16 +137,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
   }, [pathname]);
 
   // Jornada H-2A: derivada de onboarding + candidaturas + checklist de visto
-  const stages = [
-    { key: "curriculo", label: "Currículo", done: !showOnboarding },
-    { key: "candidatura", label: "Candidatura", done: appsCount > 0 },
-    { key: "ds160", label: "DS-160", done: !!visaSteps.ds160 },
-    { key: "entrevista", label: "Entrevista", done: !!visaSteps.interview_done },
-    { key: "visto", label: "Visto emitido", done: !!visaSteps.visa_issued },
-  ];
-  const doneCount = stages.filter((s) => s.done).length;
-  const progressPct = Math.round((doneCount / stages.length) * 100);
-  const currentStage = stages.find((s) => !s.done)?.label ?? "Embarque";
+  const journey = computeJourney({
+    onboardingDone: !showOnboarding,
+    appsCount: appsCount ?? 0,
+    visaSteps,
+  });
+  const { stages, doneCount, progressPct, currentStage } = journey;
   const initials = (fullName || "Você")
     .split(" ")
     .map((p) => p[0])
