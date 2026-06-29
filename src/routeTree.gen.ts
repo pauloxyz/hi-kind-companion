@@ -37,6 +37,7 @@ import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
+import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
 import { Route as ApiPublicHooksSeoScanRouteImport } from './routes/api/public/hooks/seo-scan'
@@ -191,6 +192,11 @@ const AuthenticatedAppAuditoriaRoute =
     path: '/app/auditoria',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminSeoRoute = AuthenticatedAdminSeoRouteImport.update({
+  id: '/admin/seo',
+  path: '/admin/seo',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedAppInglesIndexRoute =
   AuthenticatedAppInglesIndexRouteImport.update({
     id: '/',
@@ -251,6 +257,7 @@ export interface FileRoutesByFullPath {
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -288,6 +295,7 @@ export interface FileRoutesByTo {
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
+  '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -325,6 +333,7 @@ export interface FileRoutesById {
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/_authenticated/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -364,6 +373,7 @@ export interface FileRouteTypes {
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/'
+    | '/admin/seo'
     | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
@@ -401,6 +411,7 @@ export interface FileRouteTypes {
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a'
+    | '/admin/seo'
     | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
@@ -437,6 +448,7 @@ export interface FileRouteTypes {
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/'
+    | '/_authenticated/admin/seo'
     | '/_authenticated/app/auditoria'
     | '/_authenticated/app/candidaturas'
     | '/_authenticated/app/comecar'
@@ -681,6 +693,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAuditoriaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/seo': {
+      id: '/_authenticated/admin/seo'
+      path: '/admin/seo'
+      fullPath: '/admin/seo'
+      preLoaderRoute: typeof AuthenticatedAdminSeoRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/ingles/': {
       id: '/_authenticated/app/ingles/'
       path: '/'
@@ -776,6 +795,7 @@ const AuthenticatedAppInglesRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminSeoRoute: typeof AuthenticatedAdminSeoRoute
   AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
   AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
   AuthenticatedAppComecarRoute: typeof AuthenticatedAppComecarRoute
@@ -793,6 +813,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminSeoRoute: AuthenticatedAdminSeoRoute,
   AuthenticatedAppAuditoriaRoute: AuthenticatedAppAuditoriaRoute,
   AuthenticatedAppCandidaturasRoute: AuthenticatedAppCandidaturasRoute,
   AuthenticatedAppComecarRoute: AuthenticatedAppComecarRoute,
