@@ -218,7 +218,7 @@ function Page() {
             )}
             <Button onClick={handleSend} disabled={sending} className="w-full">
               {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-              Enviar teste
+              {dryRun ? "Simular envio (teste)" : "Enviar de verdade"}
             </Button>
           </CardContent>
         </Card>
@@ -237,7 +237,7 @@ function Page() {
             </p>
             <Button onClick={handleDispatch} disabled={dispatching} variant="secondary" className="w-full">
               {dispatching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bell className="mr-2 h-4 w-4" />}
-              Rodar dispatcher agora
+              {dryRun ? "Rodar dispatcher (dry-run)" : "Rodar dispatcher agora"}
             </Button>
           </CardContent>
         </Card>
