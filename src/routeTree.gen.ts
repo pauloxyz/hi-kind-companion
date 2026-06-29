@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UnsubscribeRouteImport } from './routes/unsubscribe'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrecosRouteImport } from './routes/precos'
@@ -55,6 +56,7 @@ import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/l
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicHooksVisaRemindersRouteImport } from './routes/api/public/hooks/visa-reminders'
 import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
 import { Route as ApiPublicHooksSpikeAlertRouteImport } from './routes/api/public/hooks/spike-alert'
 import { Route as ApiPublicHooksSeoScanRouteImport } from './routes/api/public/hooks/seo-scan'
@@ -65,6 +67,11 @@ import { Route as AuthenticatedAppInglesModuleRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppInglesModuleIndexRouteImport } from './routes/_authenticated/app.ingles.$module.index'
 import { Route as AuthenticatedAppInglesModuleLessonRouteImport } from './routes/_authenticated/app.ingles.$module.$lesson'
 
+const UnsubscribeRoute = UnsubscribeRouteImport.update({
+  id: '/unsubscribe',
+  path: '/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -305,6 +312,12 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksVisaRemindersRoute =
+  ApiPublicHooksVisaRemindersRouteImport.update({
+    id: '/api/public/hooks/visa-reminders',
+    path: '/api/public/hooks/visa-reminders',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksUptimeRoute = ApiPublicHooksUptimeRouteImport.update({
   id: '/api/public/hooks/uptime',
   path: '/api/public/hooks/uptime',
@@ -372,6 +385,7 @@ export interface FileRoutesByFullPath {
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/v/$slug': typeof VSlugRoute
@@ -405,6 +419,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/api/public/hooks/visa-reminders': typeof ApiPublicHooksVisaRemindersRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -428,6 +443,7 @@ export interface FileRoutesByTo {
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/v/$slug': typeof VSlugRoute
@@ -459,6 +475,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/api/public/hooks/visa-reminders': typeof ApiPublicHooksVisaRemindersRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -484,6 +501,7 @@ export interface FileRoutesById {
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unsubscribe': typeof UnsubscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/v/$slug': typeof VSlugRoute
@@ -517,6 +535,7 @@ export interface FileRoutesById {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/api/public/hooks/visa-reminders': typeof ApiPublicHooksVisaRemindersRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
@@ -542,6 +561,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/reset-password'
     | '/sitemap.xml'
+    | '/unsubscribe'
     | '/checkout/return'
     | '/email/unsubscribe'
     | '/v/$slug'
@@ -575,6 +595,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/api/public/hooks/visa-reminders'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -598,6 +619,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/reset-password'
     | '/sitemap.xml'
+    | '/unsubscribe'
     | '/checkout/return'
     | '/email/unsubscribe'
     | '/v/$slug'
@@ -629,6 +651,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/api/public/hooks/visa-reminders'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -653,6 +676,7 @@ export interface FileRouteTypes {
     | '/precos'
     | '/reset-password'
     | '/sitemap.xml'
+    | '/unsubscribe'
     | '/checkout/return'
     | '/email/unsubscribe'
     | '/v/$slug'
@@ -686,6 +710,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/api/public/hooks/visa-reminders'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
@@ -711,6 +736,7 @@ export interface RootRouteChildren {
   PrecosRoute: typeof PrecosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  UnsubscribeRoute: typeof UnsubscribeRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   VSlugRoute: typeof VSlugRoute
@@ -727,6 +753,7 @@ export interface RootRouteChildren {
   ApiPublicHooksSeoScanRoute: typeof ApiPublicHooksSeoScanRoute
   ApiPublicHooksSpikeAlertRoute: typeof ApiPublicHooksSpikeAlertRoute
   ApiPublicHooksUptimeRoute: typeof ApiPublicHooksUptimeRoute
+  ApiPublicHooksVisaRemindersRoute: typeof ApiPublicHooksVisaRemindersRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
@@ -736,6 +763,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/unsubscribe': {
+      id: '/unsubscribe'
+      path: '/unsubscribe'
+      fullPath: '/unsubscribe'
+      preLoaderRoute: typeof UnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -1058,6 +1092,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/visa-reminders': {
+      id: '/api/public/hooks/visa-reminders'
+      path: '/api/public/hooks/visa-reminders'
+      fullPath: '/api/public/hooks/visa-reminders'
+      preLoaderRoute: typeof ApiPublicHooksVisaRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/uptime': {
       id: '/api/public/hooks/uptime'
       path: '/api/public/hooks/uptime'
@@ -1226,6 +1267,7 @@ const rootRouteChildren: RootRouteChildren = {
   PrecosRoute: PrecosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  UnsubscribeRoute: UnsubscribeRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
   EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   VSlugRoute: VSlugRoute,
@@ -1242,6 +1284,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksSeoScanRoute: ApiPublicHooksSeoScanRoute,
   ApiPublicHooksSpikeAlertRoute: ApiPublicHooksSpikeAlertRoute,
   ApiPublicHooksUptimeRoute: ApiPublicHooksUptimeRoute,
+  ApiPublicHooksVisaRemindersRoute: ApiPublicHooksVisaRemindersRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
