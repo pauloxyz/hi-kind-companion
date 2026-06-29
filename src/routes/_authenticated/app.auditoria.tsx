@@ -716,6 +716,10 @@ function AuditPanel() {
         <TabsContent value="retention">
           <RetentionTab />
         </TabsContent>
+
+        <TabsContent value="spike-config">
+          <SpikeConfigTab />
+        </TabsContent>
       </Tabs>
 
       <EventDetailsDialog event={selected} onClose={() => setSelected(null)} />
