@@ -1,8 +1,14 @@
 import { test, expect } from "@playwright/test";
+import {
+  attachFailureDiagnostics,
+  fireShortcut,
+  waitForLiveRegionQuiet,
+} from "./_helpers/diagnostics";
 
 /**
  * G+key shortcuts must surface a sonner toast, keep keyboard focus on a
- * visible element, and NOT pollute the Jornada H-2A aria-live region.
+ * visible element, and NOT pollute the Jornada H-2A aria-live region with
+ * spurious announcements caused by the route change.
  *
  * Skipped in CI without an injected Supabase session.
  */
@@ -15,11 +21,11 @@ test.describe("shortcut visual feedback", () => {
   test.skip(!HAS_SESSION, "needs an injected Supabase session");
   test.use({ viewport: { width: 1280, height: 900 } });
 
+  test.afterEach(async ({ page }, testInfo) => {
+    await attachFailureDiagnostics(page, testInfo);
+  });
+
   test.beforeEach(async ({ page }) => {
-    // Land on a localhost page and wait for any client-side redirects to
-    // settle BEFORE evaluating into the page — otherwise the index route's
-    // post-mount navigation tears down the execution context mid-evaluate
-    // ("Execution context was destroyed, most likely because of a navigation").
     await page.goto("/", { waitUntil: "domcontentloaded" });
     await page.waitForLoadState("networkidle").catch(() => {});
     await page.evaluate(
@@ -27,10 +33,13 @@ test.describe("shortcut visual feedback", () => {
       { key: STORAGE_KEY, json: SESSION_JSON },
     );
     await page.goto("/app", { waitUntil: "domcontentloaded" });
-    // Wait for the live region to be present — that's the signal AppShell
-    // has finished its first render and any nested async boundaries resolved.
     await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
     await page.waitForLoadState("networkidle").catch(() => {});
+    // Drain any initial-mount Jornada announcement so the test's "before"
+    // snapshot below is taken from a stable region — otherwise the post-
+    // navigation read picks up the deferred announcement and the assertion
+    // (after === before) flakes.
+    await waitForLiveRegionQuiet(page);
   });
 
   const cases: { keys: [string, string]; label: string; urlRe: RegExp }[] = [
@@ -41,19 +50,16 @@ test.describe("shortcut visual feedback", () => {
 
   for (const c of cases) {
     test(`G ${c.keys[1].toUpperCase()} shows toast "${c.label}", keeps focus visible, leaves aria-live untouched`, async ({ page }) => {
-      // Snapshot live region before; must not change because of navigation.
+      // Snapshot the live region after the initial-mount announcement settled.
       const before = await page.getByTestId("journey-live-region").innerText();
 
       // Move focus to the matching sidebar nav link so we can observe its
-      // focus ring through the transition. The shortcut still works because
-      // the link is not an editable input.
+      // focus ring through the transition.
       const navId =
         c.keys[1] === "v" ? "nav-jobs" : c.keys[1] === "c" ? "nav-resume" : "nav-dashboard";
       await page.evaluate((id) => document.getElementById(id)?.focus(), navId);
 
-      await page.keyboard.press(c.keys[0]);
-      await page.keyboard.press(c.keys[1]);
-      await page.waitForURL(c.urlRe);
+      await fireShortcut(page, c.keys[1], c.urlRe);
 
       // Sonner toast appears with the destination label.
       const toast = page.locator('[data-sonner-toast]').filter({ hasText: c.label });
@@ -68,10 +74,6 @@ test.describe("shortcut visual feedback", () => {
         const cs = getComputedStyle(a);
         return {
           inViewport: r.width > 0 && r.height > 0,
-          outline: cs.outlineStyle,
-          boxShadow: cs.boxShadow,
-          // Tailwind's focus-visible:ring uses box-shadow; outline-none is OK
-          // as long as box-shadow shows the ring.
           hasRing: cs.boxShadow !== "none" || cs.outlineStyle !== "none",
         };
       });
@@ -80,7 +82,9 @@ test.describe("shortcut visual feedback", () => {
       expect(focus!.hasRing).toBe(true);
 
       // Aria-live region must not have been spammed by the route change.
-      const after = await page.getByTestId("journey-live-region").innerText();
+      // Wait for the same quiet window before comparing to absorb any
+      // micro-debounced re-render from the navigation.
+      const after = await waitForLiveRegionQuiet(page, 700, 3_000);
       expect(after).toBe(before);
     });
   }
