@@ -881,6 +881,7 @@ export type Database = {
           metadata: Json
           notified_at: string | null
           resource: string | null
+          severity: string | null
           user_agent: string | null
           user_id: string | null
         }
@@ -893,6 +894,7 @@ export type Database = {
           metadata?: Json
           notified_at?: string | null
           resource?: string | null
+          severity?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
@@ -905,6 +907,7 @@ export type Database = {
           metadata?: Json
           notified_at?: string | null
           resource?: string | null
+          severity?: string | null
           user_agent?: string | null
           user_id?: string | null
         }
