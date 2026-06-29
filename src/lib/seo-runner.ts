@@ -44,17 +44,12 @@ function collectCrawlableRoutes(): string[] {
   const visit = (node: Node | undefined) => {
     if (!node) return;
     const full = node.fullPath ?? "";
-    const id = node.id ?? "";
-    // Skip layout-only, splats, dynamic params, api, and the sitemap route itself
-    const skip =
-      !full ||
-      full === "/" === false && full.endsWith("/") ||
-      full.includes("$") ||
-      full.startsWith("/api/") ||
-      full === "/sitemap.xml" ||
-      id.startsWith("/_authenticated") === false && id.includes("/_") /* unreachable */;
-    if (full && !full.includes("$") && !full.startsWith("/api/") && full !== "/sitemap.xml") {
-      // Normalize trailing slash (e.g. "/vagas-h2a/" -> "/vagas-h2a") except root
+    if (
+      full &&
+      !full.includes("$") &&
+      !full.startsWith("/api/") &&
+      full !== "/sitemap.xml"
+    ) {
       const norm = full !== "/" && full.endsWith("/") ? full.slice(0, -1) : full;
       out.add(norm);
     }
@@ -62,7 +57,6 @@ function collectCrawlableRoutes(): string[] {
     if (!children) return;
     const arr = Array.isArray(children) ? children : Object.values(children);
     for (const c of arr) visit(c as Node);
-    void skip;
   };
   visit(routeTree as unknown as Node);
   return Array.from(out);
