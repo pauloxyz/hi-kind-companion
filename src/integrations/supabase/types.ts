@@ -131,6 +131,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "applications_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "public_jobs"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "applications_resume_id_fkey"
             columns: ["resume_id"]
             isOneToOne: false
@@ -836,6 +843,13 @@ export type Database = {
             referencedRelation: "jobs"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "saved_jobs_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "public_jobs"
+            referencedColumns: ["id"]
+          },
         ]
       }
       security_alert_acks: {
@@ -1143,6 +1157,90 @@ export type Database = {
       }
     }
     Views: {
+      public_jobs: {
+        Row: {
+          employer_name: string | null
+          end_date: string | null
+          external_case_number: string | null
+          id: string | null
+          imported_at: string | null
+          job_title: string | null
+          posted_date: string | null
+          start_date: string | null
+          total_openings: number | null
+          visa_type: string | null
+          wage_offered: number | null
+          wage_unit: string | null
+          worksite_city: string | null
+          worksite_state: string | null
+        }
+        Insert: {
+          employer_name?: string | null
+          end_date?: string | null
+          external_case_number?: string | null
+          id?: string | null
+          imported_at?: string | null
+          job_title?: string | null
+          posted_date?: string | null
+          start_date?: string | null
+          total_openings?: number | null
+          visa_type?: string | null
+          wage_offered?: number | null
+          wage_unit?: string | null
+          worksite_city?: string | null
+          worksite_state?: string | null
+        }
+        Update: {
+          employer_name?: string | null
+          end_date?: string | null
+          external_case_number?: string | null
+          id?: string | null
+          imported_at?: string | null
+          job_title?: string | null
+          posted_date?: string | null
+          start_date?: string | null
+          total_openings?: number | null
+          visa_type?: string | null
+          wage_offered?: number | null
+          wage_unit?: string | null
+          worksite_city?: string | null
+          worksite_state?: string | null
+        }
+        Relationships: []
+      }
+      public_profiles: {
+        Row: {
+          country: string | null
+          full_name: string | null
+          has_prior_h2_experience: boolean | null
+          languages: string[] | null
+          owner_id: string | null
+          photo_url: string | null
+          public_headline: string | null
+          public_slug: string | null
+        }
+        Insert: {
+          country?: string | null
+          full_name?: string | null
+          has_prior_h2_experience?: boolean | null
+          languages?: string[] | null
+          owner_id?: string | null
+          photo_url?: string | null
+          public_headline?: string | null
+          public_slug?: string | null
+        }
+        Update: {
+          country?: string | null
+          full_name?: string | null
+          has_prior_h2_experience?: boolean | null
+          languages?: string[] | null
+          owner_id?: string | null
+          photo_url?: string | null
+          public_headline?: string | null
+          public_slug?: string | null
+        }
+        Relationships: []
+      }
       security_hibp_daily: {
         Row: {
           auth_failures: number | null
@@ -1181,6 +1279,7 @@ export type Database = {
       }
       escalate_admin_denied_spikes: { Args: never; Returns: number }
       escalate_high_risk_alerts: { Args: never; Returns: number }
+      get_public_profile_whatsapp: { Args: { _slug: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]

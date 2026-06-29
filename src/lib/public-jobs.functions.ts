@@ -18,7 +18,7 @@ export const listPublicJobsByState = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const supabase = publicClient();
     const { data: rows } = await supabase
-      .from("jobs")
+      .from("public_jobs" as unknown as "jobs")
       .select(
         "id, job_title, employer_name, worksite_city, worksite_state, wage_offered, wage_unit, start_date, end_date, total_openings",
       )
@@ -32,7 +32,7 @@ export const listPublicJobStates = createServerFn({ method: "GET" }).handler(asy
   const supabase = publicClient();
   // Pull a wide slice and aggregate client-side; SQL distinct isn't needed at this scale.
   const { data } = await supabase
-    .from("jobs")
+    .from("public_jobs" as unknown as "jobs")
     .select("worksite_state")
     .not("worksite_state", "is", null)
     .limit(5000);
@@ -51,7 +51,7 @@ export const listPublicJobStates = createServerFn({ method: "GET" }).handler(asy
 export const listPublicTopEmployers = createServerFn({ method: "GET" }).handler(async () => {
   const supabase = publicClient();
   const { data } = await supabase
-    .from("jobs")
+    .from("public_jobs" as unknown as "jobs")
     .select("employer_name, worksite_state, worksite_city, total_openings, wage_offered")
     .not("employer_name", "is", null)
     .limit(5000);
