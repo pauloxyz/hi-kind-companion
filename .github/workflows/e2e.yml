@@ -1,0 +1,41 @@
+name: e2e
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  playwright:
+    timeout-minutes: 30
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - run: bun install --frozen-lockfile
+
+      - name: Install Playwright browsers
+        run: bunx playwright install --with-deps chromium
+
+      - name: Run e2e
+        run: bun run e2e
+        env:
+          CI: "1"
+
+      # Upload trace, video and screenshots for any failing spec. The shortcuts
+      # and aria-live suites are the most flaky to diagnose without artifacts,
+      # so we make sure those (plus everything else) ship their evidence on red.
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            test-results/**
+            playwright-report/**
+          retention-days: 14
+          if-no-files-found: ignore
