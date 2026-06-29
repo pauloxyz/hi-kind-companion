@@ -79,7 +79,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const [fullName, setFullName] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [appsCount, setAppsCount] = useState(0);
-  const [respondedCount, setRespondedCount] = useState(0);
+  const [savedJobsCount, setSavedJobsCount] = useState(0);
+  const [visaSteps, setVisaSteps] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -116,21 +117,30 @@ export function AppShell({ children }: { children?: ReactNode }) {
         if (!cancelled) setAppsCount(count ?? 0);
       });
     supabase
-      .from("applications")
+      .from("saved_jobs")
       .select("id", { count: "exact", head: true })
-      .not("responded_at", "is", null)
       .then(({ count }) => {
-        if (!cancelled) setRespondedCount(count ?? 0);
+        if (!cancelled) setSavedJobsCount(count ?? 0);
+      });
+    supabase
+      .from("visa_checklist_items")
+      .select("step_key, is_completed")
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const m: Record<string, boolean> = {};
+        for (const r of data) m[r.step_key] = !!r.is_completed;
+        setVisaSteps(m);
       });
     return () => { cancelled = true; };
   }, [pathname]);
 
-  // Journey stages: Cadastro · Currículo · Candidaturas · Respostas
+  // Jornada H-2A: derivada de onboarding + candidaturas + checklist de visto
   const stages = [
-    { key: "cadastro", label: "Cadastro", done: true },
     { key: "curriculo", label: "Currículo", done: !showOnboarding },
-    { key: "candidaturas", label: "Candidaturas", done: appsCount > 0 },
-    { key: "respostas", label: "Entrevistas", done: respondedCount > 0 },
+    { key: "candidatura", label: "Candidatura", done: appsCount > 0 },
+    { key: "ds160", label: "DS-160", done: !!visaSteps.ds160 },
+    { key: "entrevista", label: "Entrevista", done: !!visaSteps.interview_done },
+    { key: "visto", label: "Visto emitido", done: !!visaSteps.visa_issued },
   ];
   const doneCount = stages.filter((s) => s.done).length;
   const progressPct = Math.round((doneCount / stages.length) * 100);
@@ -142,6 +152,21 @@ export function AppShell({ children }: { children?: ReactNode }) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  // Fecha drawer mobile com Escape e bloqueia scroll do body quando aberto
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+
 
 
   const topItemsFinal: NavItem[] = showOnboarding
