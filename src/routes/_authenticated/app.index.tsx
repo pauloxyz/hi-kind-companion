@@ -114,7 +114,11 @@ function Dashboard() {
               </CardTitle>
               <span className="text-xs text-muted-foreground">{doneCount}/{nextSteps.length}</span>
             </div>
-            <Progress value={(doneCount / nextSteps.length) * 100} className="h-1.5 mt-2" />
+            <Progress
+              value={(doneCount / nextSteps.length) * 100}
+              className="h-1.5 mt-2"
+              aria-label={`Próximos passos concluídos: ${doneCount} de ${nextSteps.length}`}
+            />
           </CardHeader>
           <CardContent className="space-y-1.5">
             {nextSteps.map((s) => (
