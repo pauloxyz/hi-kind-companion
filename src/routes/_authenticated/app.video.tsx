@@ -1,83 +1,86 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
-import { generateVideoScript, normalizeYouTubeUrl, type ScriptBlock } from "@/lib/video-script.functions";
+import {
+  generateVideoScript,
+  normalizeYouTubeUrl,
+  deriveFallbackBlocks,
+  type ScriptBlock,
+} from "@/lib/video-script.functions";
+import { speakText } from "@/lib/english.functions";
 import { toast } from "sonner";
-import { Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle, Volume2 } from "lucide-react";
-import { pdf, Document, Page as PdfPage, Text, View, StyleSheet } from "@react-pdf/renderer";
+import {
+  Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle,
+  Volume2, Play, Pause, SkipForward, RotateCcw,
+} from "lucide-react";
+import { pdf, Document, Page as PdfPage, Text, View, StyleSheet, Image as PdfImage } from "@react-pdf/renderer";
 import { PdfBrandedFooter, PdfLogo } from "@/components/PdfLogo";
+import QRCode from "qrcode";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
+
+// ---------------- PDF ----------------
 
 const s = StyleSheet.create({
   page: { padding: 36, fontFamily: "Helvetica", fontSize: 11, color: "#111" },
   title: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 4, color: "#1a3a6e", textAlign: "center" },
   subtitle: { fontSize: 10, color: "#555", textAlign: "center", marginBottom: 14 },
   sectionTitle: {
-    fontSize: 12,
-    fontFamily: "Helvetica-Bold",
-    color: "#fff",
-    backgroundColor: "#1a3a6e",
-    padding: 6,
-    marginTop: 14,
-    marginBottom: 8,
-    textAlign: "center",
+    fontSize: 12, fontFamily: "Helvetica-Bold", color: "#fff", backgroundColor: "#1a3a6e",
+    padding: 6, marginTop: 14, marginBottom: 8, textAlign: "center",
   },
   ptBlock: { fontSize: 12, lineHeight: 1.6, textAlign: "justify", marginBottom: 6 },
-  blockRow: {
-    borderBottom: "1px solid #e2d8c4",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
+  blockRow: { borderBottom: "1px solid #e2d8c4", paddingVertical: 8, paddingHorizontal: 4 },
   blockHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
   blockNum: {
-    fontSize: 10,
-    fontFamily: "Helvetica-Bold",
-    color: "#fff",
-    backgroundColor: "#1a3a6e",
-    paddingVertical: 2,
-    paddingHorizontal: 6,
-    borderRadius: 8,
-    marginRight: 8,
+    fontSize: 10, fontFamily: "Helvetica-Bold", color: "#fff", backgroundColor: "#1a3a6e",
+    paddingVertical: 2, paddingHorizontal: 6, borderRadius: 8, marginRight: 8,
   },
   blockEn: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#111", flexShrink: 1 },
   blockLabel: { fontSize: 8, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 },
   blockPhonetic: { fontSize: 12, color: "#0a5d2e", fontFamily: "Helvetica-Oblique", marginBottom: 2 },
   blockPt: { fontSize: 10, color: "#555" },
+  blockIntonation: { fontSize: 10, color: "#7a4a00", fontFamily: "Helvetica-Oblique" },
   tip: {
-    fontSize: 9,
-    color: "#555",
-    backgroundColor: "#fef6e4",
-    padding: 8,
-    marginBottom: 10,
-    borderRadius: 3,
+    fontSize: 9, color: "#555", backgroundColor: "#fef6e4",
+    padding: 8, marginBottom: 10, borderRadius: 3,
   },
+  qrBox: {
+    flexDirection: "row", alignItems: "center", gap: 12, marginTop: 14, padding: 10,
+    backgroundColor: "#f5ede0", borderRadius: 4,
+  },
+  qrImg: { width: 90, height: 90 },
+  qrText: { fontSize: 10, color: "#1a3a6e", flexShrink: 1, lineHeight: 1.4 },
   footer: { fontSize: 9, color: "#666", marginTop: 16, textAlign: "center", fontStyle: "italic" },
 });
 
-function ScriptPdf({ pt, en, blocks, name }: { pt: string; en: string; blocks: ScriptBlock[]; name: string }) {
+function ScriptPdf({
+  pt, en, blocks, name, qrDataUrl, secondsPerBlock,
+}: {
+  pt: string; en: string; blocks: ScriptBlock[]; name: string;
+  qrDataUrl: string | null; secondsPerBlock: number;
+}) {
+  const totalSec = Math.round(blocks.length * secondsPerBlock);
   return (
     <Document>
-      {/* Página 1 — visão geral */}
       <PdfPage size="LETTER" style={s.page} wrap>
-        <View style={{ alignItems: "center", marginBottom: 8 }}>
-          <PdfLogo />
-        </View>
+        <View style={{ alignItems: "center", marginBottom: 8 }}><PdfLogo /></View>
         <Text style={s.title}>Roteiro do vídeo — {name}</Text>
         <Text style={s.subtitle}>
-          Treine bloco por bloco. Leia a pronúncia "abrasileirada" em voz alta, não tente ler o inglês escrito.
+          Treine bloco por bloco. Leia a pronúncia "abrasileirada" em voz alta — não tente ler o inglês escrito.
         </Text>
 
         <View style={s.tip}>
           <Text>
-            DICA: o inglês não se lê como se escreve. Use a coluna verde (pronúncia) para falar. Repita cada bloco
-            5 vezes antes de passar pro próximo. Quando souber 3 blocos seguidos sem olhar, junte-os.
+            DICA: o inglês não se lê como se escreve. Use a coluna verde (pronúncia) para falar.
+            Repita cada bloco 5 vezes antes de passar pro próximo. Quando souber 3 blocos seguidos sem olhar, junte-os.
           </Text>
         </View>
 
@@ -87,44 +90,58 @@ function ScriptPdf({ pt, en, blocks, name }: { pt: string; en: string; blocks: S
         <Text style={s.sectionTitle}>Roteiro completo em inglês (texto corrido)</Text>
         <Text style={s.ptBlock}>{en}</Text>
 
+        {qrDataUrl && (
+          <View style={s.qrBox}>
+            <PdfImage src={qrDataUrl} style={s.qrImg} />
+            <Text style={s.qrText}>
+              Aponte a câmera do celular para este QR code e abra o MODO PRÁTICA — você ouve cada bloco em inglês
+              e repete junto. Ritmo configurado: ~{secondsPerBlock}s por bloco (~{totalSec}s total).
+            </Text>
+          </View>
+        )}
+
         <Text style={s.footer}>Vire a página para ver os blocos com pronúncia →</Text>
         <PdfBrandedFooter />
       </PdfPage>
 
-      {/* Página 2+ — blocos com pronúncia */}
       <PdfPage size="LETTER" style={s.page} wrap>
-        <View style={{ alignItems: "center", marginBottom: 8 }}>
-          <PdfLogo />
-        </View>
+        <View style={{ alignItems: "center", marginBottom: 8 }}><PdfLogo /></View>
         <Text style={s.title}>Blocos de treino — leia a pronúncia em voz alta</Text>
         <Text style={s.subtitle}>
-          Cada bloco é uma frase curta. Cubra a coluna do inglês com o dedo e treine só pela pronúncia.
+          Cubra o inglês com o dedo e treine só pela pronúncia. As notas em laranja indicam o ritmo/entonação.
         </Text>
 
-        {blocks.map((b, i) => (
-          <View key={i} style={s.blockRow} wrap={false}>
-            <View style={s.blockHeader}>
-              <Text style={s.blockNum}>{String(i + 1).padStart(2, "0")}</Text>
-              <Text style={s.blockEn}>{b.en}</Text>
+        {blocks.length === 0 ? (
+          <View style={s.tip}><Text>Não foi possível gerar os blocos. Volte ao app e clique em "Gerar de novo".</Text></View>
+        ) : (
+          blocks.map((b, i) => (
+            <View key={i} style={s.blockRow} wrap={false}>
+              <View style={s.blockHeader}>
+                <Text style={s.blockNum}>{String(i + 1).padStart(2, "0")}</Text>
+                <Text style={s.blockEn}>{b.en}</Text>
+              </View>
+              <Text style={s.blockLabel}>Como falar (leia em voz alta)</Text>
+              <Text style={s.blockPhonetic}>{b.phonetic}</Text>
+              <Text style={s.blockLabel}>Entonação / ritmo</Text>
+              <Text style={s.blockIntonation}>{b.intonation}</Text>
+              <Text style={s.blockLabel}>Significado</Text>
+              <Text style={s.blockPt}>{b.pt}</Text>
             </View>
-            <Text style={s.blockLabel}>Como falar (leia em voz alta)</Text>
-            <Text style={s.blockPhonetic}>{b.phonetic}</Text>
-            <Text style={s.blockLabel}>Significado</Text>
-            <Text style={s.blockPt}>{b.pt}</Text>
-          </View>
-        ))}
+          ))
+        )}
 
-        <Text style={s.footer}>
-          Grave horizontal, boa luz, olhe para a câmera. ~60 segundos. Você consegue.
-        </Text>
+        <Text style={s.footer}>Grave horizontal, boa luz, olhe para a câmera. ~60 segundos. Você consegue.</Text>
         <PdfBrandedFooter />
       </PdfPage>
     </Document>
   );
 }
 
+// ---------------- Page ----------------
+
 function Page() {
   const genFn = useServerFn(generateVideoScript);
+  const ttsFn = useServerFn(speakText);
 
   const [scriptPt, setScriptPt] = useState("");
   const [scriptEn, setScriptEn] = useState("");
@@ -135,8 +152,17 @@ function Page() {
   const [generating, setGenerating] = useState(false);
   const [savingUrl, setSavingUrl] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const loadedRef = useRef(false);
 
+  // Practice mode
+  const [secondsPerBlock, setSecondsPerBlock] = useState(4);
+  const [activeIdx, setActiveIdx] = useState<number | null>(null);
+  const [playingAll, setPlayingAll] = useState(false);
+  const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
+  const audioCacheRef = useRef<Map<number, string>>(new Map()); // idx -> base64 mp3
+  const audioElRef = useRef<HTMLAudioElement | null>(null);
+  const playAllStopRef = useRef(false);
+
+  const loadedRef = useRef(false);
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
@@ -150,7 +176,7 @@ function Page() {
         setScriptPt(prof.video_script_pt ?? "");
         setScriptEn(prof.video_script_en ?? "");
         const stored = prof.video_script_blocks;
-        if (Array.isArray(stored)) setBlocks(stored as unknown as ScriptBlock[]);
+        if (Array.isArray(stored) && stored.length > 0) setBlocks(stored as unknown as ScriptBlock[]);
         setYoutubeUrl(prof.youtube_video_url ?? "");
         if (prof.youtube_video_url) setNormalizedUrl(normalizeYouTubeUrl(prof.youtube_video_url));
       }
@@ -161,6 +187,73 @@ function Page() {
     setNormalizedUrl(youtubeUrl.trim() ? normalizeYouTubeUrl(youtubeUrl) : null);
   }, [youtubeUrl]);
 
+  // Stop playback on unmount
+  useEffect(() => () => stopAll(), []);
+
+  function stopAll() {
+    playAllStopRef.current = true;
+    setPlayingAll(false);
+    setActiveIdx(null);
+    if (audioElRef.current) {
+      audioElRef.current.pause();
+      audioElRef.current = null;
+    }
+  }
+
+  async function ensureAudio(idx: number, text: string): Promise<string> {
+    const cached = audioCacheRef.current.get(idx);
+    if (cached) return cached;
+    setLoadingIdx(idx);
+    try {
+      const { audio } = await ttsFn({ data: { text } });
+      audioCacheRef.current.set(idx, audio);
+      return audio;
+    } finally {
+      setLoadingIdx((cur) => (cur === idx ? null : cur));
+    }
+  }
+
+  async function playBlock(idx: number): Promise<void> {
+    const b = blocks[idx];
+    if (!b) return;
+    try {
+      const audio = await ensureAudio(idx, b.en);
+      const audioEl = new Audio(`data:audio/mp3;base64,${audio}`);
+      audioElRef.current = audioEl;
+      setActiveIdx(idx);
+      await new Promise<void>((resolve, reject) => {
+        audioEl.onended = () => resolve();
+        audioEl.onerror = () => reject(new Error("Erro no áudio"));
+        void audioEl.play().catch(reject);
+      });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha no áudio");
+      throw e;
+    }
+  }
+
+  async function handlePlayOne(idx: number) {
+    stopAll();
+    playAllStopRef.current = false;
+    try { await playBlock(idx); } catch { /* shown */ }
+    setActiveIdx(null);
+  }
+
+  async function handlePlayAll() {
+    stopAll();
+    playAllStopRef.current = false;
+    setPlayingAll(true);
+    for (let i = 0; i < blocks.length; i++) {
+      if (playAllStopRef.current) break;
+      try { await playBlock(i); } catch { break; }
+      if (playAllStopRef.current) break;
+      // Pause between blocks for the user to repeat out loud
+      await new Promise((r) => setTimeout(r, secondsPerBlock * 1000));
+    }
+    setPlayingAll(false);
+    setActiveIdx(null);
+  }
+
   async function handleGenerate() {
     setGenerating(true);
     try {
@@ -168,6 +261,7 @@ function Page() {
       setScriptPt(r.pt);
       setScriptEn(r.en);
       setBlocks(r.blocks);
+      audioCacheRef.current.clear();
       toast.success("Roteiro + pronúncia gerados ✓");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro");
@@ -177,22 +271,32 @@ function Page() {
   }
 
   function copy(text: string, label: string) {
-    if (!text) {
-      toast.error("Gere o roteiro primeiro.");
-      return;
-    }
+    if (!text) { toast.error("Gere o roteiro primeiro."); return; }
     void navigator.clipboard.writeText(text).then(() => toast.success(`${label} copiado ✓`));
   }
 
+  const hasRealBlocks = blocks.length > 0;
+  const hasScript = !!scriptPt && !!scriptEn;
+  const needsRegenForBlocks = hasScript && !hasRealBlocks;
+
+  // Blocks used in the PDF: real or fallback (derived from EN)
+  const pdfBlocks = useMemo<ScriptBlock[]>(
+    () => (hasRealBlocks ? blocks : deriveFallbackBlocks(scriptEn)),
+    [hasRealBlocks, blocks, scriptEn],
+  );
+
   async function handleExportPdf() {
-    if (!scriptPt || !scriptEn) {
-      toast.error("Gere o roteiro primeiro.");
-      return;
-    }
+    if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
     setExporting(true);
     try {
+      const practiceUrl = `${window.location.origin}/app/video?mode=practice`;
+      const qrDataUrl = await QRCode.toDataURL(practiceUrl, { margin: 1, width: 300 });
       const blob = await pdf(
-        <ScriptPdf pt={scriptPt} en={scriptEn} blocks={blocks} name={name || "Candidato"} />
+        <ScriptPdf
+          pt={scriptPt} en={scriptEn} blocks={pdfBlocks}
+          name={name || "Candidato"} qrDataUrl={qrDataUrl}
+          secondsPerBlock={secondsPerBlock}
+        />
       ).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -209,10 +313,7 @@ function Page() {
 
   async function handleSaveUrl() {
     const trimmed = youtubeUrl.trim();
-    if (trimmed && !normalizedUrl) {
-      toast.error("Link do YouTube inválido. Use o link completo do vídeo.");
-      return;
-    }
+    if (trimmed && !normalizedUrl) { toast.error("Link do YouTube inválido."); return; }
     setSavingUrl(true);
     try {
       const { data: u } = await supabase.auth.getUser();
@@ -231,13 +332,14 @@ function Page() {
   }
 
   const ytId = normalizedUrl?.split("/").pop();
+  const totalSec = Math.round(blocks.length * secondsPerBlock);
 
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Vídeo de Apresentação</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Empregadores H-2A confiam mais em quem mostra a cara. Grave um vídeo curto em inglês, suba no YouTube e cole o link aqui — vai junto em todo email de candidatura.
+          Empregadores H-2A confiam mais em quem mostra a cara. Grave um vídeo curto em inglês, suba no YouTube e cole o link aqui.
         </p>
       </div>
 
@@ -251,14 +353,23 @@ function Page() {
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            A IA lê seu currículo (experiências, cultivos, máquinas) e monta um roteiro de ~50 segundos em PT-BR e EN, e também <strong>quebra o inglês em blocos curtos com a pronúncia escrita do jeito que um brasileiro lê</strong> (ex.: <em>"Rái, mái nêimi is Djón"</em>). Treine bloco a bloco — não tente decorar o texto todo de uma vez.
+            A IA lê seu currículo e monta um roteiro de ~50s em PT-BR e EN, com o inglês <strong>quebrado em blocos curtos</strong>, a pronúncia escrita do jeito que um brasileiro lê (ex.: <em>"Rái, mái nêimi is Djón"</em>) e notas de entonação. Treine bloco a bloco com áudio.
           </p>
           <Button onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
-            {scriptPt ? "Gerar de novo" : "Gerar meu roteiro"}
+            {hasScript ? "Gerar de novo" : "Gerar meu roteiro"}
           </Button>
 
-          {(scriptPt || scriptEn) && (
+          {needsRegenForBlocks && (
+            <div className="flex items-start gap-2 text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2.5 text-amber-900 dark:text-amber-200">
+              <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+              <div>
+                Seu roteiro foi gerado antes do modo de blocos com pronúncia/áudio existir. Clique em <strong>"Gerar de novo"</strong> para destravar os blocos, áudio TTS e a página 2 do PDF.
+              </div>
+            </div>
+          )}
+
+          {hasScript && (
             <>
               <div className="grid gap-3 md:grid-cols-2 pt-2">
                 <div className="space-y-1">
@@ -281,42 +392,13 @@ function Page() {
                 </div>
               </div>
 
-              {blocks.length > 0 && (
-                <div className="rounded-md border bg-muted/30 p-3 space-y-2">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <Volume2 className="h-4 w-4 text-primary" />
-                    Blocos de treino — leia a pronúncia em voz alta
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Cada bloco é uma frase curta. <strong>Cubra o inglês</strong> e treine pela pronúncia em verde. Quando souber 3 seguidos, junte.
-                  </p>
-                  <ol className="space-y-2.5">
-                    {blocks.map((b, i) => (
-                      <li key={i} className="rounded border bg-background p-2.5 text-sm">
-                        <div className="flex items-baseline gap-2">
-                          <span className="text-xs font-bold text-primary bg-primary/10 rounded px-1.5 py-0.5">
-                            {String(i + 1).padStart(2, "0")}
-                          </span>
-                          <span className="font-semibold">{b.en}</span>
-                        </div>
-                        <div className="mt-1.5 pl-7">
-                          <div className="text-xs uppercase tracking-wide text-muted-foreground">Como falar</div>
-                          <div className="italic text-emerald-700 dark:text-emerald-400">{b.phonetic}</div>
-                          <div className="text-xs text-muted-foreground mt-1">{b.pt}</div>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                </div>
-              )}
-
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2 pt-2">
                 <Button onClick={handleExportPdf} disabled={exporting} variant="outline" size="sm">
                   {exporting ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-2" />}
-                  Baixar PDF (roteiro + pronúncia bloco a bloco)
+                  Baixar PDF (roteiro + blocos + QR pro modo prática)
                 </Button>
                 <span className="text-xs text-muted-foreground">
-                  O PDF traz cada bloco com a pronúncia "abrasileirada" — leve no celular ou imprima pra treinar.
+                  O PDF traz cada bloco com pronúncia e entonação. O áudio fica aqui no app (PDF não toca som).
                 </span>
               </div>
             </>
@@ -324,34 +406,135 @@ function Page() {
         </CardContent>
       </Card>
 
-      {/* PASSO 2 */}
+      {/* PASSO 2 — Modo Prática */}
+      {hasRealBlocks && (
+        <Card id="practice">
+          <CardHeader>
+            <CardTitle className="text-base flex items-center gap-2">
+              <Volume2 className="h-4 w-4 text-primary" />
+              2. Modo prática — ouça e repita
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-md border bg-muted/40 p-3 space-y-3">
+              <div className="flex flex-wrap items-center gap-3 justify-between">
+                <div className="flex items-center gap-2">
+                  {playingAll ? (
+                    <Button size="sm" variant="destructive" onClick={stopAll}>
+                      <Pause className="h-3.5 w-3.5 mr-1" /> Parar
+                    </Button>
+                  ) : (
+                    <Button size="sm" onClick={handlePlayAll}>
+                      <Play className="h-3.5 w-3.5 mr-1" /> Tocar tudo
+                    </Button>
+                  )}
+                  <Button size="sm" variant="outline" onClick={() => { stopAll(); setActiveIdx(null); }}>
+                    <RotateCcw className="h-3.5 w-3.5 mr-1" /> Resetar
+                  </Button>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  Total estimado: <strong>{totalSec}s</strong> ({blocks.length} blocos × {secondsPerBlock}s de repetição)
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <label className="font-medium">Pausa entre blocos para você repetir</label>
+                  <span className="tabular-nums text-muted-foreground">{secondsPerBlock}s</span>
+                </div>
+                <Slider
+                  value={[secondsPerBlock]}
+                  min={2} max={8} step={1}
+                  onValueChange={(v) => setSecondsPerBlock(v[0] ?? 4)}
+                  disabled={playingAll}
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Comece com 5s para repetir devagar. Vá baixando até 3s quando estiver mais confiante.
+                </p>
+              </div>
+            </div>
+
+            <ol className="space-y-2">
+              {blocks.map((b, i) => {
+                const isActive = activeIdx === i;
+                const isLoading = loadingIdx === i;
+                return (
+                  <li
+                    key={i}
+                    className={[
+                      "rounded-md border p-3 text-sm transition-colors",
+                      isActive
+                        ? "border-primary bg-primary/10 ring-2 ring-primary"
+                        : "bg-background",
+                    ].join(" ")}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="text-xs font-bold text-primary bg-primary/15 rounded px-1.5 py-0.5 mt-0.5">
+                        {String(i + 1).padStart(2, "0")}
+                      </span>
+                      <div className="flex-1 space-y-1.5">
+                        <div className="font-semibold">{b.en}</div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Como falar</div>
+                          <div className="italic text-emerald-700 dark:text-emerald-400">{b.phonetic}</div>
+                        </div>
+                        <div>
+                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Entonação</div>
+                          <div className="text-amber-700 dark:text-amber-400 text-xs italic">{b.intonation}</div>
+                        </div>
+                        <div className="text-xs text-muted-foreground">{b.pt}</div>
+                      </div>
+                      <Button
+                        size="sm" variant={isActive ? "default" : "outline"}
+                        onClick={() => handlePlayOne(i)}
+                        disabled={isLoading || playingAll}
+                        className="flex-shrink-0"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : isActive ? (
+                          <SkipForward className="h-3.5 w-3.5" />
+                        ) : (
+                          <Play className="h-3.5 w-3.5" />
+                        )}
+                      </Button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* PASSO 3 — Gravar */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">2. Gravar e subir no YouTube</CardTitle>
+          <CardTitle className="text-base">3. Gravar e subir no YouTube</CardTitle>
         </CardHeader>
         <CardContent className="space-y-2 text-sm">
           <ol className="list-decimal pl-5 space-y-1.5">
-            <li>Use o roteiro acima — treine bloco por bloco lendo a pronúncia, depois junte tudo.</li>
-            <li><strong>Grave com o celular na horizontal</strong>, em boa luz (natural de dia funciona). Fundo neutro. <strong>~60-90 segundos.</strong></li>
-            <li>Vá em <a href="https://youtube.com/upload" target="_blank" rel="noopener noreferrer" className="text-primary underline">youtube.com/upload</a>, suba o vídeo e marque como <strong>"Não listado"</strong> (só quem tem o link vê).</li>
+            <li>Use o modo prática acima até saber 3 blocos seguidos sem olhar.</li>
+            <li><strong>Grave com o celular na horizontal</strong>, boa luz, fundo neutro. <strong>~60-90 segundos.</strong></li>
+            <li>Suba em <a href="https://youtube.com/upload" target="_blank" rel="noopener noreferrer" className="text-primary underline">youtube.com/upload</a> marcado como <strong>"Não listado"</strong>.</li>
             <li>Cole o link no campo abaixo.</li>
           </ol>
         </CardContent>
       </Card>
 
-      {/* PASSO 3 */}
+      {/* PASSO 4 — Link */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Youtube className="h-4 w-4 text-destructive" />
-            3. Cole o link do YouTube
+            4. Cole o link do YouTube
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex gap-2">
             <Input
               type="url"
-              placeholder="https://youtu.be/xxxxxxxxxxx ou https://youtube.com/watch?v=xxxx"
+              placeholder="https://youtu.be/xxxxxxxxxxx"
               value={youtubeUrl}
               onChange={(e) => setYoutubeUrl(e.target.value)}
             />
@@ -375,8 +558,7 @@ function Page() {
               </div>
               <div className="aspect-video w-full max-w-md rounded overflow-hidden border bg-black">
                 <iframe
-                  width="100%"
-                  height="100%"
+                  width="100%" height="100%"
                   src={`https://www.youtube.com/embed/${ytId}`}
                   title="Preview"
                   allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
