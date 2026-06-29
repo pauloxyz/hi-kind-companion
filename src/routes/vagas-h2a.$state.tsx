@@ -1,5 +1,6 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { listPublicJobsByState } from "@/lib/public-jobs.functions";
+import { STATE_INFO } from "@/lib/h2a-state-info";
 import logo from "@/assets/vaiprala-logo.png";
 
 const US_STATE_NAMES: Record<string, string> = {
