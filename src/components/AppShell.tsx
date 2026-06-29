@@ -538,15 +538,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </main>
       <OnboardingTour />
       {/* Anúncio acessível das mudanças de fase/progresso da Jornada H-2A */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        data-testid="journey-live-region"
-        className="sr-only"
-      >
-        {journeyAnnouncement}
-      </div>
+      <JourneyLiveRegion message={journeyAnnouncement} />
     </div>
   );
 }
