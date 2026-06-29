@@ -6,8 +6,53 @@ on:
   pull_request:
 
 jobs:
-  # Fast feedback: only the critical shortcuts + aria-live specs.
+  # Cheap static guard that runs before any browser job: every e2e spec
+  # that observes the journey-live-region MUST contain the explicit
+  # no-consecutive-duplicates assertion (`not.toBe(<arr>[i - 1])`). The
+  # journey-progression contract is the source of truth — any aria-live
+  # spec that omits this guard could silently regress, so we fail the CI
+  # at the lint step rather than waiting for a flaky reproduction.
+  aria-live-guard:
+    timeout-minutes: 2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert no aria-live spec is missing the dupes guard
+        run: |
+          set -euo pipefail
+          # Files that touch the live region in any way.
+          mapfile -t live_specs < <(grep -lE 'journey-live-region|__live\b|__liveMutations' e2e/*.spec.ts || true)
+          if [ "${#live_specs[@]}" -eq 0 ]; then
+            echo "No aria-live specs found — refusing to silently pass."
+            exit 1
+          fi
+          echo "Checking ${#live_specs[@]} aria-live spec(s) for the dupes guard:"
+          printf '  - %s\n' "${live_specs[@]}"
+          missing=()
+          for f in "${live_specs[@]}"; do
+            # Accept either `not.toBe(live[i - 1])` or any `<name>[i - 1]`
+            # form (afterSlow, afterFast, mutations, etc).
+            if ! grep -Eq 'not\.toBe\(\s*[A-Za-z_][A-Za-z0-9_]*\[\s*i\s*-\s*1\s*\]\s*\)' "$f"; then
+              missing+=("$f")
+            fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo
+            echo "::error::Specs observing the aria-live region are missing the consecutive-duplicates assertion:"
+            printf '::error::  - %s\n' "${missing[@]}"
+            echo
+            echo "Add a guard equivalent to:"
+            echo "    for (let i = 1; i < live.length; i++) {"
+            echo "      expect(live[i]).not.toBe(live[i - 1]);"
+            echo "    }"
+            exit 1
+          fi
+          echo "OK — all aria-live specs include the dupes guard."
+
   smoke:
+    needs: aria-live-guard
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
