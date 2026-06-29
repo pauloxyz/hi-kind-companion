@@ -365,4 +365,74 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # Consolidated rerun report: downloads the per-shard --last-failed
+  # reports produced by every `full` shard, concatenates them into one
+  # file, and uploads it as a single, dependency-free artifact. Runs
+  # whenever any shard produced a rerun report (failure OR cancellation),
+  # not just on full-suite failure, so triage always has a single
+  # entry-point regardless of which shard tripped.
+  rerun-report-consolidated:
+    needs: full
+    if: ${{ always() && needs.full.result != 'skipped' && needs.full.result != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download all per-shard rerun artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-rerun-shard-*
+          path: shard-artifacts
+          merge-multiple: false
+
+      - name: Consolidate last-failed reports
+        id: consolidate
+        run: |
+          set -euo pipefail
+          mkdir -p consolidated
+          OUT="consolidated/last-failed-all-shards.txt"
+          {
+            echo "Consolidated --last-failed report"
+            echo "================================="
+            echo "Workflow:    ${GITHUB_WORKFLOW} / run ${GITHUB_RUN_ID} (attempt ${GITHUB_RUN_ATTEMPT})"
+            echo "Commit:      ${GITHUB_SHA}"
+            echo "Generated:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+          } > "$OUT"
+
+          shopt -s nullglob
+          reports=(shard-artifacts/*/rerun-report/last-failed-shard-*.txt)
+          if [ "${#reports[@]}" -eq 0 ]; then
+            echo "(no per-shard last-failed reports were produced)" >> "$OUT"
+            echo "no_reports=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Shards with rerun reports: ${#reports[@]}" >> "$OUT"
+            echo >> "$OUT"
+            # Per-shard sections (sorted for stable ordering by shard number).
+            for f in $(printf '%s\n' "${reports[@]}" | sort); do
+              echo "===== $f =====" >> "$OUT"
+              cat "$f" >> "$OUT"
+              echo >> "$OUT"
+            done
+            # Deduplicated cross-shard summary of every spec file that
+            # appeared in any shard's --last-failed list.
+            echo >> "$OUT"
+            echo "Unique spec files across all shards:" >> "$OUT"
+            echo "------------------------------------" >> "$OUT"
+            grep -hE '^e2e/.*\.spec\.(ts|tsx|js|jsx)' "${reports[@]}" 2>/dev/null \
+              | sort -u >> "$OUT" || echo "(none parseable)" >> "$OUT"
+            echo "no_reports=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "::group::Consolidated report"
+          cat "$OUT"
+          echo "::endgroup::"
+
+      - name: Upload consolidated rerun report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-rerun-consolidated
+          path: consolidated/**
+          retention-days: 30
+          if-no-files-found: warn
 
