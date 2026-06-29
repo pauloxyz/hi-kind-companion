@@ -415,8 +415,16 @@ function Page() {
       }
     }
     toast.dismiss(progressToast);
-    if (failed === 0) toast.success(`${success} candidaturas enviadas pelo Gmail.`);
-    else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
+    if (failed === 0) {
+      toast.success(`${success} candidaturas enviadas pelo Gmail.`);
+      confirm({
+        title: success === 1 ? "Candidatura enviada" : `${success} candidaturas enviadas`,
+        detail:
+          success === 1
+            ? "A vaga foi marcada como ‘Candidatado’. Acompanhe respostas em Candidaturas."
+            : `${success} vagas marcadas como ‘Candidatado’. Acompanhe respostas em Candidaturas.`,
+      });
+    } else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
     setBulkRunning(false); setSelected(new Set()); setBulkMode(false);
     await load();
   }
