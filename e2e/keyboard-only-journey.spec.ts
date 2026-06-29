@@ -56,17 +56,21 @@ test.describe("keyboard-only Jornada H-2A walkthrough", () => {
       }).observe(node, { childList: true, characterData: true, subtree: true });
     });
 
-    // Tab into the navigation and Enter on the Jornada link.
-    const reachedJornada = await tabUntil(page, async () =>
+    // Tab into the navigation and Enter on the Visto / Jornada H-2A link
+    // (sidebar id "nav-visto", label "Visto").
+    const reachedTarget = await tabUntil(page, async () =>
       page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
-        return !!el && /jornada/i.test(el.textContent ?? el.getAttribute("aria-label") ?? "");
+        if (!el) return false;
+        const txt = (el.textContent ?? "").trim().toLowerCase();
+        const aria = (el.getAttribute("aria-label") ?? "").toLowerCase();
+        return el.id === "nav-visto" || /visto|jornada/.test(txt) || /visto|jornada/.test(aria);
       }),
     );
-    expect(reachedJornada).toBe(true);
+    expect(reachedTarget).toBe(true);
     expect(await focusedTag(page)).not.toBe("BODY");
     await page.keyboard.press("Enter");
-    await page.waitForURL(/\/app(\/visto)?$/);
+    await page.waitForURL(/\/app\/visto/);
 
     // Focus must remain on a real element after route change.
     expect(await focusedTag(page)).not.toBe("BODY");

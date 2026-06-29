@@ -16,13 +16,21 @@ test.describe("shortcut visual feedback", () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
   test.beforeEach(async ({ page }) => {
-    await page.goto("/");
+    // Land on a localhost page and wait for any client-side redirects to
+    // settle BEFORE evaluating into the page — otherwise the index route's
+    // post-mount navigation tears down the execution context mid-evaluate
+    // ("Execution context was destroyed, most likely because of a navigation").
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle").catch(() => {});
     await page.evaluate(
       ({ key, json }) => window.localStorage.setItem(key!, json!),
       { key: STORAGE_KEY, json: SESSION_JSON },
     );
-    await page.goto("/app");
-    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    // Wait for the live region to be present — that's the signal AppShell
+    // has finished its first render and any nested async boundaries resolved.
+    await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+    await page.waitForLoadState("networkidle").catch(() => {});
   });
 
   const cases: { keys: [string, string]; label: string; urlRe: RegExp }[] = [

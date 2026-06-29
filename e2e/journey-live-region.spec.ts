@@ -19,13 +19,17 @@ test.describe("aria-live debounce under rapid shortcut bursts", () => {
   test.use({ viewport: { width: 1280, height: 900 } });
 
   test("rapid G J/V/C bursts emit at most one aggregated announcement per debounce window", async ({ page }) => {
-    await page.goto("/");
+    // Settle any client-side redirects on "/" before evaluating, otherwise
+    // the index route navigates mid-evaluate and destroys the context.
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle").catch(() => {});
     await page.evaluate(
       ({ key, json }) => window.localStorage.setItem(key!, json!),
       { key: STORAGE_KEY, json: SESSION_JSON },
     );
-    await page.goto("/app");
-    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+    await page.waitForLoadState("networkidle").catch(() => {});
 
     const live = page.getByTestId("journey-live-region");
     await expect(live).toBeAttached();
