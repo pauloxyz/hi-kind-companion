@@ -65,11 +65,77 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # Targeted regression guard: the 4 specs we have historically had to
+  # stabilize (shift-tab, keyboard-only, journey-progression, shortcuts
+  # feedback). Runs after smoke and BEFORE the full sharded suite so a
+  # regression in any of them fails fast — without paying for 4 shards.
+  targeted:
+    needs: smoke
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
+      - name: Install Chromium (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Install system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+
+      - name: Run targeted regression specs (4 historically flaky)
+        run: >-
+          bunx playwright test
+          --retries=2
+          e2e/shift-tab-journey.spec.ts
+          e2e/keyboard-only-journey.spec.ts
+          e2e/journey-progression.spec.ts
+          e2e/shortcuts-feedback.spec.ts
+        env:
+          CI: "1"
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-targeted-artifacts
+          path: |
+            test-results/**
+            playwright-report/**
+          retention-days: 14
+          if-no-files-found: ignore
+
   # Full e2e suite sharded across 4 parallel runners. Each shard runs a
   # disjoint slice of the suite via Playwright's --shard=i/N flag, then
   # uploads its own artifacts on failure.
   full:
-    needs: smoke
+    needs: [smoke, targeted]
     timeout-minutes: 20
     runs-on: ubuntu-latest
     strategy:
@@ -117,13 +183,22 @@ jobs:
         env:
           CI: "1"
 
-      - name: Upload Playwright artifacts on failure
-        if: failure()
+      # Upload per-shard artifacts on any non-success outcome (failure OR
+      # cancellation/timeout) so recurring failures in the full suite always
+      # land with screenshots, videos, and traces attached to the run.
+      # `screenshot`/`trace`/`video` are configured as `retain-on-failure` in
+      # playwright.config.ts, so test-results/** contains the .png / .webm /
+      # .zip files Playwright produced for failing tests on this shard.
+      - name: Upload Playwright artifacts (shard ${{ matrix.shard }})
+        if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-artifacts-shard-${{ matrix.shard }}
           path: |
-            test-results/**
+            test-results/**/*.png
+            test-results/**/*.webm
+            test-results/**/*.zip
+            test-results/**/error-context.md
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore

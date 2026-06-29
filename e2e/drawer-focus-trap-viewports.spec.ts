@@ -29,6 +29,10 @@ async function bootSession(page: Page) {
 
 const VIEWPORTS = [
   { label: "360 phone", width: 360, height: 780 },
+  // 640px sits just under Tailwind's `sm` breakpoint and well below the
+  // drawer's `lg:hidden` threshold (1024px). Covering it guards against
+  // regressions where the focus trap depends on a specific mobile width.
+  { label: "640 near-breakpoint", width: 640, height: 900 },
   { label: "768 tablet", width: 768, height: 1024 },
 ] as const;
 
