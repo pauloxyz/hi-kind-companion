@@ -104,8 +104,12 @@ export function SecurityAuditPdf({
       </Page>
 
       <Page size="LETTER" style={s.page}>
-        <Text style={s.h1}>Eventos Recentes</Text>
-        <Text style={s.meta}>Últimos {events.length} eventos</Text>
+        <Text style={s.h1}>Eventos Filtrados</Text>
+        <Text style={s.meta}>
+          {events.length} evento(s) após aplicação dos filtros
+          {activeFilters.length > 0 ? ` (${activeFilters.join(" · ")})` : ""}
+        </Text>
+
         <View style={[s.row, s.th]}>
           <Text style={s.c1}>Data</Text>
           <Text style={s.c2}>Tipo</Text>
