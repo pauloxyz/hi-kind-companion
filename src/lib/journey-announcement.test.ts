@@ -75,4 +75,84 @@ describe("createAnnouncementDebouncer", () => {
     expect(d.isPending()).toBe(false);
     vi.useRealTimers();
   });
+
+  it("emits at most one aggregated message per debounce window across rapid bursts", () => {
+    vi.useFakeTimers();
+    const emit = vi.fn();
+    const d = createAnnouncementDebouncer(emit, 500);
+    // Window 1: 5 rapid schedules
+    for (let i = 1; i <= 5; i++) {
+      d.schedule({ doneCount: i, total: 5, currentStage: `Stage-${i}` });
+      vi.advanceTimersByTime(50); // each tick < window
+    }
+    vi.advanceTimersByTime(500);
+    expect(emit).toHaveBeenCalledTimes(1);
+    expect(emit).toHaveBeenLastCalledWith(expect.stringContaining("5 de 5"));
+
+    // Window 2: another burst after the window closed
+    for (let i = 0; i < 3; i++) {
+      d.schedule({ doneCount: 2, total: 5, currentStage: "DS-160" });
+      vi.advanceTimersByTime(100);
+    }
+    vi.advanceTimersByTime(500);
+    expect(emit).toHaveBeenCalledTimes(2);
+
+    // Window 3
+    d.schedule({ doneCount: 3, total: 5, currentStage: "Entrevista" });
+    vi.advanceTimersByTime(500);
+    expect(emit).toHaveBeenCalledTimes(3);
+    vi.useRealTimers();
+  });
+
+  it("simulates AppShell unmount: cancel() prevents any further emit", () => {
+    vi.useFakeTimers();
+    const emit = vi.fn();
+    const d = createAnnouncementDebouncer(emit, 600);
+    d.schedule({ doneCount: 1, total: 5, currentStage: "Candidatura" });
+    d.schedule({ doneCount: 2, total: 5, currentStage: "DS-160" });
+    // AppShell unmounts → effect cleanup runs cancel().
+    d.cancel();
+    // Even rapid re-scheduling after cancel must not resurrect the timer
+    // unless an explicit schedule comes in; cancel + no schedule = silence.
+    vi.advanceTimersByTime(5000);
+    expect(emit).not.toHaveBeenCalled();
+    expect(d.isPending()).toBe(false);
+    vi.useRealTimers();
+  });
+
+  it("does not emit anything if only cancel() is called (no schedule)", () => {
+    vi.useFakeTimers();
+    const emit = vi.fn();
+    const d = createAnnouncementDebouncer(emit, 600);
+    d.cancel();
+    vi.advanceTimersByTime(2000);
+    expect(emit).not.toHaveBeenCalled();
+    vi.useRealTimers();
+  });
+});
+
+describe("100% vs partial aria-live wording", () => {
+  it("uses distinct, legible wording and preserves doneCount/total/stage", () => {
+    const partial = formatJourneyAnnouncement({ doneCount: 3, total: 5, currentStage: "Entrevista" });
+    const complete = formatJourneyAnnouncement({ doneCount: 5, total: 5, currentStage: "Embarque" });
+
+    // Different sentences entirely so screen readers don't sound repetitive.
+    expect(partial).not.toBe(complete);
+    expect(partial).toMatch(/atualizada/i);
+    expect(complete).toMatch(/concluída/i);
+
+    // Both messages must surface the same three semantic anchors.
+    for (const msg of [partial, complete]) {
+      expect(msg).toMatch(/\d+ de \d+/);
+    }
+    expect(partial).toContain("3 de 5");
+    expect(partial).toContain("Entrevista");
+    expect(complete).toContain("5 de 5");
+    expect(complete).toContain("Embarque");
+  });
+
+  it("never claims completion when there is still work left", () => {
+    const msg = formatJourneyAnnouncement({ doneCount: 4, total: 5, currentStage: "Visto emitido" });
+    expect(msg).not.toMatch(/concluída/i);
+  });
 });
