@@ -32,7 +32,7 @@ export const listSeoRuns = createServerFn({ method: "POST" })
     limit: Math.min(Math.max(input?.limit ?? 90, 1), 365),
   }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "seo_runs.fn");
     const { data: rows, error } = await context.supabase
       .from("seo_scan_runs")
       .select("*")
@@ -45,7 +45,7 @@ export const listSeoRuns = createServerFn({ method: "POST" })
 export const triggerManualSeoScan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "seo_runs.fn");
     const snap = await runSeoChecks();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const failing = snap.tests
