@@ -112,14 +112,14 @@
   --chart-5: oklch(0.45 0.08 70);     /* clay */
 
   /* Sidebar: deep moss (Jornada H-2A) */
-  --sidebar: oklch(0.22 0.04 155);
-  --sidebar-foreground: oklch(0.92 0.018 90);
-  --sidebar-primary: oklch(0.62 0.13 55);
-  --sidebar-primary-foreground: oklch(0.98 0.012 85);
-  --sidebar-accent: oklch(0.28 0.045 155);
-  --sidebar-accent-foreground: oklch(0.95 0.02 90);
-  --sidebar-border: oklch(0.32 0.05 155);
-  --sidebar-ring: oklch(0.62 0.13 55);
+  --sidebar: oklch(0.18 0.035 155);
+  --sidebar-foreground: oklch(0.96 0.012 90);
+  --sidebar-primary: oklch(0.82 0.13 70);
+  --sidebar-primary-foreground: oklch(0.16 0.03 150);
+  --sidebar-accent: oklch(0.26 0.045 155);
+  --sidebar-accent-foreground: oklch(0.97 0.018 90);
+  --sidebar-border: oklch(0.34 0.05 155);
+  --sidebar-ring: oklch(0.82 0.13 70);
 }
 
 .dark {
