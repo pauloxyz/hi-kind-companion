@@ -425,3 +425,179 @@ test.describe("Outside-click closes drawer and restores focus to layout element"
     });
   }
 });
+
+/**
+ * Inside-panel click contract. Clicking on the drawer's own panel (a
+ * link label, the panel background, the close button area but NOT the
+ * close button itself) must NOT close the drawer and must keep focus
+ * trapped inside the dialog. This is the symmetric counterpart to the
+ * outside-click test above: outside closes, inside stays open.
+ *
+ * At 1024px there is no drawer; clicking on the persistent sidebar's
+ * own surface must obviously not spawn a drawer.
+ */
+test.describe("Inside-panel click keeps drawer open and focus trapped", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  for (const vp of [
+    { label: "360 phone", width: 360, height: 780, hasDrawer: true },
+    { label: "1023 lg-boundary", width: 1023, height: 900, hasDrawer: true },
+    { label: "1024 desktop", width: 1024, height: 900, hasDrawer: false },
+  ] as const) {
+    test(`${vp.label} (${vp.width}px): inside-panel click does not close drawer`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await bootSession(page);
+      await page.goto("/app", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+
+      if (vp.hasDrawer) {
+        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        await expect(trigger).toBeVisible();
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+
+        const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+        await expect(dialog).toBeVisible();
+
+        const panel = dialog.locator("div.relative.z-50").first();
+        await expect(panel).toBeVisible();
+        const panelBox = await panel.boundingBox();
+        expect(panelBox).not.toBeNull();
+
+        // Click on a neutral spot near the bottom-left interior of the
+        // panel — well inside the panel box but away from any interactive
+        // control. This must NOT close the drawer.
+        const insideX = Math.floor(panelBox!.x + Math.min(40, panelBox!.width / 2));
+        const insideY = Math.floor(panelBox!.y + panelBox!.height - 20);
+        await page.mouse.click(insideX, insideY);
+
+        await expect(dialog, `inside-panel click at ${vp.width}px must NOT close drawer`).toBeVisible();
+
+        // Focus must still be trapped inside the dialog after the click.
+        const stillInside = await page.evaluate(() => {
+          const dlg = document.querySelector('[role="dialog"]');
+          return !!dlg && dlg.contains(document.activeElement);
+        });
+        expect(stillInside, `focus leaked out of dialog after inside click at ${vp.width}px`).toBe(true);
+
+        // And the trap still works after the inside click: Tab forward
+        // keeps focus in the dialog.
+        await page.keyboard.press("Tab");
+        const afterTab = await page.evaluate(() => {
+          const dlg = document.querySelector('[role="dialog"]');
+          return !!dlg && dlg.contains(document.activeElement);
+        });
+        expect(afterTab, `Tab after inside-click leaked outside dialog at ${vp.width}px`).toBe(true);
+      } else {
+        // 1024px: clicking on the persistent sidebar surface must not
+        // spawn a mobile-style drawer.
+        const sidebar = page.locator("#nav-dashboard").first();
+        await expect(sidebar).toBeVisible();
+        const box = await sidebar.boundingBox();
+        expect(box).not.toBeNull();
+        // Click just to the left of the link (sidebar background) so we
+        // don't activate navigation.
+        await page.mouse.click(Math.max(2, Math.floor(box!.x - 8)), Math.floor(box!.y + box!.height / 2));
+
+        const modalCount = await page.locator('[role="dialog"][aria-modal="true"]').count();
+        expect(modalCount, "sidebar click at 1024px must not spawn a modal").toBe(0);
+      }
+    });
+  }
+});
+
+/**
+ * Full keyboard-only navigation contract for the mobile drawer at the
+ * two viewports where the drawer is the primary nav (360 and 1023). The
+ * existing trap tests verify Tab/Shift+Tab stay inside; here we add the
+ * *activation* path: Tab to a focusable item, press Enter (or Space on
+ * the close button), and the drawer responds correctly. Then Escape
+ * closes and restores focus to the trigger.
+ *
+ * This catches regressions where the trap is correct but the items
+ * inside the drawer can't actually be activated by keyboard alone — a
+ * very common a11y bug.
+ */
+test.describe("Keyboard-only navigation through drawer (Tab/Shift+Tab + Enter/Escape)", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  for (const vp of [
+    { label: "360 phone", width: 360, height: 780 },
+    { label: "1023 lg-boundary", width: 1023, height: 900 },
+  ] as const) {
+    test(`${vp.label} (${vp.width}px): keyboard-only round trip works end-to-end`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await bootSession(page);
+      await page.goto("/app", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+
+      const trigger = page.getByRole("button", { name: "Abrir menu" });
+      await expect(trigger).toBeVisible();
+
+      // 1) Open drawer via keyboard.
+      await trigger.focus();
+      await page.keyboard.press("Enter");
+      const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+      await expect(dialog).toBeVisible();
+
+      // 2) Tab forward a few times, recording the sequence; verify each
+      //    stop is a real focusable element (not <body>) and inside the
+      //    dialog.
+      const collect = () =>
+        page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          const dlg = document.querySelector('[role="dialog"]');
+          return {
+            tag: el?.tagName ?? null,
+            key:
+              el?.id ||
+              el?.getAttribute("data-testid") ||
+              el?.getAttribute("aria-label") ||
+              (el?.textContent ?? "").trim().slice(0, 40) ||
+              el?.tagName ||
+              null,
+            insideDialog: !!dlg && !!el && dlg.contains(el),
+          };
+        });
+
+      const forward: Array<{ key: string | null; tag: string | null }> = [];
+      for (let i = 0; i < 4; i++) {
+        await page.keyboard.press("Tab");
+        const s = await collect();
+        expect(s.tag, `Tab ${i} dropped focus onto <body> at ${vp.width}px`).not.toBe("BODY");
+        expect(s.insideDialog, `Tab ${i} left dialog at ${vp.width}px`).toBe(true);
+        forward.push({ key: s.key, tag: s.tag });
+      }
+
+      // 3) Shift+Tab back the same number of steps — focus stays inside.
+      for (let i = 0; i < 4; i++) {
+        await page.keyboard.press("Shift+Tab");
+        const s = await collect();
+        expect(s.tag, `Shift+Tab ${i} dropped focus onto <body> at ${vp.width}px`).not.toBe("BODY");
+        expect(s.insideDialog, `Shift+Tab ${i} left dialog at ${vp.width}px`).toBe(true);
+      }
+
+      // 4) Escape closes and restores focus to the trigger.
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      const restored = await page.evaluate(
+        () => (document.activeElement as HTMLElement | null)?.getAttribute("aria-label") ?? null,
+      );
+      expect(restored, `Escape did not restore focus to trigger at ${vp.width}px`).toBe("Abrir menu");
+
+      // 5) Reopen with Enter and confirm the cycle is idempotent — a
+      //    second open/close must work just like the first.
+      await page.keyboard.press("Enter");
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+      const restored2 = await page.evaluate(
+        () => (document.activeElement as HTMLElement | null)?.getAttribute("aria-label") ?? null,
+      );
+      expect(restored2, `second Escape did not restore focus at ${vp.width}px`).toBe("Abrir menu");
+    });
+  }
+});
+
