@@ -222,7 +222,7 @@ function Landing() {
                 <p className="text-sm leading-relaxed text-foreground/85">"{t.quote}"</p>
                 <div className="mt-4 pt-4 border-t flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>{t.from}</span>
-                  <span className="inline-flex items-center gap-1 text-emerald-600 font-semibold">
+                  <span className="inline-flex items-center gap-1 text-success font-semibold">
                     <Check className="h-3 w-3" /> Visto aprovado
                   </span>
                 </div>
@@ -475,7 +475,7 @@ function JourneyTimeline({ jobs }: { jobs: number }) {
       <div className="absolute -inset-4 bg-primary/5 rounded-3xl rotate-2" aria-hidden />
       <div className="relative rounded-2xl border-2 border-primary/20 bg-card p-5 sm:p-6 shadow-elevated">
         <div className="flex items-center gap-2 mb-5">
-          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+          <span className="inline-flex h-2 w-2 rounded-full bg-success animate-pulse" aria-hidden />
           <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
             Jornada H-2A · ao vivo
           </span>
@@ -534,7 +534,7 @@ const AVATAR_STACK = [
   { initials: "JS", bg: "bg-primary" },
   { initials: "MP", bg: "bg-accent-red" },
   { initials: "RC", bg: "bg-accent-gold" },
-  { initials: "AS", bg: "bg-emerald-600" },
+  { initials: "AS", bg: "bg-success" },
 ];
 
 const TESTIMONIALS = [

@@ -40,7 +40,7 @@ function Page() {
                 <div className="flex gap-1 items-center">
                   {e.is_flagged_suspicious && <Badge variant="destructive"><AlertTriangle className="h-3 w-3 mr-1" />Suspeito</Badge>}
                   <Badge variant="secondary">{e._apps} candidatura(s)</Badge>
-                  {e._responded > 0 && <Badge className="bg-green-600">{e._responded} respondeu</Badge>}
+                  {e._responded > 0 && <Badge className="bg-success">{e._responded} respondeu</Badge>}
                 </div>
               </CardTitle>
             </CardHeader>

@@ -276,10 +276,10 @@ function Dashboard() {
       )}
 
       {(stats.data?.followupsDue ?? 0) > 0 && (
-        <Card className="border-orange-500 bg-orange-500/5">
+        <Card className="border-warning/40 bg-warning/5">
           <CardContent className="pt-4 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-orange-500" />
+              <AlertCircle className="h-5 w-5 text-warning" />
               <span><strong>{stats.data?.followupsDue}</strong> follow-up(s) devidos hoje</span>
             </div>
             <Button asChild size="sm"><Link to="/app/followups">Ir para follow-ups <ArrowRight className="h-3 w-3 ml-1" /></Link></Button>
@@ -437,8 +437,8 @@ function Funnel({ total, responded, hired }: { total: number; responded: number;
   return (
     <div className="space-y-2.5">
       <Bar label="Enviadas" count={total} pct={100} color="bg-primary" />
-      <Bar label="Respondidas" count={responded} pct={respondedPct} color="bg-green-500" />
-      <Bar label="Contratadas" count={hired} pct={hiredPct} color="bg-emerald-700" />
+      <Bar label="Respondidas" count={responded} pct={respondedPct} color="bg-success" />
+      <Bar label="Contratadas" count={hired} pct={hiredPct} color="bg-success" />
     </div>
   );
 }

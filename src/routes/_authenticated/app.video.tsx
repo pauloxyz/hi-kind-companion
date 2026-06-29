@@ -167,7 +167,7 @@ function Page() {
                   <VideoPreview path={v.video_url} />
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-2">
-                      {v.is_active && <Badge className="bg-green-600">Ativo</Badge>}
+                      {v.is_active && <Badge className="bg-success">Ativo</Badge>}
                       <span className="text-muted-foreground">{v.duration_seconds ? `${v.duration_seconds}s` : ""}</span>
                     </div>
                     <div className="flex gap-1">

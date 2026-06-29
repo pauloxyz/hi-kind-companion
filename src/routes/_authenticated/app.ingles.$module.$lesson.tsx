@@ -192,7 +192,7 @@ function LessonPage() {
             <Clock className="h-3 w-3" /> ~{lesson.estimated_minutes} min
           </span>
           {mastered && (
-            <Badge className="bg-amber-500 hover:bg-amber-500 text-white gap-1">
+            <Badge className="bg-warning hover:bg-warning text-white gap-1">
               <Trophy className="h-3 w-3" /> Dominada
             </Badge>
           )}
@@ -225,7 +225,7 @@ function LessonPage() {
                   <div className={cn(
                     "h-9 w-9 rounded-full flex items-center justify-center border-2",
                     active && "border-primary bg-primary text-primary-foreground",
-                    done && !active && "border-emerald-500 bg-emerald-500 text-white",
+                    done && !active && "border-success/40 bg-success text-white",
                     !active && !done && "border-muted-foreground/30 text-muted-foreground",
                   )}>
                     {done && !active ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}
@@ -345,7 +345,7 @@ function WarmupStep({ lesson, onNext }: { lesson: any; onNext: () => void }) {
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <Flame className="h-4 w-4 text-orange-500" /> Cenário
+              <Flame className="h-4 w-4 text-warning" /> Cenário
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -397,7 +397,7 @@ function VocabStep({
               <div className="flex items-start justify-between gap-2">
                 <div className="flex-1">
                   <p className="font-semibold">{p.en}</p>
-                  {p.phonetic && <p className="text-xs text-orange-600 dark:text-orange-400 italic font-mono">{p.phonetic}</p>}
+                  {p.phonetic && <p className="text-xs text-warning italic font-mono">{p.phonetic}</p>}
                   <p className="text-sm text-muted-foreground">{p.pt}</p>
                   {p.note && <p className="text-xs text-muted-foreground mt-1">💡 {p.note}</p>}
                 </div>
@@ -411,10 +411,10 @@ function VocabStep({
       </Card>
 
       {grammar && (
-        <Card className="bg-blue-500/5 border-blue-500/30">
+        <Card className="bg-info/5 border-info/30">
           <CardContent className="p-4">
             <p className="font-semibold text-sm flex items-center gap-2 mb-1">
-              <GraduationCap className="h-4 w-4 text-blue-500" /> Dica de gramática
+              <GraduationCap className="h-4 w-4 text-info" /> Dica de gramática
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">{grammar}</p>
           </CardContent>
@@ -422,10 +422,10 @@ function VocabStep({
       )}
 
       {pronunciation && (
-        <Card className="bg-orange-500/5 border-orange-500/30">
+        <Card className="bg-warning/5 border-warning/30">
           <CardContent className="p-4">
             <p className="font-semibold text-sm flex items-center gap-2 mb-1">
-              <AudioLines className="h-4 w-4 text-orange-500" /> Pronúncia americana
+              <AudioLines className="h-4 w-4 text-warning" /> Pronúncia americana
             </p>
             <p className="text-sm text-muted-foreground leading-relaxed">{pronunciation}</p>
           </CardContent>
@@ -433,17 +433,17 @@ function VocabStep({
       )}
 
       {mistakes.length > 0 && (
-        <Card className="border-red-500/30">
+        <Card className="border-destructive/30">
           <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
-              <AlertTriangle className="h-4 w-4 text-red-500" /> Erros comuns de brasileiro
+              <AlertTriangle className="h-4 w-4 text-destructive" /> Erros comuns de brasileiro
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
             {mistakes.map((m, i) => (
               <div key={i} className="text-sm border-b border-muted last:border-0 pb-2 last:pb-0">
-                <p className="text-red-600 dark:text-red-400">{m.wrong}</p>
-                <p className="text-emerald-600 dark:text-emerald-400">{m.right}</p>
+                <p className="text-destructive">{m.wrong}</p>
+                <p className="text-success">{m.right}</p>
                 <p className="text-xs text-muted-foreground mt-0.5">{m.explanation_pt}</p>
               </div>
             ))}
@@ -560,9 +560,9 @@ function FlashcardsStep({
   if (!current || allMastered) {
     return (
       <div className="space-y-4">
-        <Card className="bg-emerald-500/5 border-emerald-500/30">
+        <Card className="bg-success/5 border-success/30">
           <CardContent className="p-8 text-center space-y-3">
-            <Trophy className="h-12 w-12 text-emerald-500 mx-auto" />
+            <Trophy className="h-12 w-12 text-success mx-auto" />
             <h3 className="text-xl font-bold">Vocabulário dominado!</h3>
             <p className="text-sm text-muted-foreground">
               Você acertou todos os {flashcards.length} flashcards duas vezes seguidas. Agora vamos para o quiz de maestria.
@@ -606,7 +606,7 @@ function FlashcardsStep({
           ) : (
             <>
               <p className="text-[10px] uppercase tracking-wide text-muted-foreground">Português</p>
-              <p className="text-2xl font-semibold text-emerald-600 dark:text-emerald-400">{current.c.back}</p>
+              <p className="text-2xl font-semibold text-success">{current.c.back}</p>
               {current.c.example && (
                 <p className="text-sm text-muted-foreground italic border-t pt-3 mt-2">"{current.c.example}"</p>
               )}
@@ -617,10 +617,10 @@ function FlashcardsStep({
 
       {flipped && (
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="outline" size="lg" className="border-red-500/40 text-red-600 hover:bg-red-50 dark:hover:bg-red-950" onClick={() => handle(false)} disabled={busy}>
+          <Button variant="outline" size="lg" className="border-destructive/40 text-destructive hover:bg-destructive/10" onClick={() => handle(false)} disabled={busy}>
             <X className="h-4 w-4 mr-2" /> Não sabia
           </Button>
-          <Button size="lg" className="bg-emerald-600 hover:bg-emerald-700" onClick={() => handle(true)} disabled={busy}>
+          <Button size="lg" className="bg-success hover:bg-success" onClick={() => handle(true)} disabled={busy}>
             <Check className="h-4 w-4 mr-2" /> Acertei
           </Button>
         </div>
@@ -676,9 +676,9 @@ function MasteryStep({
 
   return (
     <div className="space-y-4">
-      <Card className="border-amber-500/40 bg-amber-500/5">
+      <Card className="border-warning/40 bg-warning/5">
         <CardContent className="p-4 flex items-start gap-3">
-          <Trophy className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+          <Trophy className="h-5 w-5 text-warning shrink-0 mt-0.5" />
           <div className="flex-1">
             <p className="font-semibold text-sm">Quiz de Maestria — {Math.round(threshold * 100)}% para dominar</p>
             <p className="text-xs text-muted-foreground">{quiz.length} questões. Atentivamente — você só passa de verdade quando estiver afiado.</p>
@@ -710,14 +710,14 @@ function MasteryStep({
                       "w-full text-left px-3 py-2 rounded-md border text-sm transition-colors",
                       !submitted && selected && "border-primary bg-primary/10",
                       !submitted && !selected && "border-border hover:bg-muted",
-                      showRight && "border-emerald-500 bg-emerald-500/10",
-                      showWrong && "border-red-500 bg-red-500/10",
+                      showRight && "border-success/40 bg-success/10",
+                      showWrong && "border-destructive/40 bg-destructive/10",
                       submitted && !showRight && !showWrong && "opacity-60",
                     )}
                   >
                     <span className="inline-flex items-center gap-2">
-                      {showRight && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-                      {showWrong && <XCircle className="h-4 w-4 text-red-500" />}
+                      {showRight && <CheckCircle2 className="h-4 w-4 text-success" />}
+                      {showWrong && <XCircle className="h-4 w-4 text-destructive" />}
                       {opt}
                     </span>
                   </button>
@@ -731,18 +731,18 @@ function MasteryStep({
       {submitted && result && (
         <Card className={cn(
           "border-2",
-          result.passed ? "border-emerald-500 bg-emerald-500/10" : "border-red-500 bg-red-500/10",
+          result.passed ? "border-success/40 bg-success/10" : "border-destructive/40 bg-destructive/10",
         )}>
           <CardContent className="p-5 text-center space-y-2">
             {result.passed ? (
               <>
-                <Trophy className="h-10 w-10 text-amber-500 mx-auto" />
+                <Trophy className="h-10 w-10 text-warning mx-auto" />
                 <p className="text-xl font-bold">Dominado! 🏆</p>
                 <p className="text-sm">{Math.round(result.score * 100)}% — acima do exigido ({Math.round(threshold * 100)}%)</p>
               </>
             ) : (
               <>
-                <RotateCcw className="h-10 w-10 text-red-500 mx-auto" />
+                <RotateCcw className="h-10 w-10 text-destructive mx-auto" />
                 <p className="text-xl font-bold">Ainda não 💪</p>
                 <p className="text-sm">{correct}/{quiz.length} ({Math.round(result.score * 100)}%) — você precisa de {Math.round(threshold * 100)}%</p>
                 <p className="text-xs text-muted-foreground">Revise os flashcards e tente de novo. Maestria é repetir até acertar.</p>
@@ -827,8 +827,8 @@ function ListeningStep({
         return (
           <Card key={i} className={cn(
             "border-2 transition-colors",
-            status === true && "border-emerald-500/50 bg-emerald-500/5",
-            status === false && "border-red-500/50 bg-red-500/5",
+            status === true && "border-success/50 bg-success/5",
+            status === false && "border-destructive/50 bg-destructive/5",
             status === null && "border-border",
           )}>
             <CardContent className="p-4 space-y-3">
@@ -864,14 +864,14 @@ function ListeningStep({
                           "w-full text-left px-3 py-2 rounded-md border text-sm transition-colors",
                           !revealed[i] && selected && "border-primary bg-primary/10",
                           !revealed[i] && !selected && "border-border hover:bg-muted",
-                          showRight && "border-emerald-500 bg-emerald-500/10",
-                          showWrong && "border-red-500 bg-red-500/10",
+                          showRight && "border-success/40 bg-success/10",
+                          showWrong && "border-destructive/40 bg-destructive/10",
                           revealed[i] && !showRight && !showWrong && "opacity-60",
                         )}
                       >
                         <span className="inline-flex items-center gap-2">
-                          {showRight && <CheckCircle2 className="h-4 w-4 text-emerald-500" />}
-                          {showWrong && <XCircle className="h-4 w-4 text-red-500" />}
+                          {showRight && <CheckCircle2 className="h-4 w-4 text-success" />}
+                          {showWrong && <XCircle className="h-4 w-4 text-destructive" />}
                           {opt}
                         </span>
                       </button>
@@ -897,7 +897,7 @@ function ListeningStep({
                   {revealed[i] && (
                     <p className={cn(
                       "text-xs",
-                      status ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400",
+                      status ? "text-success" : "text-destructive",
                     )}>
                       {status ? `✓ Correto: "${item.answer}"` : `✗ A resposta era: "${item.answer}"`}
                     </p>
@@ -928,7 +928,7 @@ function ListeningStep({
       {answered && (
         <Card className={cn(
           "border-2",
-          correctCount === items.length ? "border-emerald-500 bg-emerald-500/10" : "border-amber-500 bg-amber-500/10",
+          correctCount === items.length ? "border-success/40 bg-success/10" : "border-warning/40 bg-warning/10",
         )}>
           <CardContent className="p-4 text-center">
             <p className="font-bold">

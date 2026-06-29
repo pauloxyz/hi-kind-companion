@@ -1403,7 +1403,7 @@ function SpikeAlertNotificationsCard() {
                 <dd>
                   {q.data?.configured ? (
                     q.data.enabled ? (
-                      <Badge className="bg-emerald-600">Ativo</Badge>
+                      <Badge className="bg-success">Ativo</Badge>
                     ) : (
                       <Badge variant="secondary">Pausado</Badge>
                     )
@@ -1422,7 +1422,7 @@ function SpikeAlertNotificationsCard() {
                 <dt className="text-xs uppercase tracking-wider text-muted-foreground">Canal Slack</dt>
                 <dd className="text-xs">
                   {q.data?.slack_channel_configured ? (
-                    <Badge className="bg-emerald-600">Configurado</Badge>
+                    <Badge className="bg-success">Configurado</Badge>
                   ) : (
                     <Badge variant="destructive">SPIKE_ALERT_SLACK_CHANNEL ausente</Badge>
                   )}

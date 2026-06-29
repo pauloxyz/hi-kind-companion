@@ -141,9 +141,9 @@ function Page() {
             <Upload className="h-3 w-3 inline mr-1" />
             Marque suas melhores fotos como destaque — elas serão anexadas nas candidaturas.
           </p>
-          <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-xs text-foreground">
+          <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs text-foreground">
             <div className="flex items-start gap-2">
-              <Star className="h-4 w-4 fill-yellow-500 text-yellow-500 mt-0.5 shrink-0" />
+              <Star className="h-4 w-4 fill-warning text-warning mt-0.5 shrink-0" />
               <div>
                 <div className="font-semibold">Como aparecer no link enviado ao empregador</div>
                 <p className="mt-1 text-muted-foreground">
@@ -188,7 +188,7 @@ function Page() {
                       onClick={() => upMut.mutate({ id: m.id, patch: { is_featured: !m.is_featured } })}
                       title="Destaque"
                     >
-                      <Star className={`h-4 w-4 ${m.is_featured ? "fill-yellow-500 text-yellow-500" : ""}`} />
+                      <Star className={`h-4 w-4 ${m.is_featured ? "fill-warning text-warning" : ""}`} />
                     </Button>
                     <Button
                       size="icon" variant="ghost"

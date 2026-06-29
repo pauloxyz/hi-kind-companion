@@ -389,7 +389,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   {initials}
                 </div>
               )}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-sidebar rounded-full" aria-hidden />
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-success border-2 border-sidebar rounded-full" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-sidebar-foreground truncate">

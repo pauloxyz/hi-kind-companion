@@ -4,7 +4,7 @@ import { useI18n } from "@/lib/i18n";
 export function StrategyBanner() {
   const { t } = useI18n();
   return (
-    <div className="mb-3 flex items-start gap-3 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-900 dark:border-green-900 dark:bg-green-950/30 dark:text-green-200">
+    <div className="mb-3 flex items-start gap-3 rounded-lg border border-success/40 bg-success/10 p-3 text-sm text-success">
       <Zap className="mt-0.5 size-4 shrink-0" />
       <p className="leading-snug">{t("strategy_banner")}</p>
     </div>

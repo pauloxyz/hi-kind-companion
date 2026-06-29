@@ -134,10 +134,10 @@ function GuidePage() {
             nem qualificação técnica.
           </p>
           <ul className="space-y-2 ml-1">
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Sem limite anual de vistos — milhares de vagas a cada safra.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Empregador paga passagem, moradia e transporte da fazenda até o serviço.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Salário mínimo regional fixado pelo governo dos EUA (AEWR).</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Vagas publicadas oficialmente pelo Department of Labor — você pode conferir.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Sem limite anual de vistos — milhares de vagas a cada safra.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Empregador paga passagem, moradia e transporte da fazenda até o serviço.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Salário mínimo regional fixado pelo governo dos EUA (AEWR).</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Vagas publicadas oficialmente pelo Department of Labor — você pode conferir.</li>
           </ul>
         </section>
 
@@ -152,8 +152,8 @@ function GuidePage() {
           <ul className="space-y-2 ml-1">
             <li className="flex gap-2"><X className="h-5 w-5 text-destructive shrink-0" /> Limite anual de 66.000 vistos para os EUA inteiros — vai a sorteio.</li>
             <li className="flex gap-2"><X className="h-5 w-5 text-destructive shrink-0" /> Empregador não é obrigado a fornecer moradia gratuita.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Pode pagar mais em hotelaria de luxo ou parques temáticos.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Pode ser renovado por até 3 anos ininterruptos.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Pode pagar mais em hotelaria de luxo ou parques temáticos.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Pode ser renovado por até 3 anos ininterruptos.</li>
           </ul>
         </section>
 

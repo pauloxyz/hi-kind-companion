@@ -161,8 +161,8 @@ function H2ACostGuidePage() {
             ela deve ser checada na tabela oficial do Departamento de Estado no período da entrevista,
             porque regras consulares mudam.
           </p>
-          <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-4 flex gap-3">
-            <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 flex gap-3">
+            <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
             <p className="text-sm">
               Não use print antigo de internet como base. Confirme a categoria do visto, nacionalidade,
               validade emitida e cobrança no sistema oficial antes de separar dinheiro.
@@ -202,9 +202,9 @@ function H2ACostGuidePage() {
             ou “pagar taxa de empregador”.
           </p>
           <ul className="space-y-2 ml-1">
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Não pague taxa de recrutamento por fora.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Peça o nome do empregador e confirme a vaga oficial.</li>
-            <li className="flex gap-2"><Check className="h-5 w-5 text-emerald-600 shrink-0" /> Guarde recibos de tudo que for custo obrigatório.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Não pague taxa de recrutamento por fora.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Peça o nome do empregador e confirme a vaga oficial.</li>
+            <li className="flex gap-2"><Check className="h-5 w-5 text-success shrink-0" /> Guarde recibos de tudo que for custo obrigatório.</li>
           </ul>
         </section>
 

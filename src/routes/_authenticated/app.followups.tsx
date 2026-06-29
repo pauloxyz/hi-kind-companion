@@ -136,7 +136,7 @@ function Page() {
                     {r.jobs?.employer_name} · {r.jobs?.worksite_city}, {r.jobs?.worksite_state}
                   </div>
                 </div>
-                <Badge className="bg-orange-500">Devido</Badge>
+                <Badge className="bg-warning">Devido</Badge>
               </div>
               <div className="text-xs text-muted-foreground">
                 Enviado em {r.sent_at ? new Date(r.sent_at).toLocaleDateString("pt-BR") : "—"}

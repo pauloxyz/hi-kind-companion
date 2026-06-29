@@ -78,7 +78,7 @@ function ModulePage() {
             >
               <Card className={locked ? "opacity-70" : "hover:shadow-md transition-shadow"}>
                 <CardContent className="flex items-start gap-4 p-4">
-                  <div className={`inline-flex items-center justify-center h-9 w-9 rounded-full font-semibold text-sm shrink-0 ${mastered ? "bg-amber-500 text-white" : "bg-primary/10 text-primary"}`}>
+                  <div className={`inline-flex items-center justify-center h-9 w-9 rounded-full font-semibold text-sm shrink-0 ${mastered ? "bg-warning text-white" : "bg-primary/10 text-primary"}`}>
                     {mastered ? <Trophy className="h-4 w-4" /> : i + 1}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -89,7 +89,7 @@ function ModulePage() {
                       ) : (
                         <Badge className="text-[10px] bg-primary/15 text-primary hover:bg-primary/15">Pro</Badge>
                       )}
-                      {mastered && <Badge className="text-[10px] bg-amber-500 hover:bg-amber-500 text-white gap-1"><Trophy className="h-3 w-3" /> Dominada</Badge>}
+                      {mastered && <Badge className="text-[10px] bg-warning hover:bg-warning text-white gap-1"><Trophy className="h-3 w-3" /> Dominada</Badge>}
                       {attempted && !mastered && <Badge variant="outline" className="text-[10px]">{Math.round((prog?.bestScore ?? 0) * 100)}%</Badge>}
                     </div>
                     {l.goal_pt && <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{l.goal_pt}</p>}

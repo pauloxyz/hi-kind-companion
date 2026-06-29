@@ -29,8 +29,8 @@ export const Route = createFileRoute("/_authenticated/app/admin/emails/preview")
 
 const TONE: Record<number, string> = {
   14: "bg-sky-600",
-  7: "bg-amber-500",
-  1: "bg-red-600",
+  7: "bg-warning",
+  1: "bg-destructive",
 };
 
 function Page() {

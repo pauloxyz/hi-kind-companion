@@ -39,7 +39,7 @@ export function UptimePanel() {
               <p className="text-xs text-muted-foreground">Status atual</p>
               <div className="flex items-center gap-2">
                 {ok ? (
-                  <CheckCircle2 className="size-4 text-emerald-600" aria-hidden="true" />
+                  <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
                 ) : (
                   <AlertCircle className="size-4 text-destructive" aria-hidden="true" />
                 )}
