@@ -65,11 +65,17 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
-  # Full e2e suite (visual regression, axe, keyboard-only, drawer, etc.).
+  # Full e2e suite sharded across 4 parallel runners. Each shard runs a
+  # disjoint slice of the suite via Playwright's --shard=i/N flag, then
+  # uploads its own artifacts on failure.
   full:
     needs: smoke
-    timeout-minutes: 30
+    timeout-minutes: 20
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v4
 
@@ -106,8 +112,8 @@ jobs:
         if: steps.pw-cache.outputs.cache-hit == 'true'
         run: bunx playwright install-deps chromium
 
-      - name: Run full e2e suite
-        run: bun run e2e
+      - name: Run full e2e shard ${{ matrix.shard }}/4
+        run: bunx playwright test --shard=${{ matrix.shard }}/4
         env:
           CI: "1"
 
@@ -115,9 +121,10 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts
+          name: playwright-artifacts-shard-${{ matrix.shard }}
           path: |
             test-results/**
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
+
