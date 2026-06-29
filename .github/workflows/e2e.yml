@@ -183,15 +183,19 @@ jobs:
         env:
           CI: "1"
 
-      # Same nomenclature/contract as the full shards: upload screenshots,
-      # videos, traces, and error contexts on failure OR timeout. The job is
-      # single-shard so the artifact name uses `shard-targeted` to keep the
-      # `playwright-artifacts-shard-*` family consistent across all jobs.
+      # Same nomenclature/contract as the full shards. Artifact name now
+      # encodes the workflow attempt (so rerunning the workflow itself
+      # produces a distinct artifact, not an overwrite) and the run-phase
+      # tag (`run1` = first attempt within this workflow run; reruns of
+      # this single-shard targeted job are uncommon but still distinct
+      # via `attempt-N`). Viewport information is encoded in each test
+      # title (e.g. `360 phone (360x780)`), so the per-test directory
+      # under `test-results/` carries the viewport in its name already.
       - name: Upload Playwright artifacts (shard targeted)
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts-shard-targeted
+          name: playwright-artifacts-shard-targeted-attempt-${{ github.run_attempt }}-run1
           path: |
             test-results/**/*.png
             test-results/**/*.webm
@@ -200,6 +204,7 @@ jobs:
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
+
 
   # Full e2e suite sharded across 4 parallel runners. Each shard runs a
   # disjoint slice of the suite via Playwright's --shard=i/N flag, then
@@ -262,14 +267,14 @@ jobs:
       # Upload per-shard artifacts on any non-success outcome (failure OR
       # cancellation/timeout) so recurring failures in the full suite always
       # land with screenshots, videos, and traces attached to the run.
-      # `screenshot`/`trace`/`video` are configured as `retain-on-failure` in
-      # playwright.config.ts, so test-results/** contains the .png / .webm /
-      # .zip files Playwright produced for failing tests on this shard.
-      - name: Upload Playwright artifacts (shard ${{ matrix.shard }})
+      # Artifact name encodes the workflow attempt and the `run1` tag so
+      # the first-run artifact never collides with the rerun artifact
+      # below. Viewport is preserved per-test inside `test-results/<title>`.
+      - name: Upload Playwright artifacts (shard ${{ matrix.shard }} run1)
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-artifacts-shard-${{ matrix.shard }}
+          name: playwright-artifacts-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-run1
           path: |
             test-results/**/*.png
             test-results/**/*.webm
@@ -278,6 +283,7 @@ jobs:
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
+
 
       # Snapshot the first-run artifacts so the rerun step below can start
       # from a clean test-results/ and we can still ship both runs as
@@ -350,14 +356,15 @@ jobs:
 
       # Upload artifacts produced exclusively by the rerun — these are the
       # ones that matter when triaging "did the flake clear or is it real?".
-      # Distinct name so they don't collide with the first-run upload above.
-      # The rerun-report/ directory carries the human-readable list of
-      # specs that --last-failed selected for this shard.
-      - name: Upload rerun artifacts (shard ${{ matrix.shard }})
+      # Distinct name so they don't collide with the first-run upload above:
+      # `-attempt-N-rerun` makes first-run vs rerun obvious at a glance in
+      # the Actions UI. The `playwright-rerun-shard-*` prefix is preserved
+      # so the consolidated job's download pattern still matches.
+      - name: Upload rerun artifacts (shard ${{ matrix.shard }} rerun)
         if: ${{ !cancelled() && steps.full_rerun.conclusion != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-rerun-shard-${{ matrix.shard }}
+          name: playwright-rerun-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-rerun
           path: |
             rerun-report/**
             test-results/**/*.png
@@ -367,6 +374,7 @@ jobs:
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
+
 
   # Consolidated rerun report: downloads the per-shard --last-failed
   # reports produced by every `full` shard, concatenates them into one
@@ -498,6 +506,46 @@ jobs:
               fi
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # PR check annotations: emit a workflow `::error file=<spec>` line
+      # per failed spec so each one shows up as an inline annotation on
+      # the PR's Checks tab (and at the top of the run summary). Every
+      # annotation links back to the consolidated artifact and to the
+      # per-shard rerun artifacts so triage starts one click away from
+      # the screenshots / traces / videos.
+      #
+      # `::error file=...` requires a real path so GitHub renders the
+      # annotation against the source file; the message body carries the
+      # links. We emit annotations only when the full job actually failed
+      # — on success there's nothing to annotate.
+      - name: Emit PR check annotations for failed specs
+        if: ${{ !cancelled() && needs.full.result == 'failure' }}
+        env:
+          FULL_RESULT: ${{ needs.full.result }}
+        run: |
+          set -euo pipefail
+          UNIQUE_FILE="consolidated/unique-specs.txt"
+          ARTIFACT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}#artifacts"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ ! -s "$UNIQUE_FILE" ]; then
+            # Fall back to a single run-level annotation so the PR still
+            # shows something actionable when no per-spec list parsed.
+            echo "::error title=Playwright full-suite failed::No parseable failed-spec list. See consolidated artifact: ${ARTIFACT_URL} | Run: ${RUN_URL}"
+            exit 0
+          fi
+          count=0
+          while IFS= read -r spec; do
+            [ -z "$spec" ] && continue
+            count=$((count + 1))
+            # Title shows the spec; message body carries the links. The
+            # rerun artifact name pattern includes the workflow attempt,
+            # so we link to the run's #artifacts panel where the user
+            # can pick the matching `playwright-rerun-shard-N-attempt-${{ github.run_attempt }}-rerun` bundle.
+            echo "::error file=${spec},title=Playwright failed: ${spec}::Spec failed in full suite. Consolidated report: ${ARTIFACT_URL} (artifact 'playwright-rerun-consolidated'). Per-shard rerun artifacts: playwright-rerun-shard-<N>-attempt-${GITHUB_RUN_ATTEMPT}-rerun on the same run page. Run: ${RUN_URL}"
+          done < "$UNIQUE_FILE"
+          # Cap visible annotation noise but always leave a summary one.
+          echo "::warning title=Playwright full-suite failed::${count} spec(s) failed. Full list + traces: ${ARTIFACT_URL}"
+
 
       # Post the consolidated report as a PR comment when any shard
       # failed. Uses the github-script action to upsert a single comment
