@@ -19,6 +19,7 @@ import { triggerDolImport } from "@/lib/jobs.functions";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
 import { sendApplicationEmail } from "@/lib/gmail.functions";
 import { ApplyDialog } from "@/components/ApplyDialog";
+import { useActionFeedback } from "@/components/ActionFeedback";
 import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/score";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Database } from "@/integrations/supabase/types";
