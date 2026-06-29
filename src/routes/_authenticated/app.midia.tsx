@@ -171,7 +171,7 @@ function Page() {
           {filtered.map((m: MediaRow) => (
             <Card key={m.id}>
               <CardContent className="p-3 space-y-2">
-                <MediaThumb path={m.media_url} />
+                <MediaThumb path={m.media_url} caption={m.caption ?? undefined} />
                 <div className="flex items-center justify-between gap-2">
                   <Select
                     value={m.category ?? "general"}
