@@ -11,8 +11,11 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL || "http://localhost:8080",
     headless: true,
-    screenshot: "only-on-failure",
+    // Always capture artifacts on failure to make CI regressions (notably the
+    // shortcuts + aria-live specs) diagnosable without re-running locally.
+    screenshot: { mode: "only-on-failure", fullPage: false },
     trace: "retain-on-failure",
+    video: "retain-on-failure",
   },
   projects: [
     {
