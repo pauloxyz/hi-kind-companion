@@ -34,6 +34,7 @@ function Page() {
   const del = useServerFn(deleteIntroVideo);
 
   const { data: videos = [] } = useQuery({ queryKey: ["intro_videos"], queryFn: () => list() });
+  type IntroVideo = (typeof videos)[number];
 
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
