@@ -55,7 +55,7 @@ function Landing() {
     supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
     // Aggregate stats — best effort, anon-readable counts
     Promise.all([
-      supabase.from("jobs").select("id", { count: "exact", head: true }),
+      supabase.from("public_jobs" as unknown as "jobs").select("id", { count: "exact", head: true }),
     ]).then(([j]) => {
       setStats({
         jobs: j.count ?? 0,
