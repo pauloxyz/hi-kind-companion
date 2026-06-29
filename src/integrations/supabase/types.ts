@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_denied_spike_config: {
+        Row: {
+          id: boolean
+          threshold: number
+          updated_at: string
+          updated_by: string | null
+          window_minutes: number
+        }
+        Insert: {
+          id?: boolean
+          threshold?: number
+          updated_at?: string
+          updated_by?: string | null
+          window_minutes?: number
+        }
+        Update: {
+          id?: boolean
+          threshold?: number
+          updated_at?: string
+          updated_by?: string | null
+          window_minutes?: number
+        }
+        Relationships: []
+      }
       applications: {
         Row: {
           attached_media_ids: string[] | null

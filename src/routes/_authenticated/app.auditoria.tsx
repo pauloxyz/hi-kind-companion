@@ -44,7 +44,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getAuditStats, getDeniedAdminSummary, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
+import { getAuditStats, getDeniedAdminSummary, listAuditEvents, type AuditEvent, getAdminSpikeConfig, updateAdminSpikeConfig } from "@/lib/security-admin.functions";
 import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
@@ -52,11 +52,15 @@ import { UptimePanel } from "@/components/UptimePanel";
 
 const EVENT_TYPES = [
   { v: "", label: "Todos os tipos" },
+  { v: "admin_access_denied", label: "Acesso admin negado" },
+  { v: "admin_access_denied_spike", label: "Pico de acesso admin negado" },
+  { v: "high_risk_alert", label: "Alerta de alto risco" },
   { v: "hibp_block", label: "HIBP Block" },
   { v: "weak_password_block", label: "Senha Fraca" },
   { v: "auth_failure", label: "Falha de Auth" },
   { v: "pii_access", label: "Acesso PII" },
   { v: "admin_action", label: "Ação Admin" },
+  { v: "role_change", label: "Mudança de papel" },
   { v: "settings_viewed", label: "Configurações abertas" },
   { v: "password_changed", label: "Senha alterada" },
   { v: "email_change_requested", label: "Email alterado" },
@@ -394,6 +398,7 @@ function AuditPanel() {
           <TabsTrigger value="events">{tr("audit_tab_events")}</TabsTrigger>
           <TabsTrigger value="trend">{tr("audit_tab_trend")}</TabsTrigger>
           <TabsTrigger value="retention">{tr("audit_tab_retention")}</TabsTrigger>
+          <TabsTrigger value="spike-config">Alertas: limites</TabsTrigger>
         </TabsList>
 
 
@@ -710,6 +715,10 @@ function AuditPanel() {
 
         <TabsContent value="retention">
           <RetentionTab />
+        </TabsContent>
+
+        <TabsContent value="spike-config">
+          <SpikeConfigTab />
         </TabsContent>
       </Tabs>
 
@@ -1134,3 +1143,114 @@ function DeniedAdminCard({ sinceDays }: { sinceDays: number }) {
   );
 }
 
+
+function SpikeConfigTab() {
+  const fetchCfg = useServerFn(getAdminSpikeConfig);
+  const saveCfg = useServerFn(updateAdminSpikeConfig);
+  const queryClient = useQueryClient();
+  const q = useQuery({ queryKey: ["admin-spike-config"], queryFn: () => fetchCfg() });
+  const [threshold, setThreshold] = useState<number>(10);
+  const [windowMin, setWindowMin] = useState<number>(60);
+
+  useEffect(() => {
+    if (q.data) {
+      setThreshold(q.data.threshold);
+      setWindowMin(q.data.window_minutes);
+    }
+  }, [q.data]);
+
+  const dirty = !!q.data && (threshold !== q.data.threshold || windowMin !== q.data.window_minutes);
+  const valid = threshold >= 1 && threshold <= 1000 && windowMin >= 5 && windowMin <= 1440;
+
+  const mutation = useMutation({
+    mutationFn: (input: { threshold: number; window_minutes: number }) => saveCfg({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-spike-config"] });
+      toast.success("Configuração atualizada");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Falha ao salvar"),
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="size-4" aria-hidden="true" /> Limite de alerta · admin_access_denied_spike
+        </CardTitle>
+        <CardDescription>
+          Quando o número de tentativas de acesso admin negadas para um mesmo usuário <em>ou</em> rota
+          atingir o limite dentro da janela de tempo, um evento <code>admin_access_denied_spike</code> de
+          severidade alta é registrado para triagem. A detecção roda a cada 15 minutos.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {q.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : q.error ? (
+          <p className="text-sm text-destructive">Acesso negado ou falha ao carregar.</p>
+        ) : (
+          <>
+            <div className="grid gap-4 sm:grid-cols-2 max-w-xl">
+              <div className="space-y-1">
+                <label htmlFor="spike-threshold" className="text-sm font-medium">
+                  Limite (tentativas negadas)
+                </label>
+                <Input
+                  id="spike-threshold"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={threshold}
+                  onChange={(e) => setThreshold(Math.floor(Number(e.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">Entre 1 e 1000. Padrão: 10.</p>
+              </div>
+              <div className="space-y-1">
+                <label htmlFor="spike-window" className="text-sm font-medium">
+                  Janela de tempo (minutos)
+                </label>
+                <Input
+                  id="spike-window"
+                  type="number"
+                  min={5}
+                  max={1440}
+                  value={windowMin}
+                  onChange={(e) => setWindowMin(Math.floor(Number(e.target.value) || 0))}
+                />
+                <p className="text-xs text-muted-foreground">Entre 5 e 1440 (24h). Padrão: 60.</p>
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Última atualização:{" "}
+                {q.data?.updated_at && new Date(q.data.updated_at).getTime() > 0
+                  ? new Date(q.data.updated_at).toLocaleString("pt-BR")
+                  : "—"}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  disabled={!dirty || mutation.isPending}
+                  onClick={() => {
+                    if (q.data) {
+                      setThreshold(q.data.threshold);
+                      setWindowMin(q.data.window_minutes);
+                    }
+                  }}
+                >
+                  Reverter
+                </Button>
+                <Button
+                  disabled={!dirty || !valid || mutation.isPending}
+                  onClick={() => mutation.mutate({ threshold, window_minutes: windowMin })}
+                >
+                  {mutation.isPending ? "Salvando…" : "Salvar"}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}

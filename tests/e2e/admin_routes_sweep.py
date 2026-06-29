@@ -112,12 +112,21 @@ def query_denied_resources(user_id: str, since_iso: str) -> set[str]:
     return {row["resource"] for row in r.json() if row.get("resource")}
 
 
-async def visit_routes(session: dict, paths: list[str]) -> None:
+async def visit_routes(session: dict, paths: list[str]) -> list[tuple[int, str]]:
+    """Visits each /admin route and returns captured server-fn responses."""
     session_json = json.dumps(session)
+    server_fn_responses: list[tuple[int, str]] = []
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(viewport={"width": 1280, "height": 1800})
         page = await context.new_page()
+
+        def on_response(r):
+            url = r.url
+            if "_serverFn" in url or "/_serverFn/" in url or "/__server" in url:
+                server_fn_responses.append((r.status, url))
+        page.on("response", on_response)
+
         await page.goto(APP_ORIGIN, wait_until="domcontentloaded")
         await page.evaluate(
             f"window.localStorage.setItem({json.dumps(STORAGE_KEY)}, {json.dumps(session_json)})"
@@ -145,6 +154,33 @@ async def visit_routes(session: dict, paths: list[str]) -> None:
             )
 
         await browser.close()
+    return server_fn_responses
+
+
+# Files containing admin-guarded server fns. The contract is:
+# every callable here must call assertAdminWithAudit and reject non-admin.
+ADMIN_FN_FILES = [
+    "src/lib/admin-guard.functions.ts",
+    "src/lib/security-admin.functions.ts",
+    "src/lib/security-alerts.functions.ts",
+    "src/lib/security-retention.functions.ts",
+    "src/lib/seo-runs.functions.ts",
+    "src/lib/uptime.functions.ts",
+]
+
+
+def discover_admin_server_fns() -> list[tuple[str, str]]:
+    """Returns [(file, exportName), ...] for every createServerFn export in admin files."""
+    out: list[tuple[str, str]] = []
+    pat = re.compile(r"export\s+const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*createServerFn\b")
+    for f in ADMIN_FN_FILES:
+        p = Path(f)
+        if not p.exists():
+            continue
+        src = p.read_text(encoding="utf-8")
+        for name in pat.findall(src):
+            out.append((f, name))
+    return out
 
 
 async def main() -> int:
@@ -160,8 +196,29 @@ async def main() -> int:
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 5))
 
     try:
-        await visit_routes(session, paths)
+        admin_fns = discover_admin_server_fns()
+        print(f"📌 contract: {len(admin_fns)} admin server fn(s) must reject non-admin:")
+        for f, name in admin_fns:
+            print(f"   - {name}  ({f})")
+        record(
+            "discovered at least one admin server fn",
+            len(admin_fns) > 0,
+            f"{len(admin_fns)} fn(s)",
+        )
+
+        server_fn_responses = await visit_routes(session, paths)
         await asyncio.sleep(1.5)
+
+        # Every server-fn call captured while visiting admin pages must be denied (no 2xx).
+        leaked = [(s, u) for s, u in server_fn_responses if 200 <= s < 300]
+        record(
+            "no admin server-fn call returned 2xx for non-admin",
+            len(leaked) == 0,
+            f"captured {len(server_fn_responses)} server-fn response(s); leaked={leaked[:5]}"
+            if server_fn_responses
+            else "no server-fn calls observed during sweep",
+        )
+
         seen = query_denied_resources(user_id, started_at)
         for path in paths:
             expected = f"route:{path}"

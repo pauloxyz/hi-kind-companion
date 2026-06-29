@@ -146,3 +146,44 @@ export const getDeniedAdminSummary = createServerFn({ method: "GET" })
     };
   });
 
+
+export type AdminSpikeConfig = { threshold: number; window_minutes: number; updated_at: string; updated_by: string | null };
+
+export const getAdminSpikeConfig = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }): Promise<AdminSpikeConfig> => {
+    await assertAdminWithAudit(context as never, "security_admin.spike_config_read");
+    const { data, error } = await context.supabase
+      .from("admin_denied_spike_config")
+      .select("threshold, window_minutes, updated_at, updated_by")
+      .eq("id", true)
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    return (data ?? { threshold: 10, window_minutes: 60, updated_at: new Date(0).toISOString(), updated_by: null }) as AdminSpikeConfig;
+  });
+
+export const updateAdminSpikeConfig = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { threshold: number; window_minutes: number }) => {
+    const t = Math.floor(Number(input?.threshold));
+    const w = Math.floor(Number(input?.window_minutes));
+    if (!Number.isFinite(t) || t < 1 || t > 1000) throw new Error("threshold deve estar entre 1 e 1000");
+    if (!Number.isFinite(w) || w < 5 || w > 1440) throw new Error("window_minutes deve estar entre 5 e 1440");
+    return { threshold: t, window_minutes: w };
+  })
+  .handler(async ({ data, context }): Promise<AdminSpikeConfig> => {
+    await assertAdminWithAudit(context as never, "security_admin.spike_config_write");
+    const { data: row, error } = await context.supabase
+      .from("admin_denied_spike_config")
+      .upsert({
+        id: true,
+        threshold: data.threshold,
+        window_minutes: data.window_minutes,
+        updated_at: new Date().toISOString(),
+        updated_by: context.userId,
+      })
+      .select("threshold, window_minutes, updated_at, updated_by")
+      .single();
+    if (error) throw new Error(error.message);
+    return row as AdminSpikeConfig;
+  });
