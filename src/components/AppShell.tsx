@@ -14,6 +14,7 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 import { FraudBanner } from "./StrategyBanner";
+import { JourneyLiveRegion } from "./JourneyLiveRegion";
 import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
 import { computeJourney } from "@/lib/h2a-journey";
