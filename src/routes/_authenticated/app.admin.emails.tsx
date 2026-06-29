@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -14,10 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Mail, Bell, RefreshCw } from "lucide-react";
+import { Loader2, Mail, Bell, RefreshCw, Eye, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { listEmailLog, triggerVisaReminderDispatch, type LogRow } from "@/lib/email-admin.functions";
+import { detectEmailEnv, envLabel, envBadgeClass } from "@/lib/email/env";
 
 export const Route = createFileRoute("/_authenticated/app/admin/emails")({
   component: Page,
