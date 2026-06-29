@@ -466,7 +466,6 @@ function Page() {
               <X className="mr-2 h-4 w-4" /> Interromper
             </Button>
           )}
-          )}
           <Button variant={compareMode ? "default" : "outline"} size="sm"
             onClick={() => { setCompareMode((c) => !c); setCompareIds(new Set()); if (!compareMode) { setBulkMode(false); setSelected(new Set()); } }}>
             <GitCompare className="mr-2 h-4 w-4" />
