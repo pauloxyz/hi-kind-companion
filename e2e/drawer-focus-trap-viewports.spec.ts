@@ -22,7 +22,13 @@ async function bootSession(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.evaluate(
-    ({ key, json }) => window.localStorage.setItem(key!, json!),
+    ({ key, json }) => {
+      window.localStorage.setItem(key!, json!);
+      // Dismiss the first-run OnboardingTour overlay so it doesn't sit on
+      // top of the drawer and intercept pointer events in click-based
+      // tests. Keyboard-only tests don't need this, but it's harmless.
+      window.localStorage.setItem("vaiprala_tour_done_v1", "1");
+    },
     { key: STORAGE_KEY, json: SESSION_JSON },
   );
 }
@@ -323,6 +329,98 @@ test.describe("Escape closes drawer and restores focus to the correct layout ele
           afterKey.id,
           `Escape at 1024px must keep focus on the sidebar link, got ${JSON.stringify(afterKey)}`,
         ).toBe("nav-dashboard");
+      }
+    });
+  }
+});
+
+/**
+ * Outside-click contract. Clicking on the page surface OUTSIDE the open
+ * drawer must close it and restore focus to the original layout element
+ * (the trigger that opened the drawer). At 1024px there is no drawer at
+ * all — clicking on the main content area must NOT spawn one and must
+ * NOT steal focus from the sidebar link the user was on.
+ *
+ * We click on a deterministic main-content coordinate (away from the
+ * drawer panel) and assert the resulting focus state.
+ */
+test.describe("Outside-click closes drawer and restores focus to layout element", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  for (const vp of [
+    { label: "360 phone", width: 360, height: 780, hasDrawer: true },
+    { label: "1023 lg-boundary", width: 1023, height: 900, hasDrawer: true },
+    { label: "1024 desktop", width: 1024, height: 900, hasDrawer: false },
+  ] as const) {
+    test(`${vp.label} (${vp.width}px): outside click closes drawer and restores focus`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await bootSession(page);
+      await page.goto("/app", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+
+      if (vp.hasDrawer) {
+        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        await expect(trigger).toBeVisible();
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+
+        const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+        await expect(dialog).toBeVisible();
+
+        // The mobile drawer fills the viewport (`inset-0`) with a
+        // black/40 backdrop overlay AND an inner panel. "Outside" means
+        // outside the inner panel — i.e. on the backdrop. Locate the
+        // inner panel and click just past its right edge.
+        const panel = dialog.locator("div.relative.z-50").first();
+        await expect(panel).toBeVisible();
+        const panelBox = await panel.boundingBox();
+        expect(panelBox, "drawer panel must have a layout box").not.toBeNull();
+        const outsideX = Math.min(
+          vp.width - 5,
+          Math.floor(panelBox!.x + panelBox!.width + 20),
+        );
+        const outsideY = Math.floor(vp.height / 2);
+        // Sanity: the chosen point is genuinely outside the panel.
+        expect(outsideX).toBeGreaterThan(panelBox!.x + panelBox!.width);
+
+        await page.mouse.click(outsideX, outsideY);
+        await expect(dialog).toBeHidden();
+
+        const focused = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          return { tag: el?.tagName ?? null, ariaLabel: el?.getAttribute("aria-label") ?? null };
+        });
+        expect(focused.tag, `outside-click at ${vp.width}px dropped focus onto <body>`).not.toBe("BODY");
+        expect(
+          focused.ariaLabel,
+          `outside-click at ${vp.width}px must restore focus to the trigger, got ${JSON.stringify(focused)}`,
+        ).toBe("Abrir menu");
+      } else {
+        // Desktop: no drawer to close. Focusing a sidebar link, then
+        // clicking on a neutral main-content coordinate must NOT spawn a
+        // modal. Browsers legitimately blur the focused element when the
+        // user clicks on a non-focusable target — that is correct
+        // behavior, not a regression — so we do NOT assert focus stays
+        // on the link. What we DO assert: (a) no modal spawned, (b) the
+        // sidebar link is still in the DOM and reachable.
+        const dashboardLink = page.locator("#nav-dashboard").first();
+        await expect(dashboardLink).toBeVisible();
+        await dashboardLink.focus();
+        expect(await page.evaluate(() => document.activeElement?.id ?? null)).toBe("nav-dashboard");
+
+        // Click on the far-right side of the viewport, in the main
+        // content area — never on the sidebar (left side).
+        await page.mouse.click(vp.width - 20, Math.floor(vp.height / 2));
+
+        const modalCount = await page.locator('[role="dialog"][aria-modal="true"]').count();
+        expect(modalCount, "outside click at 1024px must not spawn a modal").toBe(0);
+
+        // Sidebar link still present and re-focusable — proves the
+        // layout wasn't torn down by the stray click.
+        await expect(dashboardLink).toBeVisible();
+        await dashboardLink.focus();
+        expect(await page.evaluate(() => document.activeElement?.id ?? null)).toBe("nav-dashboard");
       }
     });
   }

@@ -370,15 +370,18 @@ jobs:
 
   # Consolidated rerun report: downloads the per-shard --last-failed
   # reports produced by every `full` shard, concatenates them into one
-  # file, and uploads it as a single, dependency-free artifact. Runs
-  # whenever any shard produced a rerun report (failure OR cancellation),
-  # not just on full-suite failure, so triage always has a single
-  # entry-point regardless of which shard tripped.
+  # file, uploads it as a single artifact, writes a job summary, and
+  # posts a PR comment when any shard failed. Runs ALWAYS after `full`
+  # (even on success or skipped reruns) so there's a single, predictable
+  # place to look for results regardless of outcome.
   rerun-report-consolidated:
     needs: full
-    if: ${{ always() && needs.full.result != 'skipped' && needs.full.result != 'success' }}
+    if: ${{ always() && needs.full.result != 'skipped' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: write
     steps:
       - name: Download all per-shard rerun artifacts
         uses: actions/download-artifact@v4
@@ -386,6 +389,7 @@ jobs:
           pattern: playwright-rerun-shard-*
           path: shard-artifacts
           merge-multiple: false
+        continue-on-error: true
 
       - name: Consolidate last-failed reports
         id: consolidate
@@ -393,43 +397,63 @@ jobs:
           set -euo pipefail
           mkdir -p consolidated
           OUT="consolidated/last-failed-all-shards.txt"
+          FULL_RESULT="${{ needs.full.result }}"
           {
             echo "Consolidated --last-failed report"
             echo "================================="
             echo "Workflow:    ${GITHUB_WORKFLOW} / run ${GITHUB_RUN_ID} (attempt ${GITHUB_RUN_ATTEMPT})"
             echo "Commit:      ${GITHUB_SHA}"
+            echo "Full result: ${FULL_RESULT}"
             echo "Generated:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             echo
           } > "$OUT"
 
           shopt -s nullglob
           reports=(shard-artifacts/*/rerun-report/last-failed-shard-*.txt)
-          if [ "${#reports[@]}" -eq 0 ]; then
-            echo "(no per-shard last-failed reports were produced)" >> "$OUT"
-            echo "no_reports=true" >> "$GITHUB_OUTPUT"
+          shards_with_reports="${#reports[@]}"
+          if [ "$shards_with_reports" -eq 0 ]; then
+            if [ "$FULL_RESULT" = "success" ]; then
+              echo "All shards passed on their first run — no reruns were needed." >> "$OUT"
+            else
+              echo "(no per-shard last-failed reports were produced — reruns may have been skipped)" >> "$OUT"
+            fi
+            echo "shards_with_reports=0" >> "$GITHUB_OUTPUT"
+            echo "top_specs=" >> "$GITHUB_OUTPUT"
           else
-            echo "Shards with rerun reports: ${#reports[@]}" >> "$OUT"
+            echo "Shards with rerun reports: $shards_with_reports" >> "$OUT"
             echo >> "$OUT"
-            # Per-shard sections (sorted for stable ordering by shard number).
             for f in $(printf '%s\n' "${reports[@]}" | sort); do
               echo "===== $f =====" >> "$OUT"
               cat "$f" >> "$OUT"
               echo >> "$OUT"
             done
-            # Deduplicated cross-shard summary of every spec file that
-            # appeared in any shard's --last-failed list.
             echo >> "$OUT"
             echo "Unique spec files across all shards:" >> "$OUT"
             echo "------------------------------------" >> "$OUT"
+            UNIQUE_FILE="consolidated/unique-specs.txt"
             grep -hE '^e2e/.*\.spec\.(ts|tsx|js|jsx)' "${reports[@]}" 2>/dev/null \
-              | sort -u >> "$OUT" || echo "(none parseable)" >> "$OUT"
-            echo "no_reports=false" >> "$GITHUB_OUTPUT"
+              | sort -u > "$UNIQUE_FILE" || true
+            if [ -s "$UNIQUE_FILE" ]; then
+              cat "$UNIQUE_FILE" >> "$OUT"
+            else
+              echo "(none parseable)" >> "$OUT"
+            fi
+            echo "shards_with_reports=$shards_with_reports" >> "$GITHUB_OUTPUT"
+            # Top 10 unique spec files for the summary / PR comment.
+            {
+              echo "top_specs<<EOF"
+              head -n 10 "$UNIQUE_FILE" 2>/dev/null || true
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
           fi
 
           echo "::group::Consolidated report"
           cat "$OUT"
           echo "::endgroup::"
 
+      # ALWAYS upload, even when no reruns ran. The file always exists
+      # (we wrote at least the header above), so triage has a single,
+      # predictable artifact to fetch regardless of outcome.
       - name: Upload consolidated rerun report
         if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v4
@@ -438,4 +462,93 @@ jobs:
           path: consolidated/**
           retention-days: 30
           if-no-files-found: warn
+
+      # Job summary in the Actions UI: top failing specs + a direct link
+      # to the consolidated artifact via the run's Artifacts panel.
+      - name: Write GitHub Actions job summary
+        if: ${{ !cancelled() }}
+        env:
+          FULL_RESULT: ${{ needs.full.result }}
+          SHARDS_WITH_REPORTS: ${{ steps.consolidate.outputs.shards_with_reports }}
+          TOP_SPECS: ${{ steps.consolidate.outputs.top_specs }}
+        run: |
+          ARTIFACT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}#artifacts"
+          {
+            echo "## Playwright full-suite rerun report"
+            echo
+            echo "- **Full job result:** \`${FULL_RESULT}\`"
+            echo "- **Shards that produced a rerun report:** \`${SHARDS_WITH_REPORTS:-0}\`"
+            echo "- **Consolidated artifact:** [\`playwright-rerun-consolidated\`](${ARTIFACT_URL})"
+            echo
+            if [ "${SHARDS_WITH_REPORTS:-0}" -gt 0 ]; then
+              echo "### Top failing specs (up to 10)"
+              echo
+              if [ -n "${TOP_SPECS}" ]; then
+                echo '```'
+                echo "${TOP_SPECS}"
+                echo '```'
+              else
+                echo "_No spec paths were parseable from the per-shard reports._"
+              fi
+            else
+              if [ "${FULL_RESULT}" = "success" ]; then
+                echo "_All shards passed on the first run — no reruns were needed._"
+              else
+                echo "_No per-shard rerun reports were produced (reruns may have been skipped)._"
+              fi
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Post the consolidated report as a PR comment when any shard
+      # failed. Uses the github-script action to upsert a single comment
+      # keyed by a hidden marker so reruns of the same PR replace the
+      # previous report instead of stacking.
+      - name: Post consolidated report as PR comment (on failure)
+        if: ${{ !cancelled() && github.event_name == 'pull_request' && needs.full.result == 'failure' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = 'consolidated/last-failed-all-shards.txt';
+            if (!fs.existsSync(path)) {
+              core.warning(`No consolidated report found at ${path}, skipping PR comment.`);
+              return;
+            }
+            const MARKER = '<!-- playwright-rerun-consolidated -->';
+            const ARTIFACT_URL = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}#artifacts`;
+            const raw = fs.readFileSync(path, 'utf8');
+            // GitHub comment body limit is 65536 chars. Cap the embedded
+            // report well below that and link out for the rest.
+            const MAX = 50000;
+            const truncated = raw.length > MAX;
+            const body = [
+              MARKER,
+              '### 🎭 Playwright full-suite failed — consolidated `--last-failed` report',
+              '',
+              `Run: [#${process.env.GITHUB_RUN_ID} (attempt ${process.env.GITHUB_RUN_ATTEMPT})](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`,
+              `Artifact: [\`playwright-rerun-consolidated\`](${ARTIFACT_URL})`,
+              '',
+              '<details><summary>Consolidated report' + (truncated ? ' (truncated — see artifact for full)' : '') + '</summary>',
+              '',
+              '```',
+              truncated ? raw.slice(0, MAX) + '\n... [truncated]' : raw,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const existing = await github.paginate(github.rest.issues.listComments, {
+              owner, repo, issue_number, per_page: 100,
+            });
+            const prior = existing.find(c => c.body && c.body.includes(MARKER));
+            if (prior) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: prior.id, body });
+              core.info(`Updated PR comment ${prior.id}`);
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body });
+              core.info(`Created new PR comment`);
+            }
+
 
