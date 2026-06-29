@@ -41,6 +41,7 @@ function extractJsonLd(source: string): unknown[] {
     }
     const literal = source.slice(start, i);
     if (/@context/.test(literal)) {
+      let pushed = false;
       try {
         const safe = literal
           .replace(/new Date\(\)\.toISOString\(\)\.slice\([^)]+\)/g, '"2026-01-01"')
@@ -48,8 +49,17 @@ function extractJsonLd(source: string): unknown[] {
         // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
         const obj = new Function(`return (${safe});`)();
         out.push(obj);
+        pushed = true;
       } catch {
-        // skip un-parseable blocks
+        // fall through to type-only sentinel
+      }
+      if (!pushed) {
+        // Block references loader/closure vars (e.g. FAQ.map, jobs.slice) so it
+        // can't be eval'd at test time. Extract the top-level "@type" so the
+        // type-presence assertions still work; field-level assertions in this
+        // suite are explicitly source-regex based (see JobPosting tests).
+        const m2 = /^\s*\{[^]*?["']@type["']\s*:\s*["']([^"']+)["']/.exec(literal);
+        if (m2) out.push({ "@type": m2[1], __sourceOnly: true });
       }
     }
     idx = source.indexOf(marker, i);
