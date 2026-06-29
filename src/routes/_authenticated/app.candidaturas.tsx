@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Mail, Calendar, Download, RefreshCw, Loader2 } from "lucide-react";
+import { Mail, Calendar, Download, RefreshCw, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { checkApplicationReplies } from "@/lib/applications.functions";
 
 export const Route = createFileRoute("/_authenticated/app/candidaturas")({ component: Page });
