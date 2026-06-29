@@ -224,6 +224,56 @@ function Dashboard() {
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">{t("dashboard")}</h1>
 
+      {stats.isPending && (
+        <div className="space-y-4" aria-busy="true" aria-label="Carregando painel">
+          <Card><CardContent className="p-5 sm:p-6 space-y-4">
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-1.5 w-full" />
+            <div className="grid grid-cols-5 gap-1.5">
+              {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-1 w-full" />)}
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Skeleton className="h-11 w-11 rounded-xl" />
+              <div className="flex-1 space-y-2">
+                <Skeleton className="h-5 w-3/4" />
+                <Skeleton className="h-3 w-full" />
+              </div>
+            </div>
+            <Skeleton className="h-11 w-40" />
+          </CardContent></Card>
+          <Card><CardContent className="p-4 space-y-3">
+            <Skeleton className="h-4 w-32" />
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-9 w-16" />
+              <Skeleton className="h-3 flex-1" />
+            </div>
+          </CardContent></Card>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <Card key={i}><CardContent className="p-4 space-y-2">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-7 w-16" />
+              </CardContent></Card>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!stats.isPending && stats.error && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="pt-4 flex items-start gap-3 text-sm">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+            <div className="flex-1">
+              <div className="font-medium text-destructive">Não foi possível carregar seu painel.</div>
+              <div className="text-xs text-muted-foreground mt-1">{(stats.error as Error).message}</div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => stats.refetch()}>
+              <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {(stats.data?.followupsDue ?? 0) > 0 && (
         <Card className="border-orange-500 bg-orange-500/5">
           <CardContent className="pt-4 flex items-center justify-between gap-2">
