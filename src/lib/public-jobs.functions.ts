@@ -51,7 +51,7 @@ export const listPublicJobStates = createServerFn({ method: "GET" }).handler(asy
 export const listPublicTopEmployers = createServerFn({ method: "GET" }).handler(async () => {
   const supabase = publicClient();
   const { data } = await supabase
-    .from("jobs")
+    .from("public_jobs" as unknown as "jobs")
     .select("employer_name, worksite_state, worksite_city, total_openings, wage_offered")
     .not("employer_name", "is", null)
     .limit(5000);
