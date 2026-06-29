@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { FraudBanner } from "./StrategyBanner";
 import { JourneyLiveRegion } from "./JourneyLiveRegion";
 import { OnboardingTour } from "./OnboardingTour";
+import { ActionFeedbackProvider } from "./ActionFeedback";
 import logoUrl from "@/assets/vaiprala-logo.png";
 import { computeJourney } from "@/lib/h2a-journey";
 import { createShortcutMatcher } from "@/lib/sidebar-shortcuts";
