@@ -32,17 +32,21 @@ type MediaRow = {
   uploaded_at: string | null;
 };
 
-function MediaThumb({ path }: { path: string }) {
+function MediaThumb({ path, caption }: { path: string; caption?: string }) {
   const sign = useServerFn(getSignedMediaUrl);
   const [url, setUrl] = useState<string | null>(null);
   useEffect(() => {
-    sign({ data: { path } }).then((r) => setUrl(r.url)).catch(() => {});
+    let active = true;
+    sign({ data: { path } })
+      .then((r) => { if (active) setUrl(r.url); })
+      .catch(() => {});
+    return () => { active = false; };
   }, [path]);
   if (!url) return <div className="aspect-video bg-muted animate-pulse rounded" />;
   if (path.match(/\.(mp4|mov|webm)$/i)) {
-    return <video src={url} className="aspect-video w-full rounded object-cover" controls />;
+    return <video src={url} className="aspect-video w-full rounded object-cover" controls aria-label={caption || "Vídeo de trabalho"} />;
   }
-  return <img src={url} className="aspect-video w-full rounded object-cover" alt="" />;
+  return <img src={url} className="aspect-video w-full rounded object-cover" alt={caption || "Foto de trabalho"} />;
 }
 
 function Page() {
