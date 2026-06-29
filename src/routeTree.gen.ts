@@ -30,8 +30,10 @@ import { Route as VagasH2aColheitaMacaRouteImport } from './routes/vagas-h2a.col
 import { Route as VagasH2aColheitaLaranjaRouteImport } from './routes/vagas-h2a.colheita-laranja'
 import { Route as VagasH2aStateRouteImport } from './routes/vagas-h2a.$state'
 import { Route as VSlugRouteImport } from './routes/v.$slug'
+import { Route as EmailUnsubscribeRouteImport } from './routes/email/unsubscribe'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
+import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
 import { Route as AuthenticatedAppVistoRouteImport } from './routes/_authenticated/app.visto'
 import { Route as AuthenticatedAppVideoRouteImport } from './routes/_authenticated/app.video'
@@ -48,6 +50,8 @@ import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
+import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
+import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -166,6 +170,11 @@ const VSlugRoute = VSlugRouteImport.update({
   path: '/v/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const EmailUnsubscribeRoute = EmailUnsubscribeRouteImport.update({
+  id: '/email/unsubscribe',
+  path: '/email/unsubscribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
   id: '/checkout/return',
   path: '/checkout/return',
@@ -175,6 +184,11 @@ const AuthenticatedAppIndexRoute = AuthenticatedAppIndexRouteImport.update({
   id: '/app/',
   path: '/app/',
   getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const LovableEmailSuppressionRoute = LovableEmailSuppressionRouteImport.update({
+  id: '/lovable/email/suppression',
+  path: '/lovable/email/suppression',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   id: '/api/public/health',
@@ -263,6 +277,18 @@ const AuthenticatedAppInglesIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAppInglesRoute,
   } as any)
+const LovableEmailTransactionalSendRoute =
+  LovableEmailTransactionalSendRouteImport.update({
+    id: '/lovable/email/transactional/send',
+    path: '/lovable/email/transactional/send',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailQueueProcessRoute =
   LovableEmailQueueProcessRouteImport.update({
     id: '/lovable/email/queue/process',
@@ -347,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/colheita-laranja': typeof VagasH2aColheitaLaranjaRoute
@@ -369,6 +396,7 @@ export interface FileRoutesByFullPath {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
@@ -380,6 +408,8 @@ export interface FileRoutesByFullPath {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/app/ingles/$module/': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -399,6 +429,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/colheita-laranja': typeof VagasH2aColheitaLaranjaRoute
@@ -420,6 +451,7 @@ export interface FileRoutesByTo {
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
   '/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
@@ -430,6 +462,8 @@ export interface FileRoutesByTo {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -451,6 +485,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/email/unsubscribe': typeof EmailUnsubscribeRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
   '/vagas-h2a/colheita-laranja': typeof VagasH2aColheitaLaranjaRoute
@@ -473,6 +508,7 @@ export interface FileRoutesById {
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
   '/_authenticated/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
   '/api/public/health': typeof ApiPublicHealthRoute
+  '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/_authenticated/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
@@ -484,6 +520,8 @@ export interface FileRoutesById {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/lovable/email/transactional/send': typeof LovableEmailTransactionalSendRoute
   '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/_authenticated/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/_authenticated/app/ingles/$module/': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -505,6 +543,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sitemap.xml'
     | '/checkout/return'
+    | '/email/unsubscribe'
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/colheita-laranja'
@@ -527,6 +566,7 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/api/public/health'
+    | '/lovable/email/suppression'
     | '/app/'
     | '/app/ingles/$module'
     | '/app/visto/historico'
@@ -538,6 +578,8 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
+    | '/lovable/email/transactional/send'
     | '/app/ingles/'
     | '/app/ingles/$module/$lesson'
     | '/app/ingles/$module/'
@@ -557,6 +599,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sitemap.xml'
     | '/checkout/return'
+    | '/email/unsubscribe'
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/colheita-laranja'
@@ -578,6 +621,7 @@ export interface FileRouteTypes {
     | '/app/video'
     | '/app/visto'
     | '/api/public/health'
+    | '/lovable/email/suppression'
     | '/app'
     | '/app/visto/historico'
     | '/api/public/hooks/check-replies'
@@ -588,6 +632,8 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
+    | '/lovable/email/transactional/send'
     | '/app/ingles'
     | '/app/ingles/$module/$lesson'
     | '/app/ingles/$module'
@@ -608,6 +654,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/sitemap.xml'
     | '/checkout/return'
+    | '/email/unsubscribe'
     | '/v/$slug'
     | '/vagas-h2a/$state'
     | '/vagas-h2a/colheita-laranja'
@@ -630,6 +677,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/video'
     | '/_authenticated/app/visto'
     | '/api/public/health'
+    | '/lovable/email/suppression'
     | '/_authenticated/app/'
     | '/_authenticated/app/ingles/$module'
     | '/_authenticated/app/visto/historico'
@@ -641,6 +689,8 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
+    | '/lovable/email/transactional/preview'
+    | '/lovable/email/transactional/send'
     | '/_authenticated/app/ingles/'
     | '/_authenticated/app/ingles/$module/$lesson'
     | '/_authenticated/app/ingles/$module/'
@@ -662,6 +712,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
+  EmailUnsubscribeRoute: typeof EmailUnsubscribeRoute
   VSlugRoute: typeof VSlugRoute
   VagasH2aStateRoute: typeof VagasH2aStateRoute
   VagasH2aColheitaLaranjaRoute: typeof VagasH2aColheitaLaranjaRoute
@@ -670,6 +721,7 @@ export interface RootRouteChildren {
   VagasH2aTabacoRoute: typeof VagasH2aTabacoRoute
   VagasH2aIndexRoute: typeof VagasH2aIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
+  LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
   ApiPublicHooksSeoScanRoute: typeof ApiPublicHooksSeoScanRoute
@@ -678,6 +730,8 @@ export interface RootRouteChildren {
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
+  LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
+  LovableEmailTransactionalSendRoute: typeof LovableEmailTransactionalSendRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -829,6 +883,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof VSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/email/unsubscribe': {
+      id: '/email/unsubscribe'
+      path: '/email/unsubscribe'
+      fullPath: '/email/unsubscribe'
+      preLoaderRoute: typeof EmailUnsubscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/checkout/return': {
       id: '/checkout/return'
       path: '/checkout/return'
@@ -842,6 +903,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/'
       preLoaderRoute: typeof AuthenticatedAppIndexRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/lovable/email/suppression': {
+      id: '/lovable/email/suppression'
+      path: '/lovable/email/suppression'
+      fullPath: '/lovable/email/suppression'
+      preLoaderRoute: typeof LovableEmailSuppressionRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/api/public/health': {
       id: '/api/public/health'
@@ -954,6 +1022,20 @@ declare module '@tanstack/react-router' {
       fullPath: '/app/ingles/'
       preLoaderRoute: typeof AuthenticatedAppInglesIndexRouteImport
       parentRoute: typeof AuthenticatedAppInglesRoute
+    }
+    '/lovable/email/transactional/send': {
+      id: '/lovable/email/transactional/send'
+      path: '/lovable/email/transactional/send'
+      fullPath: '/lovable/email/transactional/send'
+      preLoaderRoute: typeof LovableEmailTransactionalSendRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/lovable/email/queue/process': {
       id: '/lovable/email/queue/process'
@@ -1145,6 +1227,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
+  EmailUnsubscribeRoute: EmailUnsubscribeRoute,
   VSlugRoute: VSlugRoute,
   VagasH2aStateRoute: VagasH2aStateRoute,
   VagasH2aColheitaLaranjaRoute: VagasH2aColheitaLaranjaRoute,
@@ -1153,6 +1236,7 @@ const rootRouteChildren: RootRouteChildren = {
   VagasH2aTabacoRoute: VagasH2aTabacoRoute,
   VagasH2aIndexRoute: VagasH2aIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
+  LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
   ApiPublicHooksSeoScanRoute: ApiPublicHooksSeoScanRoute,
@@ -1161,6 +1245,8 @@ const rootRouteChildren: RootRouteChildren = {
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
+  LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
+  LovableEmailTransactionalSendRoute: LovableEmailTransactionalSendRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
