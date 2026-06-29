@@ -120,13 +120,20 @@ jobs:
         env:
           CI: "1"
 
-      - name: Upload Playwright artifacts on failure
-        if: failure()
+      # Same nomenclature/contract as the full shards: upload screenshots,
+      # videos, traces, and error contexts on failure OR timeout. The job is
+      # single-shard so the artifact name uses `shard-targeted` to keep the
+      # `playwright-artifacts-shard-*` family consistent across all jobs.
+      - name: Upload Playwright artifacts (shard targeted)
+        if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-targeted-artifacts
+          name: playwright-artifacts-shard-targeted
           path: |
-            test-results/**
+            test-results/**/*.png
+            test-results/**/*.webm
+            test-results/**/*.zip
+            test-results/**/error-context.md
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
@@ -179,6 +186,7 @@ jobs:
         run: bunx playwright install-deps chromium
 
       - name: Run full e2e shard ${{ matrix.shard }}/4
+        id: full_run
         run: bunx playwright test --shard=${{ matrix.shard }}/4
         env:
           CI: "1"
@@ -202,4 +210,51 @@ jobs:
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
+
+      # Snapshot the first-run artifacts so the rerun step below can start
+      # from a clean test-results/ and we can still ship both runs as
+      # separate artifacts (no overwrite, no merge ambiguity).
+      - name: Stash first-run artifacts before rerun
+        if: ${{ !cancelled() && failure() }}
+        run: |
+          mkdir -p .rerun-input
+          if [ -f test-results/.last-run.json ]; then
+            cp test-results/.last-run.json .rerun-input/.last-run.json
+          fi
+          if [ -d test-results ]; then
+            mv test-results test-results-first-run
+          fi
+
+      # Automatic rerun of ONLY the specs that failed on this shard, using
+      # Playwright's `--last-failed` flag (reads test-results/.last-run.json).
+      # Bumping --retries=2 gives intermittent flakes one more chance before
+      # the shard is declared red. Runs only when the first attempt failed
+      # and the workflow wasn't cancelled.
+      - name: Rerun only failed specs (shard ${{ matrix.shard }})
+        id: full_rerun
+        if: ${{ !cancelled() && failure() && steps.full_run.outcome == 'failure' }}
+        run: |
+          mkdir -p test-results
+          cp .rerun-input/.last-run.json test-results/.last-run.json 2>/dev/null || true
+          bunx playwright test --shard=${{ matrix.shard }}/4 --last-failed --retries=2
+        env:
+          CI: "1"
+
+      # Upload artifacts produced exclusively by the rerun — these are the
+      # ones that matter when triaging "did the flake clear or is it real?".
+      # Distinct name so they don't collide with the first-run upload above.
+      - name: Upload rerun artifacts (shard ${{ matrix.shard }})
+        if: ${{ !cancelled() && steps.full_rerun.conclusion != 'skipped' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-rerun-shard-${{ matrix.shard }}
+          path: |
+            test-results/**/*.png
+            test-results/**/*.webm
+            test-results/**/*.zip
+            test-results/**/error-context.md
+            playwright-report/**
+          retention-days: 14
+          if-no-files-found: ignore
+
 

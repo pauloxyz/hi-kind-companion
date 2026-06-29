@@ -34,6 +34,12 @@ const VIEWPORTS = [
   // regressions where the focus trap depends on a specific mobile width.
   { label: "640 near-breakpoint", width: 640, height: 900 },
   { label: "768 tablet", width: 768, height: 1024 },
+  // 1023px is the literal `lg:hidden` boundary: Tailwind's `lg` is
+  // `min-width: 1024px`, so the drawer trigger is visible at ≤1023 and
+  // hidden at ≥1024. Asserting the trap at the very last px of the mobile
+  // regime guards the breakpoint itself — a future tweak that moves the
+  // boundary by 1px would surface here first.
+  { label: "1023 lg-boundary", width: 1023, height: 900 },
 ] as const;
 
 test.describe("mobile drawer focus trap across viewports", () => {
