@@ -29,7 +29,8 @@ export const listEmailLog = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data, context }) => {
     await assertAdminWithAudit(context as never, "emails.fn");
-    let q = context.supabase
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
       .from("email_send_log")
       .select("id,message_id,template_name,recipient_email,status,error_message,created_at")
       .order("created_at", { ascending: false })
@@ -37,6 +38,7 @@ export const listEmailLog = createServerFn({ method: "POST" })
     if (data.template) q = q.eq("template_name", data.template);
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
+
 
     // Dedupe by message_id, keep latest
     const seen = new Set<string>();
