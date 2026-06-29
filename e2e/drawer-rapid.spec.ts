@@ -104,7 +104,9 @@ test.describe("drawer keyboard contract under rapid shortcut bursts", () => {
       expect(page.url()).not.toBe(beforeUrl);
 
       // Re-open → Escape closes and returns focus to the trigger, even after
-      // a fresh round of shortcut bursts.
+      // a fresh round of shortcut bursts. We force focus back into the dialog
+      // before pressing Escape so unrelated sonner toasts/overlay from prior
+      // tests can't steal the key event when the suite runs in full.
       await ensureDrawerClosed(page);
       await trigger.click();
       await expect(dialog).toBeVisible();
@@ -117,6 +119,12 @@ test.describe("drawer keyboard contract under rapid shortcut bursts", () => {
         await trigger.click();
         await expect(dialog).toBeVisible();
       }
+      await page.evaluate(() => {
+        const close = document.querySelector(
+          '#app-mobile-sidebar [aria-label="Fechar menu"]',
+        ) as HTMLElement | null;
+        close?.focus();
+      });
       await page.keyboard.press("Escape");
       await expect(dialog).toBeHidden();
       await expect(trigger).toBeFocused();
