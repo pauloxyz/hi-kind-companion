@@ -107,6 +107,7 @@ function QualityMedal({ q }: { q: JobQuality }) {
 
 
 function Page() {
+  const { confirm } = useActionFeedback();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [resume, setResume] = useState<any>(null);
