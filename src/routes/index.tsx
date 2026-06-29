@@ -456,9 +456,9 @@ function BigStat({ value, label, accent }: { value: string; label: string; accen
   );
 }
 
-function JourneyTimeline({ jobs, applications }: { jobs: number; applications: number }) {
+function JourneyTimeline({ jobs }: { jobs: number }) {
   // Mirrors src/lib/h2a-journey.ts so the landing visual matches what
-  // signed-in users see in the sidebar. Counters at the top read live
+  // signed-in users see in the sidebar. Counter at the top reads live
   // from the public stats query so the page feels alive on every load.
   const stages: { label: string; icon: typeof FileText; copy: string }[] = [
     { label: "Currículo",  icon: FileText, copy: "Perfil + experiência rural em inglês" },
@@ -479,19 +479,11 @@ function JourneyTimeline({ jobs, applications }: { jobs: number; applications: n
           <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
             Jornada H-2A · ao vivo
           </span>
-          <div className="ml-auto grid grid-cols-2 gap-2 text-right">
-            <div>
-              <p className="text-base font-black tabular-nums leading-none">
-                {jobs > 0 ? jobs.toLocaleString("pt-BR") : "—"}
-              </p>
-              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">vagas ativas</p>
-            </div>
-            <div>
-              <p className="text-base font-black tabular-nums leading-none text-accent-red">
-                {applications.toLocaleString("pt-BR")}
-              </p>
-              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">candidaturas</p>
-            </div>
+          <div className="ml-auto text-right">
+            <p className="text-base font-black tabular-nums leading-none">
+              {jobs > 0 ? jobs.toLocaleString("pt-BR") : "—"}
+            </p>
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">vagas ativas</p>
           </div>
         </div>
 
