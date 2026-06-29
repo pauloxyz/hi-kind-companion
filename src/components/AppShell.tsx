@@ -500,7 +500,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <span className="flex-1 text-left">{t("logout")}</span>
         </button>
       </div>
-    </aside>
+    </nav>
   );
 
 
