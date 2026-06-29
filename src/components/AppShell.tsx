@@ -464,7 +464,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </a>
       <div className="hidden lg:block">{Sidebar}</div>
       {open && (
-        <div className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
+        <div id="app-mobile-sidebar" className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
           <div className="relative z-50">{Sidebar}</div>
         </div>
