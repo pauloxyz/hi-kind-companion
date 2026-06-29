@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { FraudBanner } from "./StrategyBanner";
 import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
+import { computeJourney } from "@/lib/h2a-journey";
 
 type NavItem = {
   to: string;
@@ -75,12 +76,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [unreadReplies, setUnreadReplies] = useState(0);
+  const [unreadReplies, setUnreadReplies] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [fullName, setFullName] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [appsCount, setAppsCount] = useState(0);
-  const [savedJobsCount, setSavedJobsCount] = useState(0);
+  const [appsCount, setAppsCount] = useState<number | null>(null);
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
   const [visaSteps, setVisaSteps] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
@@ -136,16 +137,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
   }, [pathname]);
 
   // Jornada H-2A: derivada de onboarding + candidaturas + checklist de visto
-  const stages = [
-    { key: "curriculo", label: "Currículo", done: !showOnboarding },
-    { key: "candidatura", label: "Candidatura", done: appsCount > 0 },
-    { key: "ds160", label: "DS-160", done: !!visaSteps.ds160 },
-    { key: "entrevista", label: "Entrevista", done: !!visaSteps.interview_done },
-    { key: "visto", label: "Visto emitido", done: !!visaSteps.visa_issued },
-  ];
-  const doneCount = stages.filter((s) => s.done).length;
-  const progressPct = Math.round((doneCount / stages.length) * 100);
-  const currentStage = stages.find((s) => !s.done)?.label ?? "Embarque";
+  const journey = computeJourney({
+    onboardingDone: !showOnboarding,
+    appsCount: appsCount ?? 0,
+    visaSteps,
+  });
+  const { stages, doneCount, progressPct, currentStage } = journey;
   const initials = (fullName || "Você")
     .split(" ")
     .map((p) => p[0])
@@ -167,6 +164,46 @@ export function AppShell({ children }: { children?: ReactNode }) {
     };
   }, [open]);
 
+  // Atalhos globais: G seguido de V (vagas), C (currículo), J (jornada/dashboard).
+  useEffect(() => {
+    let gPressed = false;
+    let gTimer: ReturnType<typeof setTimeout> | null = null;
+    const isTyping = (el: EventTarget | null) => {
+      const node = el as HTMLElement | null;
+      if (!node) return false;
+      const tag = node.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTyping(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (!gPressed) {
+        if (k === "g") {
+          gPressed = true;
+          if (gTimer) clearTimeout(gTimer);
+          gTimer = setTimeout(() => { gPressed = false; }, 900);
+        }
+        return;
+      }
+      let to: string | null = null;
+      if (k === "v") to = "/app/vagas";
+      else if (k === "c") to = "/app/curriculo";
+      else if (k === "j") to = "/app";
+      gPressed = false;
+      if (gTimer) { clearTimeout(gTimer); gTimer = null; }
+      if (to) {
+        e.preventDefault();
+        navigate({ to });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (gTimer) clearTimeout(gTimer);
+    };
+  }, [navigate]);
+
 
 
 
@@ -182,18 +219,23 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const renderItem = (it: NavItem) => {
     const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
     const Icon = it.icon;
-    const badge = it.badgeKey === "unreadReplies" ? unreadReplies : 0;
+    const badge = it.badgeKey === "unreadReplies" ? unreadReplies : null;
     const count =
       it.countKey === "savedJobs" ? savedJobsCount :
-      it.countKey === "applications" ? appsCount : 0;
+      it.countKey === "applications" ? appsCount : null;
+    const countLoading = it.countKey != null && count === null;
+    const badgeLoading = it.badgeKey != null && badge === null;
+    const hasCount = typeof count === "number" && count > 0;
+    const hasBadge = typeof badge === "number" && badge > 0;
     return (
       <Link
         key={it.to}
         to={it.to}
+        id={`nav-${it.labelKey}`}
         onClick={() => setOpen(false)}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground border border-sidebar-border shadow-inner"
             : it.highlight
@@ -208,12 +250,18 @@ export function AppShell({ children }: { children?: ReactNode }) {
           )}
         />
         <span className="flex-1 truncate font-medium">{t(it.labelKey)}</span>
-        {count > 0 && badge === 0 && (
+        {(countLoading || badgeLoading) && (
+          <span
+            className="h-3 w-6 rounded-full bg-sidebar-foreground/10 animate-pulse"
+            aria-label="Carregando"
+          />
+        )}
+        {!badgeLoading && !hasBadge && hasCount && (
           <span className="text-[10px] font-bold tabular-nums text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70">
             {count}
           </span>
         )}
-        {badge > 0 && (
+        {hasBadge && (
           <span
             className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-red px-1.5 text-[10px] font-bold text-white border-2 border-sidebar"
             aria-label={`${badge} respostas novas`}
