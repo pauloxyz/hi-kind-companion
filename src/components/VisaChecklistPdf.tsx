@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { PdfLogo, PdfBrandedFooter } from "./PdfLogo";
 
 const s = StyleSheet.create({
   page: { padding: 36, fontFamily: "Helvetica", fontSize: 10, color: "#111" },
