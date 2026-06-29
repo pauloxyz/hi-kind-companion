@@ -13,8 +13,13 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as GuiaVistoH2bRouteImport } from './routes/guia-visto-h2b'
+import { Route as GuiaSalarioH2aRouteImport } from './routes/guia-salario-h2a'
 import { Route as GuiaH2aVsH2bRouteImport } from './routes/guia-h2a-vs-h2b'
+import { Route as GuiaGolpesH2aRouteImport } from './routes/guia-golpes-h2a'
+import { Route as GuiaEntrevistaVistoH2aRouteImport } from './routes/guia-entrevista-visto-h2a'
+import { Route as GuiaDs160VistoH2aRouteImport } from './routes/guia-ds160-visto-h2a'
 import { Route as GuiaCustosVistoH2aRouteImport } from './routes/guia-custos-visto-h2a'
+import { Route as ComoTrabalharNosEuaLegalmenteRouteImport } from './routes/como-trabalhar-nos-eua-legalmente'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -67,9 +72,29 @@ const GuiaVistoH2bRoute = GuiaVistoH2bRouteImport.update({
   path: '/guia-visto-h2b',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GuiaSalarioH2aRoute = GuiaSalarioH2aRouteImport.update({
+  id: '/guia-salario-h2a',
+  path: '/guia-salario-h2a',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GuiaH2aVsH2bRoute = GuiaH2aVsH2bRouteImport.update({
   id: '/guia-h2a-vs-h2b',
   path: '/guia-h2a-vs-h2b',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuiaGolpesH2aRoute = GuiaGolpesH2aRouteImport.update({
+  id: '/guia-golpes-h2a',
+  path: '/guia-golpes-h2a',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuiaEntrevistaVistoH2aRoute = GuiaEntrevistaVistoH2aRouteImport.update({
+  id: '/guia-entrevista-visto-h2a',
+  path: '/guia-entrevista-visto-h2a',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuiaDs160VistoH2aRoute = GuiaDs160VistoH2aRouteImport.update({
+  id: '/guia-ds160-visto-h2a',
+  path: '/guia-ds160-visto-h2a',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GuiaCustosVistoH2aRoute = GuiaCustosVistoH2aRouteImport.update({
@@ -77,6 +102,12 @@ const GuiaCustosVistoH2aRoute = GuiaCustosVistoH2aRouteImport.update({
   path: '/guia-custos-visto-h2a',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ComoTrabalharNosEuaLegalmenteRoute =
+  ComoTrabalharNosEuaLegalmenteRouteImport.update({
+    id: '/como-trabalhar-nos-eua-legalmente',
+    path: '/como-trabalhar-nos-eua-legalmente',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -247,8 +278,13 @@ const AuthenticatedAppInglesModuleLessonRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/como-trabalhar-nos-eua-legalmente': typeof ComoTrabalharNosEuaLegalmenteRoute
   '/guia-custos-visto-h2a': typeof GuiaCustosVistoH2aRoute
+  '/guia-ds160-visto-h2a': typeof GuiaDs160VistoH2aRoute
+  '/guia-entrevista-visto-h2a': typeof GuiaEntrevistaVistoH2aRoute
+  '/guia-golpes-h2a': typeof GuiaGolpesH2aRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
+  '/guia-salario-h2a': typeof GuiaSalarioH2aRoute
   '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -285,8 +321,13 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/como-trabalhar-nos-eua-legalmente': typeof ComoTrabalharNosEuaLegalmenteRoute
   '/guia-custos-visto-h2a': typeof GuiaCustosVistoH2aRoute
+  '/guia-ds160-visto-h2a': typeof GuiaDs160VistoH2aRoute
+  '/guia-entrevista-visto-h2a': typeof GuiaEntrevistaVistoH2aRoute
+  '/guia-golpes-h2a': typeof GuiaGolpesH2aRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
+  '/guia-salario-h2a': typeof GuiaSalarioH2aRoute
   '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -323,8 +364,13 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/como-trabalhar-nos-eua-legalmente': typeof ComoTrabalharNosEuaLegalmenteRoute
   '/guia-custos-visto-h2a': typeof GuiaCustosVistoH2aRoute
+  '/guia-ds160-visto-h2a': typeof GuiaDs160VistoH2aRoute
+  '/guia-entrevista-visto-h2a': typeof GuiaEntrevistaVistoH2aRoute
+  '/guia-golpes-h2a': typeof GuiaGolpesH2aRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
+  '/guia-salario-h2a': typeof GuiaSalarioH2aRoute
   '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
@@ -363,8 +409,13 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/como-trabalhar-nos-eua-legalmente'
     | '/guia-custos-visto-h2a'
+    | '/guia-ds160-visto-h2a'
+    | '/guia-entrevista-visto-h2a'
+    | '/guia-golpes-h2a'
     | '/guia-h2a-vs-h2b'
+    | '/guia-salario-h2a'
     | '/guia-visto-h2b'
     | '/precos'
     | '/reset-password'
@@ -401,8 +452,13 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/como-trabalhar-nos-eua-legalmente'
     | '/guia-custos-visto-h2a'
+    | '/guia-ds160-visto-h2a'
+    | '/guia-entrevista-visto-h2a'
+    | '/guia-golpes-h2a'
     | '/guia-h2a-vs-h2b'
+    | '/guia-salario-h2a'
     | '/guia-visto-h2b'
     | '/precos'
     | '/reset-password'
@@ -438,8 +494,13 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/como-trabalhar-nos-eua-legalmente'
     | '/guia-custos-visto-h2a'
+    | '/guia-ds160-visto-h2a'
+    | '/guia-entrevista-visto-h2a'
+    | '/guia-golpes-h2a'
     | '/guia-h2a-vs-h2b'
+    | '/guia-salario-h2a'
     | '/guia-visto-h2b'
     | '/precos'
     | '/reset-password'
@@ -478,8 +539,13 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  ComoTrabalharNosEuaLegalmenteRoute: typeof ComoTrabalharNosEuaLegalmenteRoute
   GuiaCustosVistoH2aRoute: typeof GuiaCustosVistoH2aRoute
+  GuiaDs160VistoH2aRoute: typeof GuiaDs160VistoH2aRoute
+  GuiaEntrevistaVistoH2aRoute: typeof GuiaEntrevistaVistoH2aRoute
+  GuiaGolpesH2aRoute: typeof GuiaGolpesH2aRoute
   GuiaH2aVsH2bRoute: typeof GuiaH2aVsH2bRoute
+  GuiaSalarioH2aRoute: typeof GuiaSalarioH2aRoute
   GuiaVistoH2bRoute: typeof GuiaVistoH2bRoute
   PrecosRoute: typeof PrecosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
@@ -525,6 +591,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GuiaVistoH2bRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/guia-salario-h2a': {
+      id: '/guia-salario-h2a'
+      path: '/guia-salario-h2a'
+      fullPath: '/guia-salario-h2a'
+      preLoaderRoute: typeof GuiaSalarioH2aRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/guia-h2a-vs-h2b': {
       id: '/guia-h2a-vs-h2b'
       path: '/guia-h2a-vs-h2b'
@@ -532,11 +605,39 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GuiaH2aVsH2bRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/guia-golpes-h2a': {
+      id: '/guia-golpes-h2a'
+      path: '/guia-golpes-h2a'
+      fullPath: '/guia-golpes-h2a'
+      preLoaderRoute: typeof GuiaGolpesH2aRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guia-entrevista-visto-h2a': {
+      id: '/guia-entrevista-visto-h2a'
+      path: '/guia-entrevista-visto-h2a'
+      fullPath: '/guia-entrevista-visto-h2a'
+      preLoaderRoute: typeof GuiaEntrevistaVistoH2aRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guia-ds160-visto-h2a': {
+      id: '/guia-ds160-visto-h2a'
+      path: '/guia-ds160-visto-h2a'
+      fullPath: '/guia-ds160-visto-h2a'
+      preLoaderRoute: typeof GuiaDs160VistoH2aRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/guia-custos-visto-h2a': {
       id: '/guia-custos-visto-h2a'
       path: '/guia-custos-visto-h2a'
       fullPath: '/guia-custos-visto-h2a'
       preLoaderRoute: typeof GuiaCustosVistoH2aRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/como-trabalhar-nos-eua-legalmente': {
+      id: '/como-trabalhar-nos-eua-legalmente'
+      path: '/como-trabalhar-nos-eua-legalmente'
+      fullPath: '/como-trabalhar-nos-eua-legalmente'
+      preLoaderRoute: typeof ComoTrabalharNosEuaLegalmenteRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -837,8 +938,13 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  ComoTrabalharNosEuaLegalmenteRoute: ComoTrabalharNosEuaLegalmenteRoute,
   GuiaCustosVistoH2aRoute: GuiaCustosVistoH2aRoute,
+  GuiaDs160VistoH2aRoute: GuiaDs160VistoH2aRoute,
+  GuiaEntrevistaVistoH2aRoute: GuiaEntrevistaVistoH2aRoute,
+  GuiaGolpesH2aRoute: GuiaGolpesH2aRoute,
   GuiaH2aVsH2bRoute: GuiaH2aVsH2bRoute,
+  GuiaSalarioH2aRoute: GuiaSalarioH2aRoute,
   GuiaVistoH2bRoute: GuiaVistoH2bRoute,
   PrecosRoute: PrecosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
