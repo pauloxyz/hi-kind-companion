@@ -49,21 +49,29 @@ test.describe("Shift+Tab reverse navigation on Jornada H-2A", () => {
     await page.waitForLoadState("domcontentloaded");
     await installLiveObserver(page);
 
-    // Position focus deterministically inside the sidebar before reversing.
-    await page.evaluate(() => document.getElementById("nav-resume")?.focus());
-    const forwardEl = await page.evaluate(() => (document.activeElement as HTMLElement)?.outerHTML ?? "");
-    expect(forwardEl).not.toBe("");
+    // Walk forward with Tab until focus enters the sidebar, so Shift+Tab
+    // afterwards has a real focusable anchor to reverse from.
+    let landed = false;
+    for (let i = 0; i < 30; i++) {
+      await page.keyboard.press("Tab");
+      const id = await page.evaluate(() => document.activeElement?.id ?? "");
+      if (id.startsWith("nav-")) {
+        landed = true;
+        break;
+      }
+    }
+    expect(landed, "Tab walk never entered the sidebar").toBe(true);
 
-    // Shift+Tab back a few steps. At least one of the steps must land on a
-    // real element (not <body>) — Shift+Tab from the very first focusable
-    // legitimately exits to chrome, so we don't require every step to stay.
+    // Shift+Tab back a few steps — most steps must remain on a real element.
+    // Allow one body landing (the legitimate exit when crossing past the
+    // first focusable in the page).
     const tags: (string | null)[] = [];
     for (let i = 0; i < 4; i++) {
       await page.keyboard.press("Shift+Tab");
       tags.push(await page.evaluate(() => document.activeElement?.tagName ?? null));
     }
     const stayedInPage = tags.filter((t) => t && t !== "BODY").length;
-    expect(stayedInPage, `Shift+Tab walk landed on body too often: ${tags.join(",")}`).toBeGreaterThanOrEqual(1);
+    expect(stayedInPage, `Shift+Tab walk: ${tags.join(",")}`).toBeGreaterThanOrEqual(2);
 
     // Tab forward into the Visto / Jornada H-2A link and activate it.
     // The sidebar label is "Visto" (labelKey: "visa", id: "nav-visto"),
