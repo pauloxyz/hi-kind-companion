@@ -6,8 +6,56 @@ on:
   pull_request:
 
 jobs:
-  # Fast feedback: only the critical shortcuts + aria-live specs.
+  # Cheap static guard that runs before any browser job: every e2e spec
+  # that observes the journey-live-region MUST contain the explicit
+  # no-consecutive-duplicates assertion (`not.toBe(<arr>[i - 1])`). The
+  # journey-progression contract is the source of truth — any aria-live
+  # spec that omits this guard could silently regress, so we fail the CI
+  # at the lint step rather than waiting for a flaky reproduction.
+  aria-live-guard:
+    timeout-minutes: 2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Assert no aria-live spec is missing the dupes guard
+        run: |
+          set -euo pipefail
+          # Detect ONLY specs that actively record live-region mutations
+          # (i.e., push into __live / __liveMutations arrays). Specs that
+          # merely wait for the live-region element to attach do not need
+          # the dupes guard because they never observe the message stream.
+          mapfile -t live_specs < <(grep -lE '__live(Mutations)?[^A-Za-z0-9_]*\.push|\.push\([^)]*\.textContent' e2e/*.spec.ts || true)
+          if [ "${#live_specs[@]}" -eq 0 ]; then
+            echo "No aria-live observer specs found — refusing to silently pass."
+            exit 1
+          fi
+          echo "Checking ${#live_specs[@]} aria-live observer spec(s) for the dupes guard:"
+          printf '  - %s\n' "${live_specs[@]}"
+          missing=()
+          for f in "${live_specs[@]}"; do
+            # Accept either `not.toBe(live[i - 1])` or any `<name>[i - 1]`
+            # form (afterSlow, afterFast, mutations, etc).
+            if ! grep -Eq 'not\.toBe\(\s*[A-Za-z_][A-Za-z0-9_]*\[\s*i\s*-\s*1\s*\]\s*\)' "$f"; then
+              missing+=("$f")
+            fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo
+            echo "::error::Specs observing the aria-live region are missing the consecutive-duplicates assertion:"
+            printf '::error::  - %s\n' "${missing[@]}"
+            echo
+            echo "Add a guard equivalent to:"
+            echo "    for (let i = 1; i < live.length; i++) {"
+            echo "      expect(live[i]).not.toBe(live[i - 1]);"
+            echo "    }"
+            exit 1
+          fi
+          echo "OK — all aria-live specs include the dupes guard."
+
   smoke:
+    needs: aria-live-guard
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     runs-on: ubuntu-latest
     steps:
@@ -320,4 +368,74 @@ jobs:
           retention-days: 14
           if-no-files-found: ignore
 
+  # Consolidated rerun report: downloads the per-shard --last-failed
+  # reports produced by every `full` shard, concatenates them into one
+  # file, and uploads it as a single, dependency-free artifact. Runs
+  # whenever any shard produced a rerun report (failure OR cancellation),
+  # not just on full-suite failure, so triage always has a single
+  # entry-point regardless of which shard tripped.
+  rerun-report-consolidated:
+    needs: full
+    if: ${{ always() && needs.full.result != 'skipped' && needs.full.result != 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download all per-shard rerun artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: playwright-rerun-shard-*
+          path: shard-artifacts
+          merge-multiple: false
+
+      - name: Consolidate last-failed reports
+        id: consolidate
+        run: |
+          set -euo pipefail
+          mkdir -p consolidated
+          OUT="consolidated/last-failed-all-shards.txt"
+          {
+            echo "Consolidated --last-failed report"
+            echo "================================="
+            echo "Workflow:    ${GITHUB_WORKFLOW} / run ${GITHUB_RUN_ID} (attempt ${GITHUB_RUN_ATTEMPT})"
+            echo "Commit:      ${GITHUB_SHA}"
+            echo "Generated:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+          } > "$OUT"
+
+          shopt -s nullglob
+          reports=(shard-artifacts/*/rerun-report/last-failed-shard-*.txt)
+          if [ "${#reports[@]}" -eq 0 ]; then
+            echo "(no per-shard last-failed reports were produced)" >> "$OUT"
+            echo "no_reports=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Shards with rerun reports: ${#reports[@]}" >> "$OUT"
+            echo >> "$OUT"
+            # Per-shard sections (sorted for stable ordering by shard number).
+            for f in $(printf '%s\n' "${reports[@]}" | sort); do
+              echo "===== $f =====" >> "$OUT"
+              cat "$f" >> "$OUT"
+              echo >> "$OUT"
+            done
+            # Deduplicated cross-shard summary of every spec file that
+            # appeared in any shard's --last-failed list.
+            echo >> "$OUT"
+            echo "Unique spec files across all shards:" >> "$OUT"
+            echo "------------------------------------" >> "$OUT"
+            grep -hE '^e2e/.*\.spec\.(ts|tsx|js|jsx)' "${reports[@]}" 2>/dev/null \
+              | sort -u >> "$OUT" || echo "(none parseable)" >> "$OUT"
+            echo "no_reports=false" >> "$GITHUB_OUTPUT"
+          fi
+
+          echo "::group::Consolidated report"
+          cat "$OUT"
+          echo "::endgroup::"
+
+      - name: Upload consolidated rerun report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-rerun-consolidated
+          path: consolidated/**
+          retention-days: 30
+          if-no-files-found: warn
 
