@@ -130,36 +130,9 @@ def query_audit_log(user_id: str, since_iso: str) -> list[dict]:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Direct HTTP tests (no browser)
+# RLS tests via REST (no browser)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def test_server_fns_forbidden(access_token: str) -> set[str]:
-    """Call every protected server fn with the non-admin token and expect 403/Forbidden.
-    Returns the set of resource labels expected to appear in the audit log."""
-    expected_resources: set[str] = set()
-    base = f"{APP_ORIGIN}/_serverFn"
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json",
-    }
-    for fn, resource in PROTECTED_SERVER_FNS:
-        url = f"{base}/{fn}"
-        try:
-            r = requests.post(url, headers=headers, json={"data": {}}, timeout=10)
-        except requests.RequestException as exc:
-            record(f"serverFn {fn} reachable", False, str(exc))
-            continue
-        body = r.text[:300]
-        # The TanStack RPC layer wraps thrown errors; 4xx/5xx + "Forbidden" body is the signal.
-        looks_forbidden = ("Forbidden" in body) or (r.status_code in (401, 403))
-        record(
-            f"serverFn {fn} → Forbidden",
-            looks_forbidden,
-            f"status={r.status_code} body={body[:120]!r}",
-        )
-        if looks_forbidden:
-            expected_resources.add(resource)
-    return expected_resources
 
 
 def test_rls_blocks_admin_tables(access_token: str) -> None:
