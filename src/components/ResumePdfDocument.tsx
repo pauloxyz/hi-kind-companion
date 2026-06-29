@@ -151,6 +151,7 @@ function initials(name: string) {
 function Sidebar({ data }: { data: ResumePdfData }) {
   return (
     <View style={s.sidebar}>
+      <Image src={logoUrl} style={{ width: 90, height: 28, objectFit: "contain", alignSelf: "center", marginBottom: 12 }} />
       <View style={s.avatarWrap}>
         {data.avatarUrl ? (
           <Image src={data.avatarUrl} style={s.avatarImg} />
