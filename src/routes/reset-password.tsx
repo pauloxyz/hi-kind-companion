@@ -82,7 +82,7 @@ function ResetPasswordPage() {
       <main className="relative flex min-h-dvh items-center justify-center p-6">
         <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/40 bg-card/95 p-7 shadow-2xl backdrop-blur-xl">
           <div className="flex flex-col items-center gap-2">
-            <img src={logo} alt="" width={56} height={56} className="h-14 w-14" />
+            <img src={logo} alt="VaiPraLá" width={56} height={56} className="h-14 w-14" />
             <h1 className="text-2xl font-bold tracking-tight">Redefinir senha</h1>
             <p className="text-sm text-muted-foreground text-center">
               Escolha uma nova senha forte para sua conta.
