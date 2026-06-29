@@ -80,8 +80,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { name: "theme-color", content: "#009c3b" },
-      { title: "VaiPraLá — Visto H-2A para brasileiros" },
-      { name: "description", content: "Plataforma gratuita que conecta trabalhadores rurais brasileiros a vagas H-2A oficiais nos EUA." },
       { property: "og:site_name", content: "VaiPraLá" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
