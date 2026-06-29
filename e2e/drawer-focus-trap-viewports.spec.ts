@@ -882,7 +882,7 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
     { label: "1023 lg-boundary", width: 1023, height: 900, hasDrawer: true },
     { label: "1024 desktop", width: 1024, height: 900, hasDrawer: false },
   ] as const) {
-    test(`${vp.label} (${vp.width}px): close-by-outside-click → Enter → drawer reopens on same trigger`, async ({ page }) => {
+    test(`${vp.label} (${vp.width}px): close-by-outside-click → Enter → drawer reopens on same trigger`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: vp.width, height: vp.height });
       await bootSession(page);
       await page.goto("/app", { waitUntil: "domcontentloaded" });
@@ -892,18 +892,29 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
       const keyHistory: string[] = [];
 
       if (vp.hasDrawer) {
+        // Stable selector by data-testid (decoupled from the
+        // PT-BR `aria-label` text) — reduces flake from copy edits.
         const trigger = page.getByTestId("drawer-trigger");
         await expect(trigger).toBeVisible();
         await trigger.evaluate((el) => el.setAttribute("data-test-original-trigger", "1"));
 
-        // 1) Open via Enter.
+        // Snapshot the trigger's stable identity BEFORE the open so we
+        // can compare the exact same DOM node after the outside-click
+        // round trip. Using both testId and a custom marker double-locks
+        // the identity: a re-render that swaps the node but keeps the
+        // testId would still fail the marker check.
+        const beforeIdentity = await trigger.evaluate((el) => ({
+          testId: el.getAttribute("data-testid"),
+          marker: el.getAttribute("data-test-original-trigger"),
+        }));
+        expect(beforeIdentity).toEqual({ testId: "drawer-trigger", marker: "1" });
+
         await trigger.focus();
         await page.keyboard.press("Enter");
         keyHistory.push("Enter(open #1)");
         const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
         await expect(dialog).toBeVisible();
 
-        // 2) Tab inside, then click outside to close.
         await page.keyboard.press("Tab");
         keyHistory.push("Tab");
         await page.keyboard.press("Tab");
@@ -916,19 +927,25 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
         keyHistory.push("outside-click");
         await expect(dialog).toBeHidden();
 
-        // Focus must be back on the SAME trigger node before we try the
-        // reopen. If not, dump diagnostics — without this, "Enter
-        // reopens" can fail mysteriously because Enter went to <body>.
-        const onOriginal1 = await page.evaluate(() => {
+        // Explicit same-node assertion after outside-click: focused
+        // element must carry BOTH the stable testId AND the custom
+        // marker tagged before the open.
+        const afterClickIdentity = await page.evaluate(() => {
           const el = document.activeElement as HTMLElement | null;
-          return !!el && el.getAttribute("data-test-original-trigger") === "1";
+          return {
+            testId: el?.getAttribute("data-testid") ?? null,
+            marker: el?.getAttribute("data-test-original-trigger") ?? null,
+          };
         });
-        if (!onOriginal1) {
-          const dump = await focusDiagnosticsDump(page, keyHistory);
+        if (
+          afterClickIdentity.testId !== beforeIdentity.testId ||
+          afterClickIdentity.marker !== beforeIdentity.marker
+        ) {
+          const dump = await attachFocusDump(testInfo, page, keyHistory, `${vp.width}px-after-outside-click`);
           expect(
-            onOriginal1,
-            `[${vp.width}px] after outside-click, focus did NOT return to original trigger.${dump}`,
-          ).toBe(true);
+            afterClickIdentity,
+            `[${vp.width}px] focus after outside-click is NOT on the same trigger node. Expected ${JSON.stringify(beforeIdentity)}, got ${JSON.stringify(afterClickIdentity)}.${dump}`,
+          ).toEqual(beforeIdentity);
         }
 
         // 3) Press Enter — drawer must reopen.
@@ -936,42 +953,42 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
         keyHistory.push("Enter(reopen)");
         await expect(dialog, `[${vp.width}px] Enter after outside-close did not reopen drawer`).toBeVisible();
 
-        // Focus must land inside the dialog on reopen (auto-focus to
-        // close button or first tabbable). Dump diagnostics if not.
         const insideAfterReopen = await page.evaluate(() => {
           const dlg = document.querySelector('[role="dialog"]');
           return !!dlg && dlg.contains(document.activeElement);
         });
         if (!insideAfterReopen) {
-          const dump = await focusDiagnosticsDump(page, keyHistory);
+          const dump = await attachFocusDump(testInfo, page, keyHistory, `${vp.width}px-after-reopen`);
           expect(
             insideAfterReopen,
             `[${vp.width}px] on reopen via Enter, focus did NOT enter the dialog.${dump}`,
           ).toBe(true);
         }
 
-        // 4) Close again with Escape — focus back on the same original
-        //    trigger, end-to-end round trip complete.
+        // 4) Escape → same-node identity must hold again.
         await page.keyboard.press("Escape");
         keyHistory.push("Escape");
         await expect(dialog).toBeHidden();
 
-        const onOriginal2 = await page.evaluate(() => {
+        const afterEscapeIdentity = await page.evaluate(() => {
           const el = document.activeElement as HTMLElement | null;
-          return !!el && el.getAttribute("data-test-original-trigger") === "1";
+          return {
+            testId: el?.getAttribute("data-testid") ?? null,
+            marker: el?.getAttribute("data-test-original-trigger") ?? null,
+          };
         });
-        if (!onOriginal2) {
-          const dump = await focusDiagnosticsDump(page, keyHistory);
+        if (
+          afterEscapeIdentity.testId !== beforeIdentity.testId ||
+          afterEscapeIdentity.marker !== beforeIdentity.marker
+        ) {
+          const dump = await attachFocusDump(testInfo, page, keyHistory, `${vp.width}px-after-escape`);
           expect(
-            onOriginal2,
-            `[${vp.width}px] after Escape on reopened drawer, focus did NOT return to original trigger.${dump}`,
-          ).toBe(true);
+            afterEscapeIdentity,
+            `[${vp.width}px] after Escape on reopened drawer, focus is NOT on the same trigger node. Expected ${JSON.stringify(beforeIdentity)}, got ${JSON.stringify(afterEscapeIdentity)}.${dump}`,
+          ).toEqual(beforeIdentity);
         }
         await expect(trigger).toBeVisible();
       } else {
-        // 1024px: no drawer. Validate that the layout survives an
-        // outside-click → Enter sequence: sidebar link is still
-        // present and re-focusable, no modal spawned, no zombie dialog.
         const dashboardLink = page.locator("#nav-dashboard").first();
         await expect(dashboardLink).toBeVisible();
         await dashboardLink.focus();
@@ -983,14 +1000,12 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
         const modalCount1 = await page.locator('[role="dialog"][aria-modal="true"]').count();
         expect(modalCount1, `[1024px] outside-click must not spawn a modal`).toBe(0);
 
-        // Re-focus the link and press Enter — must not spawn the
-        // mobile drawer, and the link is still reachable.
         await dashboardLink.focus();
         await page.keyboard.press("Enter");
         keyHistory.push("Enter");
         const modalCount2 = await page.locator('[role="dialog"][aria-modal="true"]').count();
         if (modalCount2 !== 0) {
-          const dump = await focusDiagnosticsDump(page, keyHistory);
+          const dump = await attachFocusDump(testInfo, page, keyHistory, `1024px-enter-after-outside`);
           expect(
             modalCount2,
             `[1024px] Enter after outside-click spawned a modal (mobile-drawer engaged at desktop width).${dump}`,
@@ -1001,6 +1016,137 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
     });
   }
 });
+
+/**
+ * Reopen-key variants: after the full outside-click round trip, the
+ * focused trigger must respond to BOTH `Enter` and `Shift+Enter` as
+ * button activation. Shift+Enter is the historical edge case — some
+ * keyboard libraries early-return on any modifier and silently swallow
+ * the activation. We loop the activation key so the matrix is:
+ *
+ *   viewport ∈ {360, 1023, 1024} × key ∈ {Enter, Shift+Enter}
+ *
+ * At 1024 there's no drawer; we assert the sidebar link survives both
+ * variants without spawning a mobile-style modal.
+ */
+test.describe("Outside-click reopen variants (Enter and Shift+Enter on same trigger)", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  const VPS = [
+    { label: "360 phone", width: 360, height: 780, hasDrawer: true },
+    { label: "1023 lg-boundary", width: 1023, height: 900, hasDrawer: true },
+    { label: "1024 desktop", width: 1024, height: 900, hasDrawer: false },
+  ] as const;
+  const KEYS = ["Enter", "Shift+Enter"] as const;
+
+  for (const vp of VPS) {
+    for (const key of KEYS) {
+      test(`${vp.label} (${vp.width}px) + ${key}: reopen variant respects same-node identity`, async ({
+        page,
+      }, testInfo) => {
+        await page.setViewportSize({ width: vp.width, height: vp.height });
+        await bootSession(page);
+        await page.goto("/app", { waitUntil: "domcontentloaded" });
+        await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+        await page.waitForLoadState("networkidle").catch(() => {});
+
+        const keyHistory: string[] = [];
+
+        if (vp.hasDrawer) {
+          const trigger = page.getByTestId("drawer-trigger");
+          await expect(trigger).toBeVisible();
+          await trigger.evaluate((el) => el.setAttribute("data-test-original-trigger", "1"));
+          const beforeIdentity = await trigger.evaluate((el) => ({
+            testId: el.getAttribute("data-testid"),
+            marker: el.getAttribute("data-test-original-trigger"),
+          }));
+
+          // Open with Enter (a fixed, known-good baseline), close by
+          // outside-click, then *reopen* with the variant key.
+          await trigger.focus();
+          await page.keyboard.press("Enter");
+          keyHistory.push("Enter(open)");
+          const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+          await expect(dialog).toBeVisible();
+
+          const panel = dialog.locator("div.relative.z-50").first();
+          const box = await panel.boundingBox();
+          expect(box).not.toBeNull();
+          const outsideX = Math.min(vp.width - 5, Math.floor(box!.x + box!.width + 20));
+          await page.mouse.click(outsideX, Math.floor(vp.height / 2));
+          keyHistory.push("outside-click");
+          await expect(dialog).toBeHidden();
+
+          // Reopen with the variant key — focus is already on the
+          // (restored) trigger. Verify same-node identity is preserved.
+          await page.keyboard.press(key);
+          keyHistory.push(`${key}(reopen)`);
+          await expect(
+            dialog,
+            `[${vp.width}px] ${key} after outside-click did not reopen drawer`,
+          ).toBeVisible();
+
+          // Close again with Escape and assert the focus identity has
+          // not drifted away from the SAME node we started with.
+          await page.keyboard.press("Escape");
+          keyHistory.push("Escape");
+          await expect(dialog).toBeHidden();
+
+          const finalIdentity = await page.evaluate(() => {
+            const el = document.activeElement as HTMLElement | null;
+            return {
+              testId: el?.getAttribute("data-testid") ?? null,
+              marker: el?.getAttribute("data-test-original-trigger") ?? null,
+            };
+          });
+          if (
+            finalIdentity.testId !== beforeIdentity.testId ||
+            finalIdentity.marker !== beforeIdentity.marker
+          ) {
+            const dump = await attachFocusDump(
+              testInfo,
+              page,
+              keyHistory,
+              `${vp.width}px-${key.replace("+", "_")}-variant`,
+            );
+            expect(
+              finalIdentity,
+              `[${vp.width}px] reopen-via-${key} cycle did not restore focus to same trigger node. Expected ${JSON.stringify(beforeIdentity)}, got ${JSON.stringify(finalIdentity)}.${dump}`,
+            ).toEqual(beforeIdentity);
+          }
+        } else {
+          // 1024px: no drawer. Pressing Enter/Shift+Enter on a sidebar
+          // link must not spawn a mobile modal regardless of the
+          // modifier permutation.
+          const dashboardLink = page.locator("#nav-dashboard").first();
+          await expect(dashboardLink).toBeVisible();
+          await dashboardLink.focus();
+          keyHistory.push("focus(#nav-dashboard)");
+          await page.mouse.click(vp.width - 20, Math.floor(vp.height / 2));
+          keyHistory.push("outside-click");
+          await dashboardLink.focus();
+          await page.keyboard.press(key);
+          keyHistory.push(key);
+          const modalCount = await page.locator('[role="dialog"][aria-modal="true"]').count();
+          if (modalCount !== 0) {
+            const dump = await attachFocusDump(
+              testInfo,
+              page,
+              keyHistory,
+              `1024px-${key.replace("+", "_")}-variant`,
+            );
+            expect(
+              modalCount,
+              `[1024px] ${key} after outside-click spawned a modal.${dump}`,
+            ).toBe(0);
+          }
+          await expect(dashboardLink).toBeVisible();
+        }
+      });
+    }
+  }
+});
+
 
 
 
