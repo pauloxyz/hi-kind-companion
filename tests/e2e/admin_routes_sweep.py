@@ -112,12 +112,21 @@ def query_denied_resources(user_id: str, since_iso: str) -> set[str]:
     return {row["resource"] for row in r.json() if row.get("resource")}
 
 
-async def visit_routes(session: dict, paths: list[str]) -> None:
+async def visit_routes(session: dict, paths: list[str]) -> list[tuple[int, str]]:
+    """Visits each /admin route and returns captured server-fn responses."""
     session_json = json.dumps(session)
+    server_fn_responses: list[tuple[int, str]] = []
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
         context = await browser.new_context(viewport={"width": 1280, "height": 1800})
         page = await context.new_page()
+
+        def on_response(r):
+            url = r.url
+            if "_serverFn" in url or "/_serverFn/" in url or "/__server" in url:
+                server_fn_responses.append((r.status, url))
+        page.on("response", on_response)
+
         await page.goto(APP_ORIGIN, wait_until="domcontentloaded")
         await page.evaluate(
             f"window.localStorage.setItem({json.dumps(STORAGE_KEY)}, {json.dumps(session_json)})"
@@ -145,6 +154,33 @@ async def visit_routes(session: dict, paths: list[str]) -> None:
             )
 
         await browser.close()
+    return server_fn_responses
+
+
+# Files containing admin-guarded server fns. The contract is:
+# every callable here must call assertAdminWithAudit and reject non-admin.
+ADMIN_FN_FILES = [
+    "src/lib/admin-guard.functions.ts",
+    "src/lib/security-admin.functions.ts",
+    "src/lib/security-alerts.functions.ts",
+    "src/lib/security-retention.functions.ts",
+    "src/lib/seo-runs.functions.ts",
+    "src/lib/uptime.functions.ts",
+]
+
+
+def discover_admin_server_fns() -> list[tuple[str, str]]:
+    """Returns [(file, exportName), ...] for every createServerFn export in admin files."""
+    out: list[tuple[str, str]] = []
+    pat = re.compile(r"export\s+const\s+([A-Za-z_][A-Za-z0-9_]*)\s*=\s*createServerFn\b")
+    for f in ADMIN_FN_FILES:
+        p = Path(f)
+        if not p.exists():
+            continue
+        src = p.read_text(encoding="utf-8")
+        for name in pat.findall(src):
+            out.append((f, name))
+    return out
 
 
 async def main() -> int:
