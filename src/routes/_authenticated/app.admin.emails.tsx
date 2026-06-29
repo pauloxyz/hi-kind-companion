@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -14,10 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Mail, Bell, RefreshCw } from "lucide-react";
+import { Loader2, Mail, Bell, RefreshCw, Eye, ShieldAlert } from "lucide-react";
 import { toast } from "sonner";
 import { sendTransactionalEmail } from "@/lib/email/send";
 import { listEmailLog, triggerVisaReminderDispatch, type LogRow } from "@/lib/email-admin.functions";
+import { detectEmailEnv, envLabel, envBadgeClass } from "@/lib/email/env";
 
 export const Route = createFileRoute("/_authenticated/app/admin/emails")({
   component: Page,
@@ -29,12 +31,14 @@ const TEMPLATES = [
 ] as const;
 
 function Page() {
+  const env = detectEmailEnv();
   const [email, setEmail] = useState("");
   const [tpl, setTpl] = useState<string>("visa-reminder");
   const [days, setDays] = useState<number>(7);
   const [step, setStep] = useState("Entrevista no consulado");
   const [sending, setSending] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [dryRun, setDryRun] = useState<boolean>(env !== "production");
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
@@ -66,8 +70,18 @@ function Page() {
       toast.error("Informe um e-mail destinatário");
       return;
     }
+    if (env === "production" && !dryRun) {
+      const ok = window.confirm(
+        "Você está em PRODUÇÃO e o modo de teste está DESLIGADO. Enviar e-mail real para " + email + "?",
+      );
+      if (!ok) return;
+    }
     setSending(true);
     try {
+      if (dryRun) {
+        toast.success("Modo teste ligado — nada foi enviado. Desligue o switch para enviar de verdade.");
+        return;
+      }
       const payload =
         tpl === "visa-reminder"
           ? {
@@ -94,10 +108,20 @@ function Page() {
   }
 
   async function handleDispatch() {
+    if (env === "production" && !dryRun) {
+      const ok = window.confirm(
+        "Você está em PRODUÇÃO e o modo de teste está DESLIGADO. Rodar o dispatcher real agora?",
+      );
+      if (!ok) return;
+    }
     setDispatching(true);
     try {
-      const res = await dispatchFn({ data: undefined });
-      toast.success("Dispatcher executado. Veja os logs.");
+      const res = await dispatchFn({ data: { dryRun } });
+      toast.success(
+        dryRun
+          ? "Dry-run executado — nada foi enfileirado. Veja o resumo no console."
+          : "Dispatcher executado. Veja os logs.",
+      );
       console.log("visa-reminders dispatch", res);
       setTimeout(() => void refresh(), 1500);
     } catch (e) {
@@ -109,13 +133,46 @@ function Page() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold">E-mails (admin)</h1>
-        <p className="text-sm text-muted-foreground">
-          Teste templates e dispare manualmente o lembrete do checklist antes
-          de confiar no cron de produção.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">E-mails (admin)</h1>
+          <p className="text-sm text-muted-foreground">
+            Teste templates e dispare manualmente o lembrete do checklist antes
+            de confiar no cron de produção.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className={envBadgeClass[env]}>Ambiente: {envLabel[env]}</Badge>
+          <Link to="/app/admin/emails/preview">
+            <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" /> Preview dos lembretes</Button>
+          </Link>
+        </div>
       </header>
+
+      <Card className={env === "production" && !dryRun ? "border-destructive" : "border-amber-500/50"}>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className={`h-5 w-5 mt-0.5 ${dryRun ? "text-amber-500" : "text-destructive"}`} />
+            <div>
+              <p className="font-semibold text-sm">
+                Modo de execução: {dryRun ? "TESTE (dry-run)" : "ENVIO REAL"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {dryRun
+                  ? "Nada será enviado: o envio teste e o dispatcher só simulam e retornam o resumo."
+                  : env === "production"
+                    ? "Cuidado — você está em produção. E-mails sairão de verdade para os destinatários."
+                    : "E-mails serão enfileirados no ambiente de preview (cron real do Lovable Cloud)."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="dryrun" className="text-sm">Modo teste</Label>
+            <Switch id="dryrun" checked={dryRun} onCheckedChange={setDryRun} />
+          </div>
+        </CardContent>
+      </Card>
+
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
@@ -161,7 +218,7 @@ function Page() {
             )}
             <Button onClick={handleSend} disabled={sending} className="w-full">
               {sending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4" />}
-              Enviar teste
+              {dryRun ? "Simular envio (teste)" : "Enviar de verdade"}
             </Button>
           </CardContent>
         </Card>
@@ -180,7 +237,7 @@ function Page() {
             </p>
             <Button onClick={handleDispatch} disabled={dispatching} variant="secondary" className="w-full">
               {dispatching ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Bell className="mr-2 h-4 w-4" />}
-              Rodar dispatcher agora
+              {dryRun ? "Rodar dispatcher (dry-run)" : "Rodar dispatcher agora"}
             </Button>
           </CardContent>
         </Card>

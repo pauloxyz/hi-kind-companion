@@ -6,7 +6,7 @@ import { logAccountEvent } from "@/lib/security-audit.functions";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
   Send, Bell, Building2, Stamp, LogOut, Menu, X, Sparkles, GraduationCap,
-  Sun, Moon, Monitor, Shield, Settings, Search,
+  Sun, Moon, Monitor, Shield, Settings, Search, Mail,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
@@ -423,6 +423,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <div className="space-y-0.5">
               {renderItem({ to: "/app/auditoria", labelKey: "Auditoria", icon: Shield })}
               {renderItem({ to: "/admin/seo", labelKey: "SEO scans", icon: Search })}
+              {renderItem({ to: "/app/admin/emails", labelKey: "E-mails", icon: Mail })}
             </div>
           </section>
         )}

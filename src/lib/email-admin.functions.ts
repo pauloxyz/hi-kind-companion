@@ -7,9 +7,12 @@
  * The actual "send a test email" flow uses sendTransactionalEmail() from the
  * client with the caller's own JWT — no admin server fn needed for that.
  */
+import * as React from "react";
+import { render } from "react-email";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
+import { TEMPLATES } from "@/lib/email-templates/registry";
 
 export type LogRow = {
   id: string;
@@ -54,19 +57,20 @@ export const listEmailLog = createServerFn({ method: "POST" })
 
 export const triggerVisaReminderDispatch = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: { dryRun?: boolean } | undefined) => ({
+    dryRun: input?.dryRun ?? true,
+  }))
+  .handler(async ({ data, context }) => {
     await assertAdminWithAudit(context as never, "emails.dispatch.fn");
     const url = process.env.SUPABASE_URL;
     if (!url) throw new Error("server_not_configured");
-    // Resolve the public origin from headers won't work here — derive from project URL env.
-    // We accept that dev origin must call via the cron-style endpoint with apikey.
     const apikey = process.env.SUPABASE_PUBLISHABLE_KEY!;
     const origin = process.env.PUBLIC_APP_ORIGIN
       ?? "https://project--bfc1be60-9598-46b5-b328-4a163d63ef93.lovable.app";
     const res = await fetch(`${origin}/api/public/hooks/visa-reminders`, {
       method: "POST",
       headers: { "Content-Type": "application/json", apikey },
-      body: "{}",
+      body: JSON.stringify({ dry_run: data.dryRun }),
     });
     const text = await res.text();
     if (!res.ok) throw new Error(`dispatch falhou (${res.status}): ${text.slice(0, 200)}`);
@@ -75,4 +79,43 @@ export const triggerVisaReminderDispatch = createServerFn({ method: "POST" })
     } catch {
       return { ok: true, raw: text };
     }
+  });
+
+export type VisaReminderPreview = {
+  days: number;
+  subject: string;
+  html: string;
+};
+
+export const renderVisaReminderPreviews = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { recipientName?: string; stepLabel?: string; dueDate?: string } | undefined) => ({
+    recipientName: input?.recipientName ?? "João",
+    stepLabel: input?.stepLabel ?? "Entrevista no consulado",
+    dueDate: input?.dueDate ?? null,
+  }))
+  .handler(async ({ data, context }): Promise<VisaReminderPreview[]> => {
+    await assertAdminWithAudit(context as never, "emails.preview.fn");
+    const entry = TEMPLATES["visa-reminder"];
+    if (!entry) throw new Error("template_missing");
+    const results: VisaReminderPreview[] = [];
+    for (const days of [14, 7, 1]) {
+      const dueDate =
+        data.dueDate ??
+        new Date(Date.now() + days * 86400000).toLocaleDateString("pt-BR");
+      const templateData = {
+        recipientName: data.recipientName,
+        stepLabel: data.stepLabel,
+        daysUntil: days,
+        dueDate,
+        checklistUrl: "https://vplusa.com/app/visto",
+      };
+      const html = await render(React.createElement(entry.component, templateData));
+      const subject =
+        typeof entry.subject === "function"
+          ? entry.subject(templateData as Record<string, unknown>)
+          : entry.subject;
+      results.push({ days, subject, html });
+    }
+    return results;
   });

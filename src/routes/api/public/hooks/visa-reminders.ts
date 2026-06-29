@@ -52,6 +52,15 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
           });
         }
 
+        let dryRun = false;
+        try {
+          const raw = await request.text();
+          if (raw) {
+            const body = JSON.parse(raw) as { dry_run?: boolean };
+            dryRun = body?.dry_run === true;
+          }
+        } catch { /* tolerate empty/invalid body */ }
+
         const url = process.env.SUPABASE_URL;
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (!url || !serviceKey) {
@@ -124,6 +133,12 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
               .maybeSingle();
             if (suppressed) { skipped += 1; continue; }
 
+            if (dryRun) {
+              // Count but do not enqueue or log
+              enqueued += 1;
+              continue;
+            }
+
             const { data: profile } = await admin
               .from("my_profile")
               .select("full_name")
@@ -191,7 +206,7 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
           summary.push({ offset: days, matched: items?.length ?? 0, enqueued, skipped });
         }
 
-        return new Response(JSON.stringify({ ok: true, summary }), {
+        return new Response(JSON.stringify({ ok: true, dry_run: dryRun, summary }), {
           headers: { "Content-Type": "application/json" },
         });
       },
