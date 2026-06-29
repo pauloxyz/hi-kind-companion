@@ -48,7 +48,7 @@ describe("assertAdminWithAudit", () => {
       event_type: "admin_access_denied",
       user_id: "user-123",
       resource: "route:/admin/seo",
-      severity: "medium",
+      metadata: { reason: "missing_admin_role", severity: "medium" },
     });
   });
 
