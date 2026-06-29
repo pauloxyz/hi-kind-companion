@@ -44,7 +44,7 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
         has_prior_h2_experience: boolean | null;
       }>();
     if (!profile) return null;
-    const { data: phoneRow } = await sb.rpc("get_public_profile_whatsapp" as never, { _slug: data.slug });
+    const { data: phoneRow } = await (sb.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: string | null }>)("get_public_profile_whatsapp", { _slug: data.slug });
     const phone = (typeof phoneRow === "string" ? phoneRow : null) as string | null;
 
     const ownerId = profile.owner_id;
