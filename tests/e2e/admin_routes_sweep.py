@@ -196,8 +196,29 @@ async def main() -> int:
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 5))
 
     try:
-        await visit_routes(session, paths)
+        admin_fns = discover_admin_server_fns()
+        print(f"📌 contract: {len(admin_fns)} admin server fn(s) must reject non-admin:")
+        for f, name in admin_fns:
+            print(f"   - {name}  ({f})")
+        record(
+            "discovered at least one admin server fn",
+            len(admin_fns) > 0,
+            f"{len(admin_fns)} fn(s)",
+        )
+
+        server_fn_responses = await visit_routes(session, paths)
         await asyncio.sleep(1.5)
+
+        # Every server-fn call captured while visiting admin pages must be denied (no 2xx).
+        leaked = [(s, u) for s, u in server_fn_responses if 200 <= s < 300]
+        record(
+            "no admin server-fn call returned 2xx for non-admin",
+            len(leaked) == 0,
+            f"captured {len(server_fn_responses)} server-fn response(s); leaked={leaked[:5]}"
+            if server_fn_responses
+            else "no server-fn calls observed during sweep",
+        )
+
         seen = query_denied_resources(user_id, started_at)
         for path in paths:
             expected = f"route:{path}"
