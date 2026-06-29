@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -109,8 +109,10 @@ function QualityMedal({ q }: { q: JobQuality }) {
 function Page() {
   const { confirm } = useActionFeedback();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [profile, setProfile] = useState<any>(null);
-  const [resume, setResume] = useState<any>(null);
+  type ProfileRow = Database["public"]["Tables"]["my_profile"]["Row"];
+  type ResumeRow = Database["public"]["Tables"]["resumes"]["Row"];
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [resume, setResume] = useState<ResumeRow | null>(null);
   const [suspiciousEmployers, setSuspiciousEmployers] = useState<Set<string>>(new Set());
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -128,6 +130,7 @@ function Page() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
+  const bulkAbortRef = useRef(false);
   const [compareMode, setCompareMode] = useState(false);
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
@@ -166,7 +169,7 @@ function Page() {
     setProfile(profRes.data);
     setResume(resRes.data);
     setSuspiciousEmployers(new Set((empRes.data ?? []).map((e) => e.employer_name)));
-    setSavedJobIds(new Set((savedRes.data ?? []).map((s: any) => s.job_id).filter(Boolean) as string[]));
+    setSavedJobIds(new Set((savedRes.data ?? []).map((s) => s.job_id).filter(Boolean) as string[]));
     setAlerts((alertsRes.data ?? []) as JobAlert[]);
     setLoading(false);
   }
@@ -371,7 +374,7 @@ function Page() {
 
   function applyAlertAsFilter(a: JobAlert) {
     setStateFilter(a.state ?? "");
-    setCategoryFilter((a.category as any) ?? "all");
+    setCategoryFilter(((a.category as JobCategory | null) ?? "all"));
     setMinWage(a.min_wage != null ? String(a.min_wage) : "");
     setStartAfter("");
     setSearch("");
@@ -387,12 +390,14 @@ function Page() {
       selected.has(j.id) && j.recruitment_email && !appliedJobIds.has(j.id) && !isSuspicious,
     ).map((x) => x.job);
     if (targets.length === 0) { toast.error("Nenhuma vaga selecionada válida (sem e-mail, suspeita ou já aplicada)."); return; }
+    bulkAbortRef.current = false;
     setBulkRunning(true);
-    let success = 0, failed = 0;
+    let success = 0, failed = 0, cancelled = 0;
     const progressToast = toast.loading(`Gerando ${targets.length} cartas em paralelo…`);
     const results = await Promise.allSettled(targets.map((j) => genFn({ data: { jobId: j.id } })));
     toast.loading(`Enviando 0/${targets.length} pelo seu Gmail…`, { id: progressToast });
     for (let i = 0; i < targets.length; i++) {
+      if (bulkAbortRef.current) { cancelled = targets.length - i; break; }
       const job = targets[i]; const r = results[i];
       if (r.status !== "fulfilled") { failed++; continue; }
       try {
@@ -415,7 +420,9 @@ function Page() {
       }
     }
     toast.dismiss(progressToast);
-    if (failed === 0) {
+    if (cancelled > 0) {
+      toast.message(`Envio interrompido — ${success} enviadas, ${cancelled} canceladas, ${failed} falharam.`);
+    } else if (failed === 0) {
       toast.success(`${success} candidaturas enviadas pelo Gmail.`);
       confirm({
         title: success === 1 ? "Candidatura enviada" : `${success} candidaturas enviadas`,
@@ -425,6 +432,7 @@ function Page() {
             : `${success} vagas marcadas como ‘Candidatado’. Acompanhe respostas em Candidaturas.`,
       });
     } else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
+    bulkAbortRef.current = false;
     setBulkRunning(false); setSelected(new Set()); setBulkMode(false);
     await load();
   }
@@ -451,6 +459,11 @@ function Page() {
             <Button size="sm" onClick={runBulk} disabled={selected.size === 0 || bulkRunning}>
               {bulkRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
               Candidatar em massa ({selected.size})
+            </Button>
+          )}
+          {bulkRunning && (
+            <Button size="sm" variant="destructive" onClick={() => { bulkAbortRef.current = true; toast.message("Cancelando após o envio atual…"); }}>
+              <X className="mr-2 h-4 w-4" /> Interromper
             </Button>
           )}
           <Button variant={compareMode ? "default" : "outline"} size="sm"
@@ -488,7 +501,7 @@ function Page() {
               </SelectContent>
             </Select>
             <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
-            <Select value={categoryFilter} onValueChange={(v: any) => setCategoryFilter(v)}>
+            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as "all" | JobCategory)}>
               <SelectTrigger><SelectValue placeholder="Tipo de vaga" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os tipos ({enriched.length})</SelectItem>
@@ -504,7 +517,7 @@ function Page() {
               <label className="text-xs text-muted-foreground">Começa a partir de</label>
               <Input type="date" value={startAfter} onChange={(e) => setStartAfter(e.target.value)} />
             </div>
-            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>

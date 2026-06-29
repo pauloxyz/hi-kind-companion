@@ -34,6 +34,7 @@ function Page() {
   const del = useServerFn(deleteIntroVideo);
 
   const { data: videos = [] } = useQuery({ queryKey: ["intro_videos"], queryFn: () => list() });
+  type IntroVideo = (typeof videos)[number];
 
   const [recording, setRecording] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -87,7 +88,7 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["intro_videos"] });
       setRecordedBlob(null); setPreviewUrl(null);
       toast.success("Vídeo salvo e marcado como ativo");
-    } catch (e: any) { toast.error(e.message ?? "Erro no upload"); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Erro no upload"); }
     finally { setUploading(false); }
   }
 
@@ -162,7 +163,7 @@ function Page() {
             <p className="text-sm text-muted-foreground">Nenhum vídeo ainda.</p>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
-              {videos.map((v: any) => (
+              {videos.map((v: IntroVideo) => (
                 <div key={v.id} className="space-y-2">
                   <VideoPreview path={v.video_url} />
                   <div className="flex items-center justify-between text-xs">
