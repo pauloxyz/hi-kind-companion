@@ -754,4 +754,218 @@ test.describe("Escape restores focus to a visible, reachable trigger (no hidden/
   }
 });
 
+/**
+ * Focus-diagnostics dump used by tests below when a focus assertion is
+ * about to fail. It captures a structured snapshot of the current
+ * activeElement (tag, id, aria-label, rect), its visible/hidden ancestor
+ * chain (annotating which CSS rule or attribute would hide it), and the
+ * provided key-history (Tab / Shift+Tab / Enter / Escape sequence the
+ * test pressed before checking focus). The return is a single string,
+ * safe to embed in `expect(...).toBe(true, msg)` so the failure message
+ * Playwright records — and therefore the `error-context.md` artifact —
+ * contains everything triage needs without re-running locally.
+ */
+async function focusDiagnosticsDump(
+  page: import("@playwright/test").Page,
+  keyHistory: ReadonlyArray<string>,
+): Promise<string> {
+  const snapshot = await page.evaluate(() => {
+    const el = document.activeElement as HTMLElement | null;
+    if (!el) return { active: null, ancestors: [] as Array<Record<string, unknown>> };
+    const ancestors: Array<Record<string, unknown>> = [];
+    let cur: HTMLElement | null = el;
+    let depth = 0;
+    while (cur && depth < 12) {
+      const cs = window.getComputedStyle(cur);
+      const rect = cur.getBoundingClientRect();
+      const hiddenReason: string[] = [];
+      if (cur.hasAttribute("hidden")) hiddenReason.push("attr:hidden");
+      if (cur.getAttribute("aria-hidden") === "true") hiddenReason.push("aria-hidden=true");
+      if (cs.display === "none") hiddenReason.push(`display:none`);
+      if (cs.visibility === "hidden") hiddenReason.push(`visibility:hidden`);
+      if (rect.width === 0 || rect.height === 0) hiddenReason.push(`zero-size(${rect.width}x${rect.height})`);
+      ancestors.push({
+        depth,
+        tag: cur.tagName,
+        id: cur.id || null,
+        role: cur.getAttribute("role"),
+        ariaLabel: cur.getAttribute("aria-label"),
+        testId: cur.getAttribute("data-testid"),
+        hiddenReason: hiddenReason.length ? hiddenReason : null,
+      });
+      cur = cur.parentElement;
+      depth += 1;
+    }
+    const rect = el.getBoundingClientRect();
+    return {
+      active: {
+        tag: el.tagName,
+        id: el.id || null,
+        ariaLabel: el.getAttribute("aria-label"),
+        ariaHidden: el.getAttribute("aria-hidden"),
+        hiddenAttr: el.hasAttribute("hidden"),
+        rect: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
+        attachedToDocument: document.contains(el),
+        insideDialog: !!el.closest('[role="dialog"]'),
+        innerText: (el.innerText ?? "").trim().slice(0, 80),
+      },
+      ancestors,
+    };
+  });
+
+  const keys = keyHistory.length ? keyHistory.join(" → ") : "(none)";
+  return [
+    "",
+    "── focus diagnostics dump ──",
+    `key history: ${keys}`,
+    `activeElement: ${JSON.stringify(snapshot.active)}`,
+    `ancestor chain (depth↑):`,
+    ...snapshot.ancestors.map((a) => `  - ${JSON.stringify(a)}`),
+    "─────────────────────────────",
+  ].join("\n");
+}
+
+/**
+ * Round-trip reopen contract: outside-click closes the drawer → pressing
+ * Enter on the trigger reopens it → focus lands inside the dialog → and
+ * when we close again, focus is back on the *same* trigger we started
+ * with. Catches a class of regressions where the drawer state machine
+ * leaves the trigger in a half-armed state after the first close
+ * (e.g. open prop stays true internally, or `aria-expanded` flips
+ * without the dialog actually mounting).
+ *
+ * At 1024px there is no drawer — pressing Enter on a sidebar link
+ * activates that link (a navigation), so we don't press Enter there;
+ * we just assert clicking outside leaves the sidebar still reachable
+ * and `Enter` on the focused link still works as plain activation.
+ */
+test.describe("Outside-click then Enter reopens drawer and refocuses same trigger", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  for (const vp of [
+    { label: "360 phone", width: 360, height: 780, hasDrawer: true },
+    { label: "1023 lg-boundary", width: 1023, height: 900, hasDrawer: true },
+    { label: "1024 desktop", width: 1024, height: 900, hasDrawer: false },
+  ] as const) {
+    test(`${vp.label} (${vp.width}px): close-by-outside-click → Enter → drawer reopens on same trigger`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await bootSession(page);
+      await page.goto("/app", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+
+      const keyHistory: string[] = [];
+
+      if (vp.hasDrawer) {
+        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        await expect(trigger).toBeVisible();
+        await trigger.evaluate((el) => el.setAttribute("data-test-original-trigger", "1"));
+
+        // 1) Open via Enter.
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+        keyHistory.push("Enter(open #1)");
+        const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+        await expect(dialog).toBeVisible();
+
+        // 2) Tab inside, then click outside to close.
+        await page.keyboard.press("Tab");
+        keyHistory.push("Tab");
+        await page.keyboard.press("Tab");
+        keyHistory.push("Tab");
+        const panel = dialog.locator("div.relative.z-50").first();
+        const panelBox = await panel.boundingBox();
+        expect(panelBox).not.toBeNull();
+        const outsideX = Math.min(vp.width - 5, Math.floor(panelBox!.x + panelBox!.width + 20));
+        await page.mouse.click(outsideX, Math.floor(vp.height / 2));
+        keyHistory.push("outside-click");
+        await expect(dialog).toBeHidden();
+
+        // Focus must be back on the SAME trigger node before we try the
+        // reopen. If not, dump diagnostics — without this, "Enter
+        // reopens" can fail mysteriously because Enter went to <body>.
+        const onOriginal1 = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          return !!el && el.getAttribute("data-test-original-trigger") === "1";
+        });
+        if (!onOriginal1) {
+          const dump = await focusDiagnosticsDump(page, keyHistory);
+          expect(
+            onOriginal1,
+            `[${vp.width}px] after outside-click, focus did NOT return to original trigger.${dump}`,
+          ).toBe(true);
+        }
+
+        // 3) Press Enter — drawer must reopen.
+        await page.keyboard.press("Enter");
+        keyHistory.push("Enter(reopen)");
+        await expect(dialog, `[${vp.width}px] Enter after outside-close did not reopen drawer`).toBeVisible();
+
+        // Focus must land inside the dialog on reopen (auto-focus to
+        // close button or first tabbable). Dump diagnostics if not.
+        const insideAfterReopen = await page.evaluate(() => {
+          const dlg = document.querySelector('[role="dialog"]');
+          return !!dlg && dlg.contains(document.activeElement);
+        });
+        if (!insideAfterReopen) {
+          const dump = await focusDiagnosticsDump(page, keyHistory);
+          expect(
+            insideAfterReopen,
+            `[${vp.width}px] on reopen via Enter, focus did NOT enter the dialog.${dump}`,
+          ).toBe(true);
+        }
+
+        // 4) Close again with Escape — focus back on the same original
+        //    trigger, end-to-end round trip complete.
+        await page.keyboard.press("Escape");
+        keyHistory.push("Escape");
+        await expect(dialog).toBeHidden();
+
+        const onOriginal2 = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          return !!el && el.getAttribute("data-test-original-trigger") === "1";
+        });
+        if (!onOriginal2) {
+          const dump = await focusDiagnosticsDump(page, keyHistory);
+          expect(
+            onOriginal2,
+            `[${vp.width}px] after Escape on reopened drawer, focus did NOT return to original trigger.${dump}`,
+          ).toBe(true);
+        }
+        await expect(trigger).toBeVisible();
+      } else {
+        // 1024px: no drawer. Validate that the layout survives an
+        // outside-click → Enter sequence: sidebar link is still
+        // present and re-focusable, no modal spawned, no zombie dialog.
+        const dashboardLink = page.locator("#nav-dashboard").first();
+        await expect(dashboardLink).toBeVisible();
+        await dashboardLink.focus();
+        keyHistory.push("focus(#nav-dashboard)");
+
+        await page.mouse.click(vp.width - 20, Math.floor(vp.height / 2));
+        keyHistory.push("outside-click");
+
+        const modalCount1 = await page.locator('[role="dialog"][aria-modal="true"]').count();
+        expect(modalCount1, `[1024px] outside-click must not spawn a modal`).toBe(0);
+
+        // Re-focus the link and press Enter — must not spawn the
+        // mobile drawer, and the link is still reachable.
+        await dashboardLink.focus();
+        await page.keyboard.press("Enter");
+        keyHistory.push("Enter");
+        const modalCount2 = await page.locator('[role="dialog"][aria-modal="true"]').count();
+        if (modalCount2 !== 0) {
+          const dump = await focusDiagnosticsDump(page, keyHistory);
+          expect(
+            modalCount2,
+            `[1024px] Enter after outside-click spawned a modal (mobile-drawer engaged at desktop width).${dump}`,
+          ).toBe(0);
+        }
+        await expect(dashboardLink).toBeVisible();
+      }
+    });
+  }
+});
+
+
 
