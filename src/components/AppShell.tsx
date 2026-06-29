@@ -472,8 +472,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <main id="main-content" className="flex-1 min-w-0">
         <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
           <button
+            ref={menuTriggerRef}
             type="button"
             onClick={() => setOpen(true)}
+            aria-expanded={open}
+            aria-controls="app-mobile-sidebar"
             className="text-foreground inline-flex items-center justify-center rounded-md min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Abrir menu"
           >
