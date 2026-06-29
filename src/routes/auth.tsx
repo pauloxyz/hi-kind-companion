@@ -195,7 +195,6 @@ function AuthPage() {
 
         <main className="flex items-center justify-center p-6 sm:p-12">
           <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/40 bg-card/95 p-7 shadow-2xl backdrop-blur-xl">
-            <h1 className="sr-only">VaiPraLá — Entrar ou criar conta</h1>
             <div className="lg:hidden flex flex-col items-center gap-2">
               <img src={logo} alt="VaiPraLá" width={72} height={72} className="h-18 w-18" />
               <div className="text-xl font-bold tracking-tight">VaiPraLá</div>
@@ -203,11 +202,11 @@ function AuthPage() {
 
 
             <div className="space-y-1.5">
-              <h2 className="text-3xl font-bold tracking-tight">
+              <h1 className="text-3xl font-bold tracking-tight">
                 {mode === "signin" && "Bem-vindo de volta"}
                 {mode === "signup" && "Comece sua jornada"}
                 {mode === "forgot" && "Recuperar senha"}
-              </h2>
+              </h1>
               <p className="text-sm text-muted-foreground">
                 {mode === "signin" && "Entre para acompanhar suas candidaturas."}
                 {mode === "signup" && "Crie sua conta gratuita em menos de um minuto."}
