@@ -194,7 +194,7 @@ function Page() {
         // screen-reader users hear *which* job was saved, not just "salvo".
         const job = jobs.find((j) => j.id === jobId);
         const title = job?.job_title?.trim() || "vaga";
-        const state = job?.state_code ? `, ${job.state_code}` : "";
+        const state = job?.worksite_state ? `, ${job.worksite_state}` : "";
         confirm({
           title: "Vaga salva",
           detail: `${title}${state} — disponível em Favoritos no menu Vagas.`,
