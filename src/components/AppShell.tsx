@@ -154,21 +154,23 @@ export function AppShell({ children }: { children?: ReactNode }) {
     .toUpperCase();
 
   // Aria-live: anuncia mudanças de fase/progresso da Jornada H-2A.
+  // Coalescemos mudanças em rajada (ex.: vários fetches resolvendo juntos)
+  // em uma única mensagem, sempre com o snapshot mais recente.
   const [journeyAnnouncement, setJourneyAnnouncement] = useState<string>("");
-  const prevJourneyRef = useRef<{ done: number; stage: string } | null>(null);
+  const prevJourneyRef = useRef<{ doneCount: number; total: number; currentStage: string } | null>(null);
+  const debouncerRef = useRef<ReturnType<typeof createAnnouncementDebouncer> | null>(null);
+  if (debouncerRef.current === null && typeof window !== "undefined") {
+    debouncerRef.current = createAnnouncementDebouncer((msg) => setJourneyAnnouncement(msg), 600);
+  }
   useEffect(() => {
-    // Só anuncia depois que os dados carregaram pelo menos uma vez
-    // (appsCount=null indica loading).
-    if (appsCount === null) return;
+    if (appsCount === null) return; // dados ainda carregando
+    const next = { doneCount, total: stages.length, currentStage };
     const prev = prevJourneyRef.current;
-    const next = { done: doneCount, stage: currentStage };
-    if (prev && (prev.done !== next.done || prev.stage !== next.stage)) {
-      setJourneyAnnouncement(
-        `Jornada H-2A atualizada: ${doneCount} de ${stages.length} etapas concluídas. Próxima fase: ${currentStage}.`,
-      );
-    }
     prevJourneyRef.current = next;
+    if (!shouldAnnounceJourney(prev, next)) return;
+    debouncerRef.current?.schedule(next);
   }, [doneCount, currentStage, stages.length, appsCount]);
+  useEffect(() => () => debouncerRef.current?.cancel(), []);
 
   // Drawer mobile: trap focus, fecha com Escape e bloqueia scroll do body.
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
