@@ -5,12 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useI18n } from "@/lib/i18n";
 import { computeScore } from "@/lib/score";
 import { computeJourney, type JourneyStageKey } from "@/lib/h2a-journey";
 import {
   ArrowRight, AlertCircle, CheckCircle2, FileText, Send,
-  Stamp, Mic, PartyPopper, Sparkles,
+  Stamp, Mic, PartyPopper, Sparkles, RefreshCw,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/")({ component: Dashboard });
