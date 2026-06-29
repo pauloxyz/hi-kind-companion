@@ -491,7 +491,7 @@ function Page() {
               </SelectContent>
             </Select>
             <Input placeholder="Salário mín ($/hr)" type="number" value={minWage} onChange={(e) => setMinWage(e.target.value)} />
-            <Select value={categoryFilter} onValueChange={(v: any) => setCategoryFilter(v)}>
+            <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as "all" | JobCategory)}>
               <SelectTrigger><SelectValue placeholder="Tipo de vaga" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todos os tipos ({enriched.length})</SelectItem>
