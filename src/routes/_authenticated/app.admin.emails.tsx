@@ -133,13 +133,46 @@ function Page() {
 
   return (
     <div className="space-y-6">
-      <header>
-        <h1 className="text-2xl font-bold">E-mails (admin)</h1>
-        <p className="text-sm text-muted-foreground">
-          Teste templates e dispare manualmente o lembrete do checklist antes
-          de confiar no cron de produção.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">E-mails (admin)</h1>
+          <p className="text-sm text-muted-foreground">
+            Teste templates e dispare manualmente o lembrete do checklist antes
+            de confiar no cron de produção.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <Badge className={envBadgeClass[env]}>Ambiente: {envLabel[env]}</Badge>
+          <Link to="/app/admin/emails/preview">
+            <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" /> Preview dos lembretes</Button>
+          </Link>
+        </div>
       </header>
+
+      <Card className={env === "production" && !dryRun ? "border-destructive" : "border-amber-500/50"}>
+        <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
+          <div className="flex items-start gap-3">
+            <ShieldAlert className={`h-5 w-5 mt-0.5 ${dryRun ? "text-amber-500" : "text-destructive"}`} />
+            <div>
+              <p className="font-semibold text-sm">
+                Modo de execução: {dryRun ? "TESTE (dry-run)" : "ENVIO REAL"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {dryRun
+                  ? "Nada será enviado: o envio teste e o dispatcher só simulam e retornam o resumo."
+                  : env === "production"
+                    ? "Cuidado — você está em produção. E-mails sairão de verdade para os destinatários."
+                    : "E-mails serão enfileirados no ambiente de preview (cron real do Lovable Cloud)."}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Label htmlFor="dryrun" className="text-sm">Modo teste</Label>
+            <Switch id="dryrun" checked={dryRun} onCheckedChange={setDryRun} />
+          </div>
+        </CardContent>
+      </Card>
+
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>
