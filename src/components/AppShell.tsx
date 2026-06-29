@@ -527,6 +527,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
             aria-controls="app-mobile-sidebar"
             className="text-foreground inline-flex items-center justify-center rounded-md min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Abrir menu"
+            data-testid="drawer-trigger"
+
           >
             <Menu className="size-5" aria-hidden />
           </button>

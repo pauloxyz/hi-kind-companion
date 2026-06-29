@@ -661,7 +661,44 @@ jobs:
               if [ "$n" -gt "$worst_n" ]; then worst_n="$n"; worst_name="$name"; fi
             done
             echo "Worst bucket overall: ${worst_name} (${worst_n} failed assert line(s))" >> "$COUNTS"
+
+            # ----------------------------------------------------------------
+            # Top-N buckets per (shard, viewport) — Markdown summary that
+            # the PR comment + job summary embed verbatim. Reads the row
+            # data we already computed above by reusing the same per-row
+            # bash variables; we re-parse the COUNTS table to keep the
+            # source of truth in one place. Top 5 rows by sum-across-buckets
+            # so the noisiest cells surface first in the PR.
+            # ----------------------------------------------------------------
+            TOP_MD="consolidated/top-buckets-summary.md"
+            {
+              echo "#### Top buckets per (shard, viewport)"
+              echo
+              echo "| shard | attempt | viewport | Tab | Shift+Tab | Enter | Escape | outside-click | inside-click | hidden/detached | total |"
+              echo "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+              # Parse the data rows of the COUNTS table (skip header,
+              # ruler, and TOTAL row) and rank by total desc.
+              awk '
+                NR > 5 && $1 != "TOTAL" && NF >= 10 && $1 !~ /^-/ {
+                  total = $4 + $5 + $6 + $7 + $8 + $9 + $10
+                  if (total > 0) {
+                    printf "%d\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+                      total, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                  }
+                }
+              ' "$COUNTS" \
+                | sort -k1,1nr \
+                | head -n 5 \
+                | awk -F'\t' '{
+                    printf "| %s | %s | %s | %d | %d | %d | %d | %d | %d | %d | %d |\n",
+                      $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $1
+                  }' \
+                || echo "| _no failing buckets parsed_ |  |  |  |  |  |  |  |  |  |  |"
+              echo
+              echo "_Worst category overall: \`${worst_name}\` (${worst_n} assert line(s))._"
+            } > "$TOP_MD"
           fi
+
 
           # Append both the breakdown and the counts table to the main
           # consolidated report so a single artifact carries everything.
@@ -728,19 +765,15 @@ jobs:
                 echo "_No per-shard rerun reports were produced (reruns may have been skipped)._"
               fi
             fi
+            if [ -f consolidated/top-buckets-summary.md ]; then
+              echo
+              cat consolidated/top-buckets-summary.md
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       # PR check annotations: emit a workflow `::error file=<spec>` line
       # per failed spec so each one shows up as an inline annotation on
-      # the PR's Checks tab (and at the top of the run summary). Every
-      # annotation links back to the consolidated artifact and to the
-      # per-shard rerun artifacts so triage starts one click away from
-      # the screenshots / traces / videos.
-      #
-      # `::error file=...` requires a real path so GitHub renders the
-      # annotation against the source file; the message body carries the
-      # links. We emit annotations only when the full job actually failed
-      # — on success there's nothing to annotate.
+      # the PR's Checks tab (and at the top of the run summary).
       - name: Emit PR check annotations for failed specs
         if: ${{ !cancelled() && needs.full.result == 'failure' }}
         env:
@@ -751,8 +784,6 @@ jobs:
           ARTIFACT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}#artifacts"
           RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
           if [ ! -s "$UNIQUE_FILE" ]; then
-            # Fall back to a single run-level annotation so the PR still
-            # shows something actionable when no per-spec list parsed.
             echo "::error title=Playwright full-suite failed::No parseable failed-spec list. See consolidated artifact: ${ARTIFACT_URL} | Run: ${RUN_URL}"
             exit 0
           fi
@@ -760,14 +791,10 @@ jobs:
           while IFS= read -r spec; do
             [ -z "$spec" ] && continue
             count=$((count + 1))
-            # Title shows the spec; message body carries the links. The
-            # rerun artifact name pattern includes the workflow attempt,
-            # so we link to the run's #artifacts panel where the user
-            # can pick the matching `playwright-rerun-shard-N-attempt-${{ github.run_attempt }}-rerun` bundle.
             echo "::error file=${spec},title=Playwright failed: ${spec}::Spec failed in full suite. Consolidated report: ${ARTIFACT_URL} (artifact 'playwright-rerun-consolidated'). Per-shard rerun artifacts: playwright-rerun-shard-<N>-attempt-${GITHUB_RUN_ATTEMPT}-rerun on the same run page. Run: ${RUN_URL}"
           done < "$UNIQUE_FILE"
-          # Cap visible annotation noise but always leave a summary one.
           echo "::warning title=Playwright full-suite failed::${count} spec(s) failed. Full list + traces: ${ARTIFACT_URL}"
+
 
 
       # Post the consolidated report as a PR comment when any shard
@@ -788,16 +815,42 @@ jobs:
             const MARKER = '<!-- playwright-rerun-consolidated -->';
             const ARTIFACT_URL = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}#artifacts`;
             const raw = fs.readFileSync(path, 'utf8');
-            // GitHub comment body limit is 65536 chars. Cap the embedded
-            // report well below that and link out for the rest.
-            const MAX = 50000;
+            const MAX = 45000;
             const truncated = raw.length > MAX;
+
+            // Top-buckets summary (per shard × viewport, top 5 by total).
+            const topBucketsPath = 'consolidated/top-buckets-summary.md';
+            const topBuckets = fs.existsSync(topBucketsPath)
+              ? fs.readFileSync(topBucketsPath, 'utf8')
+              : '_No per-bucket summary available._';
+
+            // Per-shard rerun artifact list — derive from the downloaded
+            // shard-artifacts/ directory so the comment links each shard's
+            // rerun bundle by exact name.
+            let shardArtifactLines = [];
+            try {
+              const dirs = fs.readdirSync('shard-artifacts', { withFileTypes: true })
+                .filter(d => d.isDirectory() && d.name.startsWith('playwright-rerun-shard-'))
+                .map(d => d.name)
+                .sort();
+              shardArtifactLines = dirs.map(n => `- [\`${n}\`](${ARTIFACT_URL})`);
+            } catch { /* directory may not exist when no shard failed */ }
+            const shardArtifactsBlock = shardArtifactLines.length
+              ? shardArtifactLines.join('\n')
+              : '_No per-shard rerun artifacts were produced._';
+
             const body = [
               MARKER,
               '### 🎭 Playwright full-suite failed — consolidated `--last-failed` report',
               '',
               `Run: [#${process.env.GITHUB_RUN_ID} (attempt ${process.env.GITHUB_RUN_ATTEMPT})](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`,
-              `Artifact: [\`playwright-rerun-consolidated\`](${ARTIFACT_URL})`,
+              `Consolidated artifact: [\`playwright-rerun-consolidated\`](${ARTIFACT_URL})`,
+              '',
+              topBuckets.trim(),
+              '',
+              '#### Per-shard rerun artifacts',
+              '',
+              shardArtifactsBlock,
               '',
               '<details><summary>Consolidated report' + (truncated ? ' (truncated — see artifact for full)' : '') + '</summary>',
               '',
@@ -807,6 +860,7 @@ jobs:
               '',
               '</details>',
             ].join('\n');
+
 
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
