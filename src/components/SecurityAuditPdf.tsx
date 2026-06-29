@@ -136,6 +136,7 @@ export function SecurityAuditPdf({
             <Text style={s.c5}>{e.email_hash ? e.email_hash.slice(0, 16) + "…" : "—"}</Text>
           </View>
         ))}
+        <PdfBrandedFooter />
       </Page>
     </Document>
   );
