@@ -239,3 +239,91 @@ test.describe("desktop layout at lg boundary (1024px) — no mobile trap", () =>
     ).toBeGreaterThanOrEqual(6);
   });
 });
+
+/**
+ * Dedicated Escape-restores-focus contract. Parametrized across the same
+ * boundaries we care about for the drawer:
+ *   - 360px  → mobile phone, drawer is the primary nav
+ *   - 1023px → last px before lg, drawer still applies
+ *   - 1024px → first px at lg, no drawer at all; Escape on the layout
+ *              must NOT pull focus to <body> and the previously focused
+ *              sidebar item must remain focused (Escape is a no-op for
+ *              the persistent sidebar).
+ */
+test.describe("Escape closes drawer and restores focus to the correct layout element", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  for (const vp of [
+    { label: "360 phone", width: 360, height: 780, hasDrawer: true },
+    { label: "1023 lg-boundary", width: 1023, height: 900, hasDrawer: true },
+    { label: "1024 desktop", width: 1024, height: 900, hasDrawer: false },
+  ] as const) {
+    test(`${vp.label} (${vp.width}px): Escape lands focus on the correct element`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await bootSession(page);
+      await page.goto("/app", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+
+      if (vp.hasDrawer) {
+        // Mobile/tablet path: open drawer, then Escape, then focus must
+        // be back exactly on the trigger that opened it.
+        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        await expect(trigger).toBeVisible();
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+
+        const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+        await expect(dialog).toBeVisible();
+
+        // Move focus a few times inside the dialog so the restore is a
+        // real round-trip and not just "Escape on the auto-focused close
+        // button happens to land back on the trigger".
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Tab");
+
+        await page.keyboard.press("Escape");
+        await expect(dialog).toBeHidden();
+
+        const focused = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          return {
+            tag: el?.tagName ?? null,
+            ariaLabel: el?.getAttribute("aria-label") ?? null,
+          };
+        });
+        expect(focused.tag, `Escape dropped focus onto <body> at ${vp.width}px`).not.toBe("BODY");
+        expect(
+          focused.ariaLabel,
+          `Escape at ${vp.width}px must restore focus to the trigger ("Abrir menu"), got ${JSON.stringify(focused)}`,
+        ).toBe("Abrir menu");
+      } else {
+        // Desktop path: there IS no drawer. Escape on a focused sidebar
+        // link must be a no-op — focus stays on the link, never on body,
+        // and no dialog must open as a side effect.
+        const dashboardLink = page.locator("#nav-dashboard").first();
+        await expect(dashboardLink).toBeVisible();
+        await dashboardLink.focus();
+
+        const beforeKey = await page.evaluate(() => document.activeElement?.id ?? null);
+        expect(beforeKey).toBe("nav-dashboard");
+
+        await page.keyboard.press("Escape");
+
+        // No mobile-style dialog should have appeared from Escape.
+        const modalCount = await page.locator('[role="dialog"][aria-modal="true"]').count();
+        expect(modalCount, "Escape must not spawn a modal at 1024px").toBe(0);
+
+        const afterKey = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          return { tag: el?.tagName ?? null, id: el?.id ?? null };
+        });
+        expect(afterKey.tag, `Escape at 1024px dropped focus onto <body>`).not.toBe("BODY");
+        expect(
+          afterKey.id,
+          `Escape at 1024px must keep focus on the sidebar link, got ${JSON.stringify(afterKey)}`,
+        ).toBe("nav-dashboard");
+      }
+    });
+  }
+});
