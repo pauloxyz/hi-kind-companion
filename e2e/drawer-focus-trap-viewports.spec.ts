@@ -362,15 +362,21 @@ test.describe("Outside-click closes drawer and restores focus to layout element"
         const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
         await expect(dialog).toBeVisible();
 
-        // Compute a point outside the drawer's bounding box but inside
-        // the viewport. The mobile drawer is left-anchored, so the right
-        // side of the viewport is reliably outside it.
-        const dialogBox = await dialog.boundingBox();
-        expect(dialogBox, "drawer must have a layout box").not.toBeNull();
-        const outsideX = Math.min(vp.width - 10, Math.floor((dialogBox!.x + dialogBox!.width) + 40));
+        // The mobile drawer fills the viewport (`inset-0`) with a
+        // black/40 backdrop overlay AND an inner panel. "Outside" means
+        // outside the inner panel — i.e. on the backdrop. Locate the
+        // inner panel and click just past its right edge.
+        const panel = dialog.locator("div.relative.z-50").first();
+        await expect(panel).toBeVisible();
+        const panelBox = await panel.boundingBox();
+        expect(panelBox, "drawer panel must have a layout box").not.toBeNull();
+        const outsideX = Math.min(
+          vp.width - 5,
+          Math.floor(panelBox!.x + panelBox!.width + 20),
+        );
         const outsideY = Math.floor(vp.height / 2);
-        // Sanity: the chosen point is genuinely outside the drawer.
-        expect(outsideX).toBeGreaterThan(dialogBox!.x + dialogBox!.width);
+        // Sanity: the chosen point is genuinely outside the panel.
+        expect(outsideX).toBeGreaterThan(panelBox!.x + panelBox!.width);
 
         await page.mouse.click(outsideX, outsideY);
         await expect(dialog).toBeHidden();
@@ -387,9 +393,11 @@ test.describe("Outside-click closes drawer and restores focus to layout element"
       } else {
         // Desktop: no drawer to close. Focusing a sidebar link, then
         // clicking on a neutral main-content coordinate must NOT spawn a
-        // dialog and the sidebar link must remain the focused element
-        // (browsers only blur on click if the target is itself focusable
-        // and accepts focus — main content typically does not).
+        // modal. Browsers legitimately blur the focused element when the
+        // user clicks on a non-focusable target — that is correct
+        // behavior, not a regression — so we do NOT assert focus stays
+        // on the link. What we DO assert: (a) no modal spawned, (b) the
+        // sidebar link is still in the DOM and reachable.
         const dashboardLink = page.locator("#nav-dashboard").first();
         await expect(dashboardLink).toBeVisible();
         await dashboardLink.focus();
@@ -402,19 +410,11 @@ test.describe("Outside-click closes drawer and restores focus to layout element"
         const modalCount = await page.locator('[role="dialog"][aria-modal="true"]').count();
         expect(modalCount, "outside click at 1024px must not spawn a modal").toBe(0);
 
-        const after = await page.evaluate(() => {
-          const el = document.activeElement as HTMLElement | null;
-          return { tag: el?.tagName ?? null, id: el?.id ?? null };
-        });
-        expect(after.tag, "outside click at 1024px dropped focus onto <body>").not.toBe("BODY");
-        // Either focus remains on the sidebar link (preferred) or moved
-        // to another real, non-body element — never to <body>. We assert
-        // the stronger contract: the sidebar link stays focused unless
-        // the click landed on a focusable widget.
-        expect(
-          after.id === "nav-dashboard" || (after.tag !== "BODY" && after.tag !== null),
-          `outside click at 1024px must keep focus on a real element, got ${JSON.stringify(after)}`,
-        ).toBe(true);
+        // Sidebar link still present and re-focusable — proves the
+        // layout wasn't torn down by the stray click.
+        await expect(dashboardLink).toBeVisible();
+        await dashboardLink.focus();
+        expect(await page.evaluate(() => document.activeElement?.id ?? null)).toBe("nav-dashboard");
       }
     });
   }
