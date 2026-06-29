@@ -93,7 +93,10 @@ test.describe("aria-live debounce under rapid bursts with reduced motion", () =>
     await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
     await page.waitForLoadState("networkidle").catch(() => {});
 
-    // Sanity: the media query is actually in effect.
+    // Force the media query via emulation so the assertion below is meaningful
+    // regardless of the underlying Chromium emulation defaults — `test.use`
+    // should already cover this, but emulateMedia() is the authoritative API.
+    await page.emulateMedia({ reducedMotion: "reduce" });
     expect(
       await page.evaluate(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches),
     ).toBe(true);
