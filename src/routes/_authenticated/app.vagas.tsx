@@ -390,12 +390,14 @@ function Page() {
       selected.has(j.id) && j.recruitment_email && !appliedJobIds.has(j.id) && !isSuspicious,
     ).map((x) => x.job);
     if (targets.length === 0) { toast.error("Nenhuma vaga selecionada válida (sem e-mail, suspeita ou já aplicada)."); return; }
+    bulkAbortRef.current = false;
     setBulkRunning(true);
-    let success = 0, failed = 0;
+    let success = 0, failed = 0, cancelled = 0;
     const progressToast = toast.loading(`Gerando ${targets.length} cartas em paralelo…`);
     const results = await Promise.allSettled(targets.map((j) => genFn({ data: { jobId: j.id } })));
     toast.loading(`Enviando 0/${targets.length} pelo seu Gmail…`, { id: progressToast });
     for (let i = 0; i < targets.length; i++) {
+      if (bulkAbortRef.current) { cancelled = targets.length - i; break; }
       const job = targets[i]; const r = results[i];
       if (r.status !== "fulfilled") { failed++; continue; }
       try {
@@ -418,7 +420,9 @@ function Page() {
       }
     }
     toast.dismiss(progressToast);
-    if (failed === 0) {
+    if (cancelled > 0) {
+      toast.message(`Envio interrompido — ${success} enviadas, ${cancelled} canceladas, ${failed} falharam.`);
+    } else if (failed === 0) {
       toast.success(`${success} candidaturas enviadas pelo Gmail.`);
       confirm({
         title: success === 1 ? "Candidatura enviada" : `${success} candidaturas enviadas`,
@@ -428,6 +432,7 @@ function Page() {
             : `${success} vagas marcadas como ‘Candidatado’. Acompanhe respostas em Candidaturas.`,
       });
     } else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
+    bulkAbortRef.current = false;
     setBulkRunning(false); setSelected(new Set()); setBulkMode(false);
     await load();
   }
