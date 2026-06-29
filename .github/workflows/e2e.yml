@@ -30,16 +30,26 @@ jobs:
 
       # Cache Playwright's browser download. The cache key includes the
       # @playwright/test version so a Playwright bump invalidates it.
-      - name: Resolve Playwright version
+      - name: Resolve Playwright + Node versions
         id: pw
-        run: echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+          echo "node=$(node --version | tr -d 'v')" >> "$GITHUB_OUTPUT"
 
+      # Cache key includes OS, arch, Node version, Playwright version, AND
+      # bun.lock hash. This narrows the key enough to avoid collisions
+      # across unrelated branches (different deps → different cache) while
+      # still allowing a fallback hit when only the lockfile changed.
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          key: ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-
+            ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.pw.outputs.version }}-
+
 
       - name: Install Chromium (cache miss)
         if: steps.pw-cache.outputs.cache-hit != 'true'
@@ -90,16 +100,21 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Resolve Playwright version
+      - name: Resolve Playwright + Node versions
         id: pw
-        run: echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+          echo "node=$(node --version | tr -d 'v')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          key: ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-
+            ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.pw.outputs.version }}-
 
       - name: Install Chromium (cache miss)
         if: steps.pw-cache.outputs.cache-hit != 'true'
@@ -166,16 +181,21 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Resolve Playwright version
+      - name: Resolve Playwright + Node versions
         id: pw
-        run: echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+          echo "node=$(node --version | tr -d 'v')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          key: ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-
+            ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.pw.outputs.version }}-
 
       - name: Install Chromium (cache miss)
         if: steps.pw-cache.outputs.cache-hit != 'true'
@@ -230,6 +250,46 @@ jobs:
       # Bumping --retries=2 gives intermittent flakes one more chance before
       # the shard is declared red. Runs only when the first attempt failed
       # and the workflow wasn't cancelled.
+      # Build a human-readable report of the specs Playwright will rerun
+      # (i.e. the contents of .last-run.json with status == "failed"). This
+      # gets uploaded alongside the rerun artifacts so triage doesn't need
+      # to crack open .last-run.json or correlate trace.zip filenames.
+      - name: Generate --last-failed report (shard ${{ matrix.shard }})
+        id: last_failed_report
+        if: ${{ !cancelled() && failure() && steps.full_run.outcome == 'failure' }}
+        run: |
+          mkdir -p rerun-report
+          REPORT="rerun-report/last-failed-shard-${{ matrix.shard }}.txt"
+          {
+            echo "Shard:       ${{ matrix.shard }}/4"
+            echo "Commit:      ${GITHUB_SHA}"
+            echo "Workflow:    ${GITHUB_WORKFLOW} / run ${GITHUB_RUN_ID} (attempt ${GITHUB_RUN_ATTEMPT})"
+            echo "Generated:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            echo
+            echo "Specs queued for --last-failed rerun:"
+            echo "-------------------------------------"
+          } > "$REPORT"
+          if [ -f .rerun-input/.last-run.json ]; then
+            # Playwright stores { status: 'failed' | 'passed' | 'interrupted',
+            # failedTests: ["<testId>", ...] }. The test IDs include the spec
+            # file path; we extract unique spec files for the human summary
+            # and also keep the raw JSON for tooling.
+            jq -r '.failedTests[]? // empty' .rerun-input/.last-run.json \
+              | sed 's/ .*//' \
+              | sort -u \
+              | tee -a "$REPORT" > /dev/null || true
+            echo >> "$REPORT"
+            echo "Raw .last-run.json:" >> "$REPORT"
+            echo "-------------------" >> "$REPORT"
+            jq '.' .rerun-input/.last-run.json >> "$REPORT" 2>/dev/null \
+              || cat .rerun-input/.last-run.json >> "$REPORT"
+          else
+            echo "(no .last-run.json was produced by the first run)" >> "$REPORT"
+          fi
+          echo "::group::last-failed report (shard ${{ matrix.shard }})"
+          cat "$REPORT"
+          echo "::endgroup::"
+
       - name: Rerun only failed specs (shard ${{ matrix.shard }})
         id: full_rerun
         if: ${{ !cancelled() && failure() && steps.full_run.outcome == 'failure' }}
@@ -243,12 +303,15 @@ jobs:
       # Upload artifacts produced exclusively by the rerun — these are the
       # ones that matter when triaging "did the flake clear or is it real?".
       # Distinct name so they don't collide with the first-run upload above.
+      # The rerun-report/ directory carries the human-readable list of
+      # specs that --last-failed selected for this shard.
       - name: Upload rerun artifacts (shard ${{ matrix.shard }})
         if: ${{ !cancelled() && steps.full_rerun.conclusion != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-rerun-shard-${{ matrix.shard }}
           path: |
+            rerun-report/**
             test-results/**/*.png
             test-results/**/*.webm
             test-results/**/*.zip
