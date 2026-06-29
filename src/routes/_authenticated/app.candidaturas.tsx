@@ -209,8 +209,39 @@ function Page() {
         {chip("rejected", "Rejeitada", rejected)}
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+      {loading && (
+        <div className="grid gap-2" aria-busy="true" aria-label="Carregando candidaturas">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
+      {!loading && errorMsg && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="pt-4 flex items-start gap-3 text-sm">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+            <div className="flex-1">
+              <div className="font-medium text-destructive">Não foi possível carregar suas candidaturas.</div>
+              <div className="text-xs text-muted-foreground mt-1">{errorMsg}</div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => query.refetch()}>
+              <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !errorMsg && (
       <div className="grid gap-2">
         {visible.map((r) => (
           <Card key={r.id}>
@@ -253,13 +284,42 @@ function Page() {
             </CardContent>
           </Card>
         ))}
-        {!loading && rows.length === 0 && (
+        {rows.length === 0 && (
           <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura ainda. Vá para <strong>Vagas</strong> e clique em "Candidatar".</CardContent></Card>
         )}
-        {!loading && rows.length > 0 && visible.length === 0 && (
+        {rows.length > 0 && visible.length === 0 && (
           <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura nesse filtro.</CardContent></Card>
         )}
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <div className="text-xs text-muted-foreground">
+              Página {currentPage} de {pageCount} · {filtered.length} resultado(s)
+            </div>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={currentPage >= pageCount}
+                aria-label="Próxima página"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+      )}
     </div>
   );
 }
