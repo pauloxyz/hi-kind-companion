@@ -52,6 +52,15 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
           });
         }
 
+        let dryRun = false;
+        try {
+          const raw = await request.text();
+          if (raw) {
+            const body = JSON.parse(raw) as { dry_run?: boolean };
+            dryRun = body?.dry_run === true;
+          }
+        } catch { /* tolerate empty/invalid body */ }
+
         const url = process.env.SUPABASE_URL;
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (!url || !serviceKey) {
