@@ -53,11 +53,15 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
         }
 
         let dryRun = false;
+        let manualItemId: string | null = null;
+        let manualDays: number | null = null;
         try {
           const raw = await request.text();
           if (raw) {
-            const body = JSON.parse(raw) as { dry_run?: boolean };
+            const body = JSON.parse(raw) as { dry_run?: boolean; item_id?: string; days?: number };
             dryRun = body?.dry_run === true;
+            manualItemId = body?.item_id ?? null;
+            manualDays = typeof body?.days === "number" ? body.days : null;
           }
         } catch { /* tolerate empty/invalid body */ }
 
@@ -83,29 +87,74 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
 
         const origin = new URL(request.url).origin;
         const summary: { offset: number; matched: number; enqueued: number; skipped: number }[] = [];
+        const mode: "scheduled" | "manual" = manualItemId ? "manual" : "scheduled";
 
-        for (const days of REMINDER_OFFSETS) {
-          // Compute São Paulo (BRT, UTC-3, no DST) day-window for target date.
-          const now = new Date();
-          const spOffsetMs = -3 * 60 * 60 * 1000;
-          const todaySp = new Date(now.getTime() + spOffsetMs);
-          todaySp.setUTCHours(0, 0, 0, 0);
-          const start = new Date(todaySp.getTime() + days * 86400000 - spOffsetMs);
-          const end = new Date(start.getTime() + 86400000);
+        // Build the list of (days, items[]) buckets to iterate.
+        const buckets: { days: number; items: ReminderRow[] }[] = [];
 
-          const { data: items, error } = await admin
+        if (manualItemId) {
+          const { data: it, error } = await admin
             .from("visa_checklist_items")
-            .select("id,owner_id,step_key,step_label,due_at")
-            .eq("is_completed", false)
-            .gte("due_at", start.toISOString())
-            .lt("due_at", end.toISOString())
-            .returns<ReminderRow[]>();
-
-          if (error) {
-            console.error("visa-reminders query failed", { days, error: error.message });
-            summary.push({ offset: days, matched: 0, enqueued: 0, skipped: 0 });
-            continue;
+            .select("id,owner_id,step_key,step_label,due_at,is_completed")
+            .eq("id", manualItemId)
+            .maybeSingle();
+          if (error || !it) {
+            return new Response(JSON.stringify({ error: "item_not_found" }), {
+              status: 404,
+              headers: { "Content-Type": "application/json" },
+            });
           }
+          if (it.is_completed) {
+            return new Response(JSON.stringify({ error: "item_already_completed" }), {
+              status: 409,
+              headers: { "Content-Type": "application/json" },
+            });
+          }
+          const computedDays =
+            manualDays != null
+              ? manualDays
+              : it.due_at
+                ? Math.max(0, Math.round((new Date(it.due_at).getTime() - Date.now()) / 86400000))
+                : 7;
+          buckets.push({
+            days: computedDays,
+            items: [{
+              id: it.id,
+              owner_id: it.owner_id,
+              step_key: it.step_key,
+              step_label: it.step_label,
+              due_at: it.due_at ?? new Date(Date.now() + computedDays * 86400000).toISOString(),
+            }],
+          });
+        } else {
+          for (const days of REMINDER_OFFSETS) {
+            // Compute São Paulo (BRT, UTC-3, no DST) day-window for target date.
+            const now = new Date();
+            const spOffsetMs = -3 * 60 * 60 * 1000;
+            const todaySp = new Date(now.getTime() + spOffsetMs);
+            todaySp.setUTCHours(0, 0, 0, 0);
+            const start = new Date(todaySp.getTime() + days * 86400000 - spOffsetMs);
+            const end = new Date(start.getTime() + 86400000);
+
+            const { data: items, error } = await admin
+              .from("visa_checklist_items")
+              .select("id,owner_id,step_key,step_label,due_at")
+              .eq("is_completed", false)
+              .gte("due_at", start.toISOString())
+              .lt("due_at", end.toISOString())
+              .returns<ReminderRow[]>();
+
+            if (error) {
+              console.error("visa-reminders query failed", { days, error: error.message });
+              buckets.push({ days, items: [] });
+              continue;
+            }
+            buckets.push({ days, items: items ?? [] });
+          }
+        }
+
+        for (const bucket of buckets) {
+          const { days, items } = bucket;
 
           let enqueued = 0;
           let skipped = 0;
