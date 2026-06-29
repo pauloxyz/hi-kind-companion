@@ -160,7 +160,9 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
           let skipped = 0;
 
           for (const it of items ?? []) {
-            const idemKey = buildKey(it.id, days);
+            const idemKey = mode === "manual"
+              ? `${buildKey(it.id, days)}:manual:${Date.now()}`
+              : buildKey(it.id, days);
 
             // Dedup
             const { data: prior } = await admin
