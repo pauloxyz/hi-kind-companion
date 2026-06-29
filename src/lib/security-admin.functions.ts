@@ -82,3 +82,67 @@ export const getAuditStats = createServerFn({ method: "GET" })
     }
     return { hibp_daily: hibp.data ?? [], risk_alerts: alerts.data ?? [], totals } as AuditStats;
   });
+
+export type DeniedAdminSummary = {
+  total: number;
+  by_route: Array<{ route: string; count: number; last_at: string }>;
+  by_user: Array<{ user_id: string; count: number; last_at: string }>;
+  daily: Array<{ day: string; count: number }>;
+};
+
+export const getDeniedAdminSummary = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: { since_days?: number } | undefined) => ({
+    since_days: Math.min(Math.max(input?.since_days ?? 30, 1), 180),
+  }))
+  .handler(async ({ data, context }): Promise<DeniedAdminSummary> => {
+    await assertAdminWithAudit(context as never, "security_admin.denied_summary");
+    const since = new Date(Date.now() - data.since_days * 86400_000).toISOString();
+    const { data: rows, error } = await context.supabase
+      .from("security_audit_log")
+      .select("user_id, resource, created_at")
+      .eq("event_type", "admin_access_denied")
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(2000);
+    if (error) throw new Error(error.message);
+
+    type Row = { user_id: string | null; resource: string | null; created_at: string };
+    const list = (rows ?? []) as Row[];
+
+    const routeMap = new Map<string, { count: number; last_at: string }>();
+    const userMap = new Map<string, { count: number; last_at: string }>();
+    const dayMap = new Map<string, number>();
+
+    for (const r of list) {
+      const route = r.resource ?? "(unknown)";
+      const user = r.user_id ?? "(anonymous)";
+      const day = r.created_at.slice(0, 10);
+
+      const ri = routeMap.get(route);
+      if (!ri) routeMap.set(route, { count: 1, last_at: r.created_at });
+      else { ri.count++; if (r.created_at > ri.last_at) ri.last_at = r.created_at; }
+
+      const ui = userMap.get(user);
+      if (!ui) userMap.set(user, { count: 1, last_at: r.created_at });
+      else { ui.count++; if (r.created_at > ui.last_at) ui.last_at = r.created_at; }
+
+      dayMap.set(day, (dayMap.get(day) ?? 0) + 1);
+    }
+
+    return {
+      total: list.length,
+      by_route: [...routeMap.entries()]
+        .map(([route, v]) => ({ route, count: v.count, last_at: v.last_at }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20),
+      by_user: [...userMap.entries()]
+        .map(([user_id, v]) => ({ user_id, count: v.count, last_at: v.last_at }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 20),
+      daily: [...dayMap.entries()]
+        .map(([day, count]) => ({ day, count }))
+        .sort((a, b) => (a.day < b.day ? -1 : 1)),
+    };
+  });
+
