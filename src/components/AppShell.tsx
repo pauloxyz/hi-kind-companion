@@ -76,12 +76,23 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [unreadReplies, setUnreadReplies] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [fullName, setFullName] = useState<string>("");
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+  const [appsCount, setAppsCount] = useState(0);
+  const [respondedCount, setRespondedCount] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
-    supabase.from("my_profile").select("onboarding_completed_at").maybeSingle().then(({ data }) => {
-      if (!cancelled) setShowOnboarding(!data?.onboarding_completed_at);
-    });
+    supabase
+      .from("my_profile")
+      .select("onboarding_completed_at, full_name, photo_url")
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        setShowOnboarding(!data?.onboarding_completed_at);
+        setFullName(data?.full_name ?? "");
+        setPhotoUrl(data?.photo_url ?? null);
+      });
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
       supabase.rpc("has_role", { _user_id: data.user.id, _role: "admin" }).then(({ data: ok }) => {
@@ -98,8 +109,40 @@ export function AppShell({ children }: { children?: ReactNode }) {
       .then(({ count }) => {
         if (!cancelled) setUnreadReplies(count ?? 0);
       });
+    supabase
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => {
+        if (!cancelled) setAppsCount(count ?? 0);
+      });
+    supabase
+      .from("applications")
+      .select("id", { count: "exact", head: true })
+      .not("responded_at", "is", null)
+      .then(({ count }) => {
+        if (!cancelled) setRespondedCount(count ?? 0);
+      });
     return () => { cancelled = true; };
   }, [pathname]);
+
+  // Journey stages: Cadastro · Currículo · Candidaturas · Respostas
+  const stages = [
+    { key: "cadastro", label: "Cadastro", done: true },
+    { key: "curriculo", label: "Currículo", done: !showOnboarding },
+    { key: "candidaturas", label: "Candidaturas", done: appsCount > 0 },
+    { key: "respostas", label: "Entrevistas", done: respondedCount > 0 },
+  ];
+  const doneCount = stages.filter((s) => s.done).length;
+  const progressPct = Math.round((doneCount / stages.length) * 100);
+  const currentStage = stages.find((s) => !s.done)?.label ?? "Embarque";
+  const initials = (fullName || "Você")
+    .split(" ")
+    .map((p) => p[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
+
 
   const topItemsFinal: NavItem[] = showOnboarding
     ? [{ to: "/app/comecar", labelKey: "comecar", icon: Sparkles, highlight: true }, ...topItems]
