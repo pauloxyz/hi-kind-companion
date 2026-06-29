@@ -332,7 +332,7 @@ function AuditPanel() {
             {tr("audit_window")}: {sinceDays} {tr("audit_days")} · {tr("audit_retention")}: 180 {tr("audit_days")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             onClick={handleExportCsv}
@@ -340,6 +340,14 @@ function AuditPanel() {
             aria-label={tr("audit_export_csv")}
           >
             <FileSpreadsheet className="size-4" aria-hidden="true" /> {tr("audit_export_csv")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportJson}
+            disabled={!filteredEvents.length}
+            aria-label="Exportar JSON"
+          >
+            <Download className="size-4" aria-hidden="true" /> JSON
           </Button>
           <Button
             onClick={handleExport}
