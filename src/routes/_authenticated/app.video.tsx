@@ -37,6 +37,9 @@ function ScriptPdf({ pt, en, name }: { pt: string; en: string; name: string }) {
   return (
     <Document>
       <PdfPage size="LETTER" style={scriptStyles.page}>
+        <View style={{ alignItems: "center", marginBottom: 10 }}>
+          <PdfLogo />
+        </View>
         <Text style={scriptStyles.title}>Roteiro do vídeo de apresentação — {name}</Text>
         <View style={scriptStyles.twoCol}>
           <View style={scriptStyles.col}>
@@ -51,6 +54,7 @@ function ScriptPdf({ pt, en, name }: { pt: string; en: string; name: string }) {
         <Text style={scriptStyles.footer}>
           Grave horizontal, boa iluminação, olhe para a câmera. ~45-60 segundos.
         </Text>
+        <PdfBrandedFooter />
       </PdfPage>
     </Document>
   );
