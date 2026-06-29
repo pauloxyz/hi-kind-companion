@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
+import { logoUrl } from "./PdfLogo";
 
 const NAVY = "#1a3a6e";
 const CREAM = "#faf3e7";
