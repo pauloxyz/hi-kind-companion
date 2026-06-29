@@ -69,6 +69,10 @@ export function VisaChecklistPdf({ data }: { data: VisaPdfData }) {
   return (
     <Document>
       <Page size="LETTER" style={s.page}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <PdfLogo />
+          <Text style={s.sub}>vaiprala.net</Text>
+        </View>
         <Text style={s.h1}>Checklist do visto H-2A</Text>
         <Text style={s.sub}>
           {data.fullName ? `${data.fullName} · ` : ""}gerado em {new Date(data.generatedAt).toLocaleString("pt-BR")}
