@@ -601,3 +601,157 @@ test.describe("Keyboard-only navigation through drawer (Tab/Shift+Tab + Enter/Es
   }
 });
 
+/**
+ * Strict outside-click + focus restoration across viewports. Dedicated
+ * to the focus restoration contract specifically and parametrized over
+ * 360/1023/1024. We move focus deep inside the drawer before clicking
+ * outside, then assert focus lands back on the *same* DOM trigger node
+ * (tagged before open) — not just on any element matching the label.
+ * At 1024px there is no drawer; assert no modal is spawned and the
+ * sidebar link remains visible and re-focusable.
+ */
+test.describe("Outside-click closes drawer and restores focus to trigger (strict)", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  for (const vp of [
+    { label: "360 phone", width: 360, height: 780, hasDrawer: true },
+    { label: "1023 lg-boundary", width: 1023, height: 900, hasDrawer: true },
+    { label: "1024 desktop", width: 1024, height: 900, hasDrawer: false },
+  ] as const) {
+    test(`${vp.label} (${vp.width}px): outside click closes drawer and restores focus to trigger`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await bootSession(page);
+      await page.goto("/app", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+
+      if (vp.hasDrawer) {
+        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        await expect(trigger).toBeVisible();
+        // Tag the exact trigger DOM node so we can later assert focus
+        // lands on the same instance (not a re-rendered clone).
+        await trigger.evaluate((el) => el.setAttribute("data-test-original-trigger", "1"));
+
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+        const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+        await expect(dialog).toBeVisible();
+
+        // Walk focus deep into the drawer so the restore is non-trivial.
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Tab");
+        await page.keyboard.press("Tab");
+
+        const panel = dialog.locator("div.relative.z-50").first();
+        const panelBox = await panel.boundingBox();
+        expect(panelBox).not.toBeNull();
+        const outsideX = Math.min(vp.width - 5, Math.floor(panelBox!.x + panelBox!.width + 20));
+        const outsideY = Math.floor(vp.height / 2);
+        await page.mouse.click(outsideX, outsideY);
+        await expect(dialog).toBeHidden();
+
+        const onOriginal = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement | null;
+          return !!el && el.getAttribute("data-test-original-trigger") === "1";
+        });
+        expect(
+          onOriginal,
+          `outside click at ${vp.width}px must restore focus to the original trigger node (Tab/Escape/click round trip failed)`,
+        ).toBe(true);
+        await expect(trigger).toBeVisible();
+      } else {
+        const dashboardLink = page.locator("#nav-dashboard").first();
+        await expect(dashboardLink).toBeVisible();
+        await dashboardLink.focus();
+        await page.mouse.click(vp.width - 20, Math.floor(vp.height / 2));
+        const modalCount = await page.locator('[role="dialog"][aria-modal="true"]').count();
+        expect(modalCount, "outside click at 1024px must not spawn a modal").toBe(0);
+        await expect(dashboardLink).toBeVisible();
+        await dashboardLink.focus();
+        expect(await page.evaluate(() => document.activeElement?.id ?? null)).toBe("nav-dashboard");
+      }
+    });
+  }
+});
+
+/**
+ * Escape contract — beyond "focus returns to the trigger", verify the
+ * focused element is *not* stuck on a hidden, detached, or zero-size
+ * node, or still inside a closed dialog. Catches regressions where the
+ * drawer unmounts but leaves activeElement pointing into a portal
+ * subtree the user can't see.
+ */
+test.describe("Escape restores focus to a visible, reachable trigger (no hidden/detached focus)", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  for (const vp of [
+    { label: "360 phone", width: 360, height: 780 },
+    { label: "1023 lg-boundary", width: 1023, height: 900 },
+  ] as const) {
+    test(`${vp.label} (${vp.width}px): Escape leaves focus on a visible, non-hidden trigger`, async ({ page }) => {
+      await page.setViewportSize({ width: vp.width, height: vp.height });
+      await bootSession(page);
+      await page.goto("/app", { waitUntil: "domcontentloaded" });
+      await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+      await page.waitForLoadState("networkidle").catch(() => {});
+
+      const trigger = page.getByRole("button", { name: "Abrir menu" });
+      await expect(trigger).toBeVisible();
+      await trigger.focus();
+      await page.keyboard.press("Enter");
+
+      const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+      await expect(dialog).toBeVisible();
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Escape");
+      await expect(dialog).toBeHidden();
+
+      const probe = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el || el === document.body) {
+          return { ok: false, reason: "no-active-or-body", tag: el?.tagName ?? null, ariaLabel: null };
+        }
+        if (!document.contains(el)) return { ok: false, reason: "detached", tag: el.tagName, ariaLabel: null };
+        if (el.hasAttribute("hidden")) return { ok: false, reason: "hidden-attr", tag: el.tagName, ariaLabel: null };
+        if (el.getAttribute("aria-hidden") === "true")
+          return { ok: false, reason: "aria-hidden", tag: el.tagName, ariaLabel: null };
+        let cur: HTMLElement | null = el;
+        while (cur) {
+          if (cur.hasAttribute("hidden"))
+            return { ok: false, reason: `ancestor-hidden-attr:${cur.tagName}`, tag: el.tagName, ariaLabel: null };
+          if (cur.getAttribute("aria-hidden") === "true")
+            return { ok: false, reason: `ancestor-aria-hidden:${cur.tagName}`, tag: el.tagName, ariaLabel: null };
+          const cs = window.getComputedStyle(cur);
+          if (cs.display === "none" || cs.visibility === "hidden") {
+            return {
+              ok: false,
+              reason: `ancestor-css-hidden:${cur.tagName}:${cs.display}/${cs.visibility}`,
+              tag: el.tagName,
+              ariaLabel: null,
+            };
+          }
+          cur = cur.parentElement;
+        }
+        const rect = el.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0)
+          return { ok: false, reason: "zero-size", tag: el.tagName, ariaLabel: null };
+        for (const d of Array.from(document.querySelectorAll('[role="dialog"]')) as HTMLElement[]) {
+          if (d.contains(el)) return { ok: false, reason: "inside-dialog", tag: el.tagName, ariaLabel: null };
+        }
+        return { ok: true, reason: "visible", tag: el.tagName, ariaLabel: el.getAttribute("aria-label") };
+      });
+
+      expect(
+        probe.ok,
+        `Escape at ${vp.width}px left focus on a non-reachable element after Tab/Tab/Escape: ${JSON.stringify(probe)}`,
+      ).toBe(true);
+      expect(
+        probe.ariaLabel,
+        `Escape at ${vp.width}px must restore focus to the trigger; got ${JSON.stringify(probe)}`,
+      ).toBe("Abrir menu");
+    });
+  }
+});
+
+
