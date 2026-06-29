@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { logAccountEvent } from "@/lib/security-audit.functions";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
@@ -16,6 +17,7 @@ import { FraudBanner } from "./StrategyBanner";
 import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
 import { computeJourney } from "@/lib/h2a-journey";
+import { createShortcutMatcher } from "@/lib/sidebar-shortcuts";
 
 type NavItem = {
   to: string;
@@ -151,56 +153,47 @@ export function AppShell({ children }: { children?: ReactNode }) {
     .join("")
     .toUpperCase();
 
-  // Fecha drawer mobile com Escape e bloqueia scroll do body quando aberto
+  // Drawer mobile: trap focus no botão de fechar, fecha com Escape e bloqueia scroll.
+  const closeBtnRef = useRef<HTMLButtonElement | null>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
+    // Move o foco para o botão de fechar quando o drawer abre, garantindo
+    // que leitores de tela e usuários de teclado fiquem dentro do dialog.
+    const focusTimer = window.setTimeout(() => closeBtnRef.current?.focus(), 30);
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
+      window.clearTimeout(focusTimer);
+      // Devolve o foco para o gatilho que abriu o menu.
+      menuTriggerRef.current?.focus();
     };
   }, [open]);
 
   // Atalhos globais: G seguido de V (vagas), C (currículo), J (jornada/dashboard).
+  // Bloqueia disparo enquanto o usuário está digitando em input/textarea/contenteditable.
   useEffect(() => {
-    let gPressed = false;
-    let gTimer: ReturnType<typeof setTimeout> | null = null;
-    const isTyping = (el: EventTarget | null) => {
-      const node = el as HTMLElement | null;
-      if (!node) return false;
-      const tag = node.tagName;
-      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable;
-    };
+    const matcher = createShortcutMatcher();
     const onKey = (e: KeyboardEvent) => {
-      if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (isTyping(e.target)) return;
-      const k = e.key.toLowerCase();
-      if (!gPressed) {
-        if (k === "g") {
-          gPressed = true;
-          if (gTimer) clearTimeout(gTimer);
-          gTimer = setTimeout(() => { gPressed = false; }, 900);
-        }
-        return;
-      }
-      let to: string | null = null;
-      if (k === "v") to = "/app/vagas";
-      else if (k === "c") to = "/app/curriculo";
-      else if (k === "j") to = "/app";
-      gPressed = false;
-      if (gTimer) { clearTimeout(gTimer); gTimer = null; }
-      if (to) {
-        e.preventDefault();
-        navigate({ to });
-      }
+      const hit = matcher.handle(e, e.target);
+      if (!hit) return;
+      e.preventDefault();
+      navigate({ to: hit.to });
+      toast.success(`Atalho: ${hit.label}`, {
+        description: `Pressionou G + ${e.key.toUpperCase()}`,
+        duration: 1600,
+      });
     };
+    const onBlur = () => matcher.reset();
     window.addEventListener("keydown", onKey);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKey);
-      if (gTimer) clearTimeout(gTimer);
+      window.removeEventListener("blur", onBlur);
     };
   }, [navigate]);
 
@@ -295,6 +288,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </div>
           </Link>
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={() => setOpen(false)}
             className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground rounded-md p-1 min-h-11 min-w-11 shrink-0 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
@@ -470,7 +464,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </a>
       <div className="hidden lg:block">{Sidebar}</div>
       {open && (
-        <div className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
+        <div id="app-mobile-sidebar" className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
           <div className="relative z-50">{Sidebar}</div>
         </div>
@@ -478,8 +472,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <main id="main-content" className="flex-1 min-w-0">
         <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
           <button
+            ref={menuTriggerRef}
             type="button"
             onClick={() => setOpen(true)}
+            aria-expanded={open}
+            aria-controls="app-mobile-sidebar"
             className="text-foreground inline-flex items-center justify-center rounded-md min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label="Abrir menu"
           >
