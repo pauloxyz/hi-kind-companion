@@ -32,7 +32,7 @@ export const listPublicJobStates = createServerFn({ method: "GET" }).handler(asy
   const supabase = publicClient();
   // Pull a wide slice and aggregate client-side; SQL distinct isn't needed at this scale.
   const { data } = await supabase
-    .from("jobs")
+    .from("public_jobs" as unknown as "jobs")
     .select("worksite_state")
     .not("worksite_state", "is", null)
     .limit(5000);
