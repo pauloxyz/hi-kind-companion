@@ -4,15 +4,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-
-async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error) throw new Error("role check failed");
-  if (!data) throw new Error("Forbidden");
-}
+import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
 
 export type AlertAck = {
   id: string;
@@ -28,7 +20,7 @@ export type AlertAck = {
 export const listAlertAcks = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "security_alerts.fn");
     const { data, error } = await context.supabase
       .from("security_alert_acks")
       .select("*")
@@ -54,7 +46,7 @@ export const ackAlert = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "security_alerts.fn");
     const { error } = await context.supabase
       .from("security_alert_acks")
       .upsert(
@@ -87,7 +79,7 @@ export const unackAlert = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "security_alerts.fn");
     const { error } = await context.supabase
       .from("security_alert_acks")
       .delete()

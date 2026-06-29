@@ -4,16 +4,8 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
 import { runSeoChecks, type Severity } from "@/lib/seo-runner";
-
-async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error) throw new Error("role check failed");
-  if (!data) throw new Error("Forbidden");
-}
 
 export type SeoScanRun = {
   id: string;
@@ -40,7 +32,7 @@ export const listSeoRuns = createServerFn({ method: "POST" })
     limit: Math.min(Math.max(input?.limit ?? 90, 1), 365),
   }))
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "seo_runs.fn");
     const { data: rows, error } = await context.supabase
       .from("seo_scan_runs")
       .select("*")
@@ -53,7 +45,7 @@ export const listSeoRuns = createServerFn({ method: "POST" })
 export const triggerManualSeoScan = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "seo_runs.fn");
     const snap = await runSeoChecks();
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const failing = snap.tests
