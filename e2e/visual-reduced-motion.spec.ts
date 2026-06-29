@@ -17,6 +17,13 @@ const VISUAL_OPTS = { maxDiffPixelRatio: 0.02, animations: "disabled" as const }
 
 test.use({ colorScheme: "light", reducedMotion: "reduce" });
 
+// Debounce window used by JourneyLiveRegion (keep aligned with the source).
+const DEBOUNCE_MS = 600;
+// 5 burst transitions over ~300ms + 800ms drain = ~1.1s total → at most
+// ceil(1100 / 600) + 1 = 3 distinct announcements. Cap a bit higher to absorb
+// CI jitter without masking real regressions.
+const MAX_ANNOUNCEMENTS_PER_BURST = 4;
+
 async function bootSession(page: Page) {
   await page.goto("/");
   await page.evaluate(
@@ -37,7 +44,7 @@ async function rapidPhaseBurst(page: Page) {
 test.describe("prefers-reduced-motion: aria-live + visual regression", () => {
   test.skip(!HAS_SESSION, "needs an injected Supabase session");
 
-  test("aria-live: rapid bursts produce no duplicate consecutive messages", async ({ page }) => {
+  test("aria-live: rapid bursts produce no duplicate consecutive messages and respect per-transition cap", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await bootSession(page);
     await page.goto("/app");
@@ -59,17 +66,44 @@ test.describe("prefers-reduced-motion: aria-live + visual regression", () => {
       }).observe(node, { childList: true, characterData: true, subtree: true });
     });
 
-    await rapidPhaseBurst(page);
+    // Run two independent bursts to assert the per-transition cap.
+    const counts: number[] = [];
+    for (let i = 0; i < 2; i++) {
+      const before = (await page.evaluate(
+        () => (window as unknown as { __live: string[] }).__live?.length ?? 0,
+      )) as number;
+      await rapidPhaseBurst(page);
+      // Drain another debounce window so any pending emit lands before counting.
+      await page.waitForTimeout(DEBOUNCE_MS + 100);
+      const after = (await page.evaluate(
+        () => (window as unknown as { __live: string[] }).__live?.length ?? 0,
+      )) as number;
+      counts.push(after - before);
+    }
 
-    const live = await page.evaluate(
+    const live = (await page.evaluate(
       () => (window as unknown as { __live: string[] }).__live ?? [],
-    );
-    // At most ~1 message per debounce window across the burst (~3s of bursts).
-    expect(live.length).toBeLessThanOrEqual(6);
+    )) as string[];
+
+    // 1) No consecutive duplicates anywhere in the stream.
     for (let i = 1; i < live.length; i++) {
-      expect(live[i], `consecutive duplicate at ${i}`).not.toBe(live[i - 1]);
+      expect(live[i], `consecutive duplicate at index ${i}: ${live[i]}`).not.toBe(live[i - 1]);
+    }
+
+    // 2) Each burst respects the debounce-derived cap.
+    counts.forEach((c, idx) => {
+      expect(
+        c,
+        `burst ${idx} emitted ${c} messages; cap is ${MAX_ANNOUNCEMENTS_PER_BURST}`,
+      ).toBeLessThanOrEqual(MAX_ANNOUNCEMENTS_PER_BURST);
+    });
+
+    // 3) Every emitted message matches the canonical Jornada H-2A format.
+    for (const msg of live) {
+      expect(msg).toMatch(/Jornada H-2A (atualizada|concluída).*\d+ de \d+/);
     }
   });
+
 
   test("visual: desktop sidebar stable under reduced-motion bursts", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });

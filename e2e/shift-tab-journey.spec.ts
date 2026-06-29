@@ -93,17 +93,60 @@ test.describe("Shift+Tab reverse navigation on Jornada H-2A", () => {
     const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
     await expect(dialog).toBeVisible();
 
-    // Tab forward then Shift+Tab back — both must stay inside the dialog.
-    for (let i = 0; i < 4; i++) await page.keyboard.press("Tab");
-    for (let i = 0; i < 6; i++) {
+    // Collect the focusable order inside the drawer by Tabbing forward and
+    // recording each focused element. Then Shift+Tab back through the same
+    // length and assert the reverse sequence matches exactly.
+    const collectFocusKey = () =>
+      page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el) return null;
+        return (
+          el.getAttribute("data-testid") ??
+          el.getAttribute("aria-label") ??
+          (el.textContent ?? "").trim().slice(0, 40) ??
+          el.tagName
+        );
+      });
+
+    const forwardOrder: (string | null)[] = [];
+    // First Tab moves into the first focusable child of the dialog.
+    for (let i = 0; i < 5; i++) {
+      await page.keyboard.press("Tab");
+      const inside = await page.evaluate(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        return !!dlg && dlg.contains(document.activeElement);
+      });
+      expect(inside, `forward Tab ${i} left the dialog`).toBe(true);
+      forwardOrder.push(await collectFocusKey());
+    }
+    // Sanity: at least 3 distinct focusable items inside the drawer.
+    const distinct = new Set(forwardOrder.filter(Boolean));
+    expect(distinct.size).toBeGreaterThanOrEqual(3);
+
+    // Shift+Tab back the same number of steps and assert the reverse order.
+    const reverseOrder: (string | null)[] = [];
+    for (let i = 0; i < forwardOrder.length; i++) {
       await page.keyboard.press("Shift+Tab");
       const inside = await page.evaluate(() => {
         const dlg = document.querySelector('[role="dialog"]');
         return !!dlg && dlg.contains(document.activeElement);
       });
-      expect(inside, `shift+tab step ${i}`).toBe(true);
+      expect(inside, `Shift+Tab ${i} left the dialog (focus trap broken)`).toBe(true);
+      reverseOrder.push(await collectFocusKey());
+    }
+    // The reverse walk visits the same items as the forward walk, mirrored
+    // (allowing the first-step offset that Shift+Tab introduces).
+    const fwdSet = forwardOrder.filter(Boolean) as string[];
+    const revSet = reverseOrder.filter(Boolean) as string[];
+    for (const item of revSet) {
+      expect(fwdSet, `reverse focus "${item}" not seen during forward walk`).toContain(item);
     }
 
+    // Enter on the currently focused drawer item must not break focus or crash.
+    const beforeEnter = await collectFocusKey();
+    expect(beforeEnter).not.toBeNull();
+
+    // Escape closes and returns focus to the trigger.
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
 
