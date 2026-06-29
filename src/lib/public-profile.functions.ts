@@ -89,7 +89,7 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
         public_headline: profile.public_headline,
         languages: profile.languages,
         has_prior_h2_experience: profile.has_prior_h2_experience,
-        phone: profile.phone,
+        phone,
       },
       experiences,
       skills: skills.data ?? [],
