@@ -238,8 +238,7 @@ async def main() -> int:
     started_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime(time.time() - 5))
 
     try:
-        await test_route_redirects(session)
-        expected_resources = test_server_fns_forbidden(access_token)
+        expected_resources = await test_route_redirects(session)
         test_rls_blocks_admin_tables(access_token)
 
         # Give the audit log a beat to flush.
