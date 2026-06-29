@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { generateVideoScript, normalizeYouTubeUrl } from "@/lib/video-script.functions";
 import { toast } from "sonner";
 import { Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle } from "lucide-react";
-import { pdf, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { pdf, Document, Page as PdfPage, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
 
@@ -35,7 +35,7 @@ const scriptStyles = StyleSheet.create({
 function ScriptPdf({ pt, en, name }: { pt: string; en: string; name: string }) {
   return (
     <Document>
-      <Page size="LETTER" style={scriptStyles.page}>
+      <PdfPage size="LETTER" style={scriptStyles.page}>
         <Text style={scriptStyles.title}>Roteiro do vídeo de apresentação — {name}</Text>
         <View style={scriptStyles.twoCol}>
           <View style={scriptStyles.col}>
