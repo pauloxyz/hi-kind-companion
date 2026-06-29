@@ -444,31 +444,87 @@ function Landing() {
   );
 }
 
-function StatTile({ icon: Icon, value, label }: { icon: typeof Briefcase; value: string; label: string }) {
+function JourneyTimeline({ jobs, applications }: { jobs: number; applications: number }) {
+  // Mirrors src/lib/h2a-journey.ts so the landing visual matches what
+  // signed-in users see in the sidebar. Counters at the top read live
+  // from the public stats query so the page feels alive on every load.
+  const stages: { label: string; icon: typeof FileText; copy: string }[] = [
+    { label: "Currículo",  icon: FileText, copy: "Perfil + experiência rural em inglês" },
+    { label: "Candidatura", icon: Send,    copy: "Aplique em vagas DOL com 1 clique" },
+    { label: "DS-160",      icon: Stamp,   copy: "Formulário consular sem ‘despachante’" },
+    { label: "Entrevista",  icon: Mic,     copy: "Ensaio + inglês para o consulado" },
+    { label: "Embarque",    icon: Plane,   copy: "Visto carimbado, mala pronta 🇺🇸" },
+  ];
   return (
-    <div className="rounded-lg bg-muted/50 p-3 text-center">
-      <Icon className="h-4 w-4 text-primary mx-auto mb-1" />
-      <p className="text-lg font-black leading-none">{value}</p>
-      <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{label}</p>
-    </div>
+    <aside
+      aria-label="Jornada H-2A em 5 fases"
+      className="relative"
+    >
+      <div className="absolute -inset-4 bg-primary/5 rounded-3xl rotate-2" aria-hidden />
+      <div className="relative rounded-2xl border-2 border-primary/20 bg-card p-5 sm:p-6 shadow-elevated">
+        <div className="flex items-center gap-2 mb-5">
+          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+          <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
+            Jornada H-2A · ao vivo
+          </span>
+          <div className="ml-auto grid grid-cols-2 gap-2 text-right">
+            <div>
+              <p className="text-base font-black tabular-nums leading-none">
+                {jobs > 0 ? jobs.toLocaleString("pt-BR") : "—"}
+              </p>
+              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">vagas ativas</p>
+            </div>
+            <div>
+              <p className="text-base font-black tabular-nums leading-none text-accent-red">
+                {applications.toLocaleString("pt-BR")}
+              </p>
+              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">candidaturas</p>
+            </div>
+          </div>
+        </div>
+
+        <ol className="relative space-y-3">
+          {/* Vertical rail */}
+          <span
+            aria-hidden
+            className="absolute left-[19px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-primary/40 to-primary/10"
+          />
+          {stages.map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <li
+                key={s.label}
+                className="relative grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3"
+              >
+                <div className="relative z-10 grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm ring-4 ring-card">
+                  <Icon className="h-4 w-4" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold leading-tight">
+                    <span className="text-primary mr-1.5">{String(i + 1).padStart(2, "0")}</span>
+                    {s.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{s.copy}</p>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">
+                  {i === 0 ? "começa aqui" : i === stages.length - 1 ? "🇺🇸" : ""}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="mt-5 pt-4 border-t flex items-center gap-2 text-xs">
+          <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span>
+            <strong>Tudo num só app:</strong> vagas, carta com IA, inglês e checklist do visto.
+          </span>
+        </div>
+      </div>
+    </aside>
   );
 }
 
-function BigStat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
-  return (
-    <div>
-      <p className={`text-3xl sm:text-4xl font-black ${accent ? "text-accent-gold" : "text-primary-foreground"}`}>{value}</p>
-      <p className="text-xs sm:text-sm text-primary-foreground/70 mt-1">{label}</p>
-    </div>
-  );
-}
-
-const HERO_FEATURES = [
-  "Vagas DOL importadas todo dia",
-  "Carta em inglês gerada por IA",
-  "Curso de inglês com áudio nativo",
-  "Checklist completo do visto H-2A",
-];
 
 const AVATAR_STACK = [
   { initials: "JS", bg: "bg-primary" },
