@@ -36,12 +36,18 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const [resolved, setResolved] = useState<"light" | "dark">("light");
 
   useEffect(() => {
-    const saved = (typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null) as Theme | null;
+    // Prefere localStorage; cai para cookie (sobrevive a navegação SSR/server-rendered).
+    const fromLs = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
+    const fromCookie = readCookie(STORAGE_KEY);
+    const saved = (fromLs ?? fromCookie) as Theme | null;
     const initial: Theme = saved === "light" || saved === "dark" || saved === "system" ? saved : "system";
     setThemeState(initial);
     const r = initial === "system" ? getSystem() : initial;
     setResolved(r);
     apply(r);
+    // Garante que cookie e localStorage convergem.
+    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, initial);
+    writeCookie(STORAGE_KEY, initial);
   }, []);
 
   useEffect(() => {
@@ -59,6 +65,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const setTheme = (t: Theme) => {
     setThemeState(t);
     if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY, t);
+    writeCookie(STORAGE_KEY, t);
     const r = t === "system" ? getSystem() : t;
     setResolved(r);
     apply(r);
