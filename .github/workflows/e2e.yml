@@ -550,14 +550,131 @@ jobs:
             done
           fi
 
-          # Append the breakdown to the main consolidated report too so
-          # one file carries everything (existing artifact consumers keep
-          # working unchanged).
+          # ------------------------------------------------------------------
+          # Per-attempt × per-viewport × per-shard COUNTS of failed asserts
+          # grouped by interaction type (Tab / Shift+Tab / Enter / Escape /
+          # outside-click / inside-click). Lets triage see at a glance
+          # "shard 3 attempt 2 has 7 Tab failures at 360px" without
+          # opening each error-context.md.
+          # ------------------------------------------------------------------
+          COUNTS="consolidated/per-attempt-viewport-counts.txt"
+          {
+            echo "Per-attempt × per-viewport × per-shard COUNTS of failed asserts"
+            echo "================================================================"
+            echo "Buckets: Tab | Shift+Tab | Enter | Escape | outside-click | inside-click | hidden/detached"
+            echo "Numbers are unique (de-duped) assertion lines matched per test."
+            echo
+          } > "$COUNTS"
+
+          if [ "${#rerun_dirs[@]}" -eq 0 ]; then
+            echo "(no rerun artifacts — no counts to compute)" >> "$COUNTS"
+          else
+            # Header row + per-row totals. Use a stable column layout so
+            # the file diffs cleanly across runs.
+            printf '%-8s %-9s %-9s %5s %10s %6s %7s %14s %13s %16s\n' \
+              "shard" "attempt" "viewport" "Tab" "Shift+Tab" "Enter" "Escape" "outside-click" "inside-click" "hidden/detached" >> "$COUNTS"
+            printf '%s\n' "$(printf '%.0s-' {1..110})" >> "$COUNTS"
+
+            # Totals across the whole report so the bottom line shows
+            # the worst category overall.
+            tot_tab=0; tot_stab=0; tot_enter=0; tot_esc=0; tot_outside=0; tot_inside=0; tot_hidden=0
+
+            for dir in $(printf '%s\n' "${rerun_dirs[@]}" | sort); do
+              base="$(basename "$dir")"
+              shard_id="$(echo "$base" | sed -nE 's/^playwright-rerun-shard-([^-]+).*/\1/p')"
+              attempt_id="$(echo "$base" | sed -nE 's/.*-attempt-([0-9]+)-.*$/\1/p')"
+              [ -z "$attempt_id" ] && attempt_id="?"
+
+              mapfile -t ctx_files < <(find "$dir" -type f -name 'error-context.md' 2>/dev/null | sort)
+              [ "${#ctx_files[@]}" -eq 0 ] && continue
+
+              # Re-bucket by viewport (same scheme as the breakdown).
+              declare -A vp_files=()
+              for f in "${ctx_files[@]}"; do
+                dirn="$(dirname "$f")"
+                vp_key="other"
+                case "$dirn" in
+                  *360x780*|*"360px"*) vp_key="360px" ;;
+                  *1023x900*|*"1023px"*) vp_key="1023px" ;;
+                  *1024x900*|*"1024px"*) vp_key="1024px" ;;
+                  *640x900*|*"640px"*) vp_key="640px" ;;
+                  *768x1024*|*"768px"*) vp_key="768px" ;;
+                esac
+                vp_files["$vp_key"]+="$f"$'\n'
+              done
+
+              for vp in 360px 640px 768px 1023px 1024px other; do
+                files="${vp_files[$vp]:-}"
+                [ -z "$files" ] && continue
+                # For each file, count UNIQUE matched lines per bucket
+                # (sort -u keeps the same assertion firing once from
+                # inflating the bucket), then sum across files for this
+                # (shard, attempt, viewport) row.
+                c_tab=0; c_stab=0; c_enter=0; c_esc=0; c_outside=0; c_inside=0; c_hidden=0
+                while IFS= read -r f; do
+                  [ -z "$f" ] && continue
+                  # Shift+Tab BEFORE plain Tab so its lines aren't
+                  # double-counted under Tab.
+                  n_stab=$(grep -hEi 'Shift\+Tab' "$f" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+                  n_tab=$(grep -hEi '\bTab\b' "$f" 2>/dev/null | grep -viE 'Shift\+Tab' | sort -u | wc -l | tr -d ' ')
+                  n_enter=$(grep -hEi '\bEnter\b' "$f" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+                  n_esc=$(grep -hEi '\bEscape\b' "$f" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+                  n_out=$(grep -hEi 'outside[- ]click' "$f" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+                  n_in=$(grep -hEi 'inside[- ]click|inside-panel' "$f" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+                  n_hid=$(grep -hEi 'aria-hidden|hidden-attr|detached|inside-dialog|zero-size|ancestor-(hidden|aria-hidden|css-hidden)' "$f" 2>/dev/null | sort -u | wc -l | tr -d ' ')
+                  c_tab=$((c_tab + n_tab))
+                  c_stab=$((c_stab + n_stab))
+                  c_enter=$((c_enter + n_enter))
+                  c_esc=$((c_esc + n_esc))
+                  c_outside=$((c_outside + n_out))
+                  c_inside=$((c_inside + n_in))
+                  c_hidden=$((c_hidden + n_hid))
+                done <<< "$files"
+
+                tot_tab=$((tot_tab + c_tab))
+                tot_stab=$((tot_stab + c_stab))
+                tot_enter=$((tot_enter + c_enter))
+                tot_esc=$((tot_esc + c_esc))
+                tot_outside=$((tot_outside + c_outside))
+                tot_inside=$((tot_inside + c_inside))
+                tot_hidden=$((tot_hidden + c_hidden))
+
+                printf '%-8s %-9s %-9s %5d %10d %6d %7d %14d %13d %16d\n' \
+                  "${shard_id:-?}" "${attempt_id}" "${vp}" \
+                  "$c_tab" "$c_stab" "$c_enter" "$c_esc" "$c_outside" "$c_inside" "$c_hidden" \
+                  >> "$COUNTS"
+              done
+              unset vp_files
+            done
+
+            printf '%s\n' "$(printf '%.0s-' {1..110})" >> "$COUNTS"
+            printf '%-8s %-9s %-9s %5d %10d %6d %7d %14d %13d %16d\n' \
+              "TOTAL" "—" "—" \
+              "$tot_tab" "$tot_stab" "$tot_enter" "$tot_esc" "$tot_outside" "$tot_inside" "$tot_hidden" \
+              >> "$COUNTS"
+            echo >> "$COUNTS"
+
+            # Flag the worst bucket so the summary points at it.
+            worst_name="(none)"; worst_n=0
+            for pair in "Tab:$tot_tab" "Shift+Tab:$tot_stab" "Enter:$tot_enter" "Escape:$tot_esc" "outside-click:$tot_outside" "inside-click:$tot_inside" "hidden/detached:$tot_hidden"; do
+              n="${pair##*:}"; name="${pair%%:*}"
+              if [ "$n" -gt "$worst_n" ]; then worst_n="$n"; worst_name="$name"; fi
+            done
+            echo "Worst bucket overall: ${worst_name} (${worst_n} failed assert line(s))" >> "$COUNTS"
+          fi
+
+          # Append both the breakdown and the counts table to the main
+          # consolidated report so a single artifact carries everything.
           {
             echo
             echo "================================================================"
             cat "$BREAKDOWN"
+            echo
+            echo "================================================================"
+            cat "$COUNTS"
           } >> "$OUT"
+
+
 
 
 
