@@ -912,3 +912,93 @@ function RetentionTab() {
     </Card>
   );
 }
+
+function DeniedAdminCard({ sinceDays }: { sinceDays: number }) {
+  const fetchDenied = useServerFn(getDeniedAdminSummary);
+  const q = useQuery({
+    queryKey: ["admin-denied-summary", sinceDays],
+    queryFn: () => fetchDenied({ data: { since_days: sinceDays } }),
+  });
+  const data = q.data;
+  const peak = useMemo(() => {
+    if (!data?.daily?.length) return 0;
+    return data.daily.reduce((m, d) => (d.count > m ? d.count : m), 0);
+  }, [data]);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <Lock className="size-4" aria-hidden="true" /> Tentativas de acesso admin negadas
+        </CardTitle>
+        <CardDescription>
+          Total nos últimos {sinceDays} dias: <strong>{data?.total ?? 0}</strong>
+          {data?.total ? <> · pico diário: <strong>{peak}</strong></> : null}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {q.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : q.error ? (
+          <p className="text-sm text-destructive">Falha ao carregar resumo.</p>
+        ) : !data?.total ? (
+          <p className="text-sm text-muted-foreground">Nenhuma tentativa negada no período. 🎉</p>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Por rota / endpoint
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Recurso</TableHead>
+                    <TableHead className="text-right">Bloqueios</TableHead>
+                    <TableHead>Último</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.by_route.map((r) => (
+                    <TableRow key={r.route}>
+                      <TableCell className="font-mono text-xs">{r.route}</TableCell>
+                      <TableCell className="text-right">{r.count}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(r.last_at).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                Por usuário
+              </p>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>User ID</TableHead>
+                    <TableHead className="text-right">Bloqueios</TableHead>
+                    <TableHead>Último</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.by_user.map((u) => (
+                    <TableRow key={u.user_id}>
+                      <TableCell className="font-mono text-xs">{u.user_id.slice(0, 8)}…</TableCell>
+                      <TableCell className="text-right">{u.count}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {new Date(u.last_at).toLocaleString()}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
