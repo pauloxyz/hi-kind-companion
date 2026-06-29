@@ -64,7 +64,7 @@ describe("sitemap static entries", () => {
 describe("sitemap covers indexable public routes", () => {
   // Public routes that must always be in the sitemap.
   // Add to this list whenever a new public, indexable route ships.
-  const REQUIRED = ["/", "/precos", "/vagas-h2a", "/guia-h2a-vs-h2b"];
+  const REQUIRED = ["/", "/precos", "/vagas-h2a", "/guia-h2a-vs-h2b", "/guia-visto-h2b"];
 
   it("includes every required public route", () => {
     const paths = new Set(PUBLIC_STATIC_SITEMAP_ENTRIES.map((e) => e.path));
@@ -88,3 +88,52 @@ describe("sitemap covers indexable public routes", () => {
     }
   });
 });
+
+describe("robots.txt", () => {
+  it("is parseable and not site-wide blocked", () => {
+    expect(robots).toMatch(/User-agent:\s*\*/i);
+    // A bare `Disallow: /` (with nothing else) would block the whole site.
+    const wildcardBlock = /User-agent:\s*\*[\s\S]*?(?=User-agent:|$)/i.exec(robots)?.[0] ?? "";
+    expect(wildcardBlock).toMatch(/Allow:\s*\//i);
+  });
+
+  it("disallows private/auth routes", () => {
+    for (const r of ["/app/", "/auth", "/reset-password", "/checkout/"]) {
+      expect(disallow, `robots.txt should Disallow ${r}`).toContain(r);
+    }
+  });
+});
+
+describe("canonical URLs on public indexable routes", () => {
+  const routesDir = join(process.cwd(), "src/routes");
+  // file → expected canonical href
+  const PUBLIC_ROUTES: Array<[string, string]> = [
+    ["index.tsx", "/"],
+    ["precos.tsx", "/precos"],
+    ["vagas-h2a.index.tsx", "/vagas-h2a"],
+    ["guia-h2a-vs-h2b.tsx", "/guia-h2a-vs-h2b"],
+    ["guia-visto-h2b.tsx", "/guia-visto-h2b"],
+  ];
+
+  for (const [file, expectedHref] of PUBLIC_ROUTES) {
+    it(`${file} declares canonical → ${expectedHref}`, () => {
+      const content = readFileSync(join(routesDir, file), "utf8");
+      // either literal href "/x" or template `/x` form
+      const literalRe = new RegExp(`rel:\\s*["']canonical["'][^}]*href:\\s*["']${expectedHref.replace(/\//g, "\\/")}["']`, "s");
+      const templateRe = new RegExp(`rel:\\s*["']canonical["'][^}]*href:\\s*\`${expectedHref.replace(/\//g, "\\/")}\``, "s");
+      const dynamicRe = /rel:\s*["']canonical["'][^}]*href:\s*`\/[^`]*\$\{[^}]+\}[^`]*`/s;
+      expect(
+        literalRe.test(content) || templateRe.test(content) || dynamicRe.test(content),
+        `${file} should set <link rel="canonical" href="${expectedHref}">`,
+      ).toBe(true);
+    });
+  }
+
+  it("noindex routes do NOT define a canonical link", () => {
+    for (const f of ["auth.tsx", "reset-password.tsx", "checkout.return.tsx"]) {
+      const content = readFileSync(join(routesDir, f), "utf8");
+      expect(content, `${f} is noindex; it should not also emit a canonical`).not.toMatch(/rel:\s*["']canonical["']/);
+    }
+  });
+});
+

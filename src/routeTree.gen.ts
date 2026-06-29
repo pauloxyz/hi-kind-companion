@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrecosRouteImport } from './routes/precos'
+import { Route as GuiaVistoH2bRouteImport } from './routes/guia-visto-h2b'
 import { Route as GuiaH2aVsH2bRouteImport } from './routes/guia-h2a-vs-h2b'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
@@ -56,6 +57,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const PrecosRoute = PrecosRouteImport.update({
   id: '/precos',
   path: '/precos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuiaVistoH2bRoute = GuiaVistoH2bRouteImport.update({
+  id: '/guia-visto-h2b',
+  path: '/guia-visto-h2b',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GuiaH2aVsH2bRoute = GuiaH2aVsH2bRouteImport.update({
@@ -224,6 +230,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
+  '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -258,6 +265,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
+  '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -292,6 +300,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
+  '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
   '/reset-password': typeof ResetPasswordRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -328,6 +337,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/guia-h2a-vs-h2b'
+    | '/guia-visto-h2b'
     | '/precos'
     | '/reset-password'
     | '/sitemap.xml'
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/guia-h2a-vs-h2b'
+    | '/guia-visto-h2b'
     | '/precos'
     | '/reset-password'
     | '/sitemap.xml'
@@ -395,6 +406,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/guia-h2a-vs-h2b'
+    | '/guia-visto-h2b'
     | '/precos'
     | '/reset-password'
     | '/sitemap.xml'
@@ -431,6 +443,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   GuiaH2aVsH2bRoute: typeof GuiaH2aVsH2bRoute
+  GuiaVistoH2bRoute: typeof GuiaVistoH2bRoute
   PrecosRoute: typeof PrecosRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -465,6 +478,13 @@ declare module '@tanstack/react-router' {
       path: '/precos'
       fullPath: '/precos'
       preLoaderRoute: typeof PrecosRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guia-visto-h2b': {
+      id: '/guia-visto-h2b'
+      path: '/guia-visto-h2b'
+      fullPath: '/guia-visto-h2b'
+      preLoaderRoute: typeof GuiaVistoH2bRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/guia-h2a-vs-h2b': {
@@ -757,6 +777,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   GuiaH2aVsH2bRoute: GuiaH2aVsH2bRoute,
+  GuiaVistoH2bRoute: GuiaVistoH2bRoute,
   PrecosRoute: PrecosRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
