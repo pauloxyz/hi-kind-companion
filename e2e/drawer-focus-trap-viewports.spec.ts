@@ -768,7 +768,7 @@ test.describe("Escape restores focus to a visible, reachable trigger (no hidden/
 async function focusDiagnosticsDump(
   page: import("@playwright/test").Page,
   keyHistory: ReadonlyArray<string>,
-): Promise<string> {
+): Promise<{ text: string; snapshot: unknown }> {
   const snapshot = await page.evaluate(() => {
     const el = document.activeElement as HTMLElement | null;
     if (!el) return { active: null, ancestors: [] as Array<Record<string, unknown>> };
@@ -802,6 +802,7 @@ async function focusDiagnosticsDump(
         tag: el.tagName,
         id: el.id || null,
         ariaLabel: el.getAttribute("aria-label"),
+        testId: el.getAttribute("data-testid"),
         ariaHidden: el.getAttribute("aria-hidden"),
         hiddenAttr: el.hasAttribute("hidden"),
         rect: { x: rect.x, y: rect.y, w: rect.width, h: rect.height },
@@ -814,16 +815,50 @@ async function focusDiagnosticsDump(
   });
 
   const keys = keyHistory.length ? keyHistory.join(" → ") : "(none)";
-  return [
+  const text = [
     "",
     "── focus diagnostics dump ──",
     `key history: ${keys}`,
-    `activeElement: ${JSON.stringify(snapshot.active)}`,
+    `activeElement: ${JSON.stringify((snapshot as { active: unknown }).active)}`,
     `ancestor chain (depth↑):`,
-    ...snapshot.ancestors.map((a) => `  - ${JSON.stringify(a)}`),
+    ...(snapshot as { ancestors: Array<unknown> }).ancestors.map((a) => `  - ${JSON.stringify(a)}`),
     "─────────────────────────────",
   ].join("\n");
+  return { text, snapshot };
 }
+
+/**
+ * Wrapper that, on focus-assertion failure, ALSO uploads the structured
+ * dump as a Playwright test attachment (`focus-dump-<label>.json` and a
+ * human-readable `.txt`). The Playwright HTML report and the
+ * `playwright-rerun-shard-*` artifacts then carry the dump as a
+ * first-class file, so offline triage doesn't need to grep through
+ * `error-context.md`. Returns the same text string the inline expect
+ * message embeds, so the assertion failure log itself is still
+ * self-contained.
+ */
+async function attachFocusDump(
+  testInfo: import("@playwright/test").TestInfo,
+  page: import("@playwright/test").Page,
+  keyHistory: ReadonlyArray<string>,
+  label: string,
+): Promise<string> {
+  const { text, snapshot } = await focusDiagnosticsDump(page, keyHistory);
+  const safeLabel = label.replace(/[^a-zA-Z0-9._-]+/g, "_").slice(0, 80);
+  await testInfo.attach(`focus-dump-${safeLabel}.json`, {
+    body: Buffer.from(
+      JSON.stringify({ label, keyHistory, ...(snapshot as object) }, null, 2),
+      "utf8",
+    ),
+    contentType: "application/json",
+  });
+  await testInfo.attach(`focus-dump-${safeLabel}.txt`, {
+    body: Buffer.from(text, "utf8"),
+    contentType: "text/plain",
+  });
+  return text;
+}
+
 
 /**
  * Round-trip reopen contract: outside-click closes the drawer → pressing
