@@ -1,5 +1,4 @@
-import * as React from 'react'
-
+import * as React from "react";
 import {
   Body,
   Button,
@@ -9,13 +8,15 @@ import {
   Html,
   Link,
   Preview,
+  Section,
   Text,
-} from '@react-email/components'
+} from "@react-email/components";
+import { brand, styles } from "./_brand";
 
 interface InviteEmailProps {
-  siteName: string
-  siteUrl: string
-  confirmationUrl: string
+  siteName: string;
+  siteUrl: string;
+  confirmationUrl: string;
 }
 
 export const InviteEmail = ({
@@ -23,55 +24,48 @@ export const InviteEmail = ({
   siteUrl,
   confirmationUrl,
 }: InviteEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="pt-BR" dir="ltr">
     <Head />
-    <Preview>You've been invited to join {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>You've been invited</Heading>
-        <Text style={text}>
-          You've been invited to join{' '}
-          <Link href={siteUrl} style={link}>
-            <strong>{siteName}</strong>
-          </Link>
-          . Click the button below to accept the invitation and create your
-          account.
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Accept Invitation
-        </Button>
-        <Text style={footer}>
-          If you weren't expecting this invitation, you can safely ignore this
-          email.
+    <Preview>Você foi convidado para o {siteName}</Preview>
+    <Body style={styles.main}>
+      <Container style={styles.container}>
+        <Section style={styles.band} />
+        <Section style={styles.header}>
+          <Text style={styles.brandLine}>V+ USA</Text>
+          <Text style={styles.brandTag}>Você foi convidado</Text>
+        </Section>
+        <Section style={styles.body}>
+          <Heading style={styles.h1}>Bem-vindo ao {siteName}</Heading>
+          <Text style={styles.text}>
+            Você foi convidado a participar do{" "}
+            <Link href={siteUrl} style={styles.link}>
+              <strong>{siteName}</strong>
+            </Link>
+            , a plataforma que organiza sua jornada para o visto H-2A do começo
+            ao fim — vagas certificadas pelo DOL, checklist consular, currículo
+            em inglês e acompanhamento das candidaturas.
+          </Text>
+          <Button style={styles.button} href={confirmationUrl}>
+            Aceitar convite
+          </Button>
+          <Text style={{ ...styles.text, fontSize: "13px", color: brand.muted }}>
+            Se o botão não funcionar, copie e cole no navegador:
+            <br />
+            <Link href={confirmationUrl} style={styles.link}>
+              {confirmationUrl}
+            </Link>
+          </Text>
+          <div style={styles.divider} />
+        </Section>
+        <Text style={styles.footer}>
+          Se você não estava esperando este convite, pode ignorar este e-mail.
+          <br />
+          <br />
+          {siteName} · vplusa.com
         </Text>
       </Container>
     </Body>
   </Html>
-)
+);
 
-export default InviteEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const link = { color: 'inherit', textDecoration: 'underline' }
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+export default InviteEmail;
