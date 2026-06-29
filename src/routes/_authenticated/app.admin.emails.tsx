@@ -31,12 +31,14 @@ const TEMPLATES = [
 ] as const;
 
 function Page() {
+  const env = detectEmailEnv();
   const [email, setEmail] = useState("");
   const [tpl, setTpl] = useState<string>("visa-reminder");
   const [days, setDays] = useState<number>(7);
   const [step, setStep] = useState("Entrevista no consulado");
   const [sending, setSending] = useState(false);
   const [dispatching, setDispatching] = useState(false);
+  const [dryRun, setDryRun] = useState<boolean>(env !== "production");
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loadingLogs, setLoadingLogs] = useState(false);
 
