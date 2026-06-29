@@ -169,7 +169,7 @@ function Page() {
     setProfile(profRes.data);
     setResume(resRes.data);
     setSuspiciousEmployers(new Set((empRes.data ?? []).map((e) => e.employer_name)));
-    setSavedJobIds(new Set((savedRes.data ?? []).map((s: any) => s.job_id).filter(Boolean) as string[]));
+    setSavedJobIds(new Set((savedRes.data ?? []).map((s) => s.job_id).filter(Boolean) as string[]));
     setAlerts((alertsRes.data ?? []) as JobAlert[]);
     setLoading(false);
   }
