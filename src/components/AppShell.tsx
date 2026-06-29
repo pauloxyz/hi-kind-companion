@@ -179,18 +179,23 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const renderItem = (it: NavItem) => {
     const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
     const Icon = it.icon;
-    const badge = it.badgeKey === "unreadReplies" ? unreadReplies : 0;
+    const badge = it.badgeKey === "unreadReplies" ? unreadReplies : null;
     const count =
       it.countKey === "savedJobs" ? savedJobsCount :
-      it.countKey === "applications" ? appsCount : 0;
+      it.countKey === "applications" ? appsCount : null;
+    const countLoading = it.countKey != null && count === null;
+    const badgeLoading = it.badgeKey != null && badge === null;
+    const hasCount = typeof count === "number" && count > 0;
+    const hasBadge = typeof badge === "number" && badge > 0;
     return (
       <Link
         key={it.to}
         to={it.to}
+        id={`nav-${it.labelKey}`}
         onClick={() => setOpen(false)}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
           active
             ? "bg-sidebar-accent text-sidebar-accent-foreground border border-sidebar-border shadow-inner"
             : it.highlight
@@ -205,12 +210,18 @@ export function AppShell({ children }: { children?: ReactNode }) {
           )}
         />
         <span className="flex-1 truncate font-medium">{t(it.labelKey)}</span>
-        {count > 0 && badge === 0 && (
+        {(countLoading || badgeLoading) && (
+          <span
+            className="h-3 w-6 rounded-full bg-sidebar-foreground/10 animate-pulse"
+            aria-label="Carregando"
+          />
+        )}
+        {!badgeLoading && !hasBadge && hasCount && (
           <span className="text-[10px] font-bold tabular-nums text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70">
             {count}
           </span>
         )}
-        {badge > 0 && (
+        {hasBadge && (
           <span
             className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-red px-1.5 text-[10px] font-bold text-white border-2 border-sidebar"
             aria-label={`${badge} respostas novas`}
