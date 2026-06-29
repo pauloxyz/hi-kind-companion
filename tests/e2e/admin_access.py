@@ -198,6 +198,27 @@ async def test_route_redirects(session: dict) -> set[str]:
             f"window.localStorage.setItem({json.dumps(STORAGE_KEY)}, {json.dumps(session_json)})"
         )
 
+        # Capture failures from the page so we can diagnose silent server-fn issues.
+        page_errors: list[str] = []
+        page.on("pageerror", lambda exc: page_errors.append(f"pageerror: {exc}"))
+        page.on("requestfailed", lambda req: page_errors.append(
+            f"requestfailed: {req.method} {req.url} {req.failure}"
+        ))
+        responses: list[tuple[int, str]] = []
+        page.on("response", lambda r: responses.append((r.status, r.url)))
+
+        # Force a hard navigation so the supabase client picks up the new localStorage session
+        # before any beforeLoad runs. /app is a protected layout — if our session is good,
+        # _authenticated/route.tsx lets us through to /app.
+        await page.goto(f"{APP_ORIGIN}/app", wait_until="networkidle")
+        landed = page.url
+        await page.screenshot(path=str(SCREENSHOTS / "after_login.png"))
+        if not landed.endswith("/app") and "/app/" not in landed:
+            record("non-admin session hydrated and reached /app", False, f"landed at {landed}")
+        else:
+            record("non-admin session hydrated and reached /app", True, f"landed at {landed}")
+
+
         for path, resource in PROTECTED_ROUTES:
             await page.goto(f"{APP_ORIGIN}{path}", wait_until="domcontentloaded")
             # client-side beforeLoad calls requireAdminAccess(); allow up to 15s
