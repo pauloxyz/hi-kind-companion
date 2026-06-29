@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowRight, Briefcase, FileText, Video, ShieldCheck, BarChart3,
   Star, Quote, Sparkles, Check, GraduationCap, Send,
+  Stamp, Mic, Plane,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
@@ -111,7 +112,14 @@ function Landing() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs font-bold mb-6">
                 <span className="inline-block w-2 h-2 rounded-full bg-accent-red animate-pulse" />
-                Vagas H-2A 2027 abertas agora
+                {stats.jobs > 0 ? (
+                  <>
+                    <strong className="tabular-nums">{stats.jobs.toLocaleString("pt-BR")}</strong>
+                    {" "}vagas H-2A ativas agora
+                  </>
+                ) : (
+                  <>Vagas H-2A 2027 abertas agora</>
+                )}
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.02] text-balance">
                 Da <span className="text-primary">roça brasileira</span>
@@ -120,14 +128,13 @@ function Landing() {
                 <span className="text-accent-red">fazenda americana.</span>
               </h1>
               <p className="mt-6 max-w-xl text-lg text-muted-foreground leading-relaxed">
-                A primeira plataforma feita por brasileiros para encontrar vagas H-2A reais,
-                gerar cartas em inglês com IA, <strong className="text-foreground">aprender inglês de verdade</strong> e
-                acompanhar cada passo do visto — tudo num só lugar.
+                Da primeira candidatura até o visto carimbado, em <strong className="text-foreground">5 passos</strong>{" "}
+                acompanhados no app — sem agenciador, sem taxa, sem você adivinhar o que vem depois.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/auth">
                   <Button size="lg" className="h-12 px-7 text-base shadow-elevated">
-                    Criar conta grátis <ArrowRight className="ml-2 h-4 w-4" />
+                    Começar minha jornada <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <a href="#prova">
@@ -158,43 +165,16 @@ function Landing() {
                     {[0,1,2,3,4].map(i => <Star key={i} className="h-3.5 w-3.5 fill-accent-gold text-accent-gold" />)}
                     <span className="ml-1.5 font-semibold text-foreground">4,9</span>
                   </div>
-                  <p className="text-muted-foreground">+612 brasileiros usando agora</p>
+                  <p className="text-muted-foreground">
+                    <strong className="tabular-nums text-foreground">{stats.profiles.toLocaleString("pt-BR")}</strong>{" "}
+                    brasileiros já trilhando a Jornada H-2A
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Hero card / numbers preview */}
-            <div className="relative">
-              <div className="absolute -inset-4 bg-primary/5 rounded-3xl rotate-3" aria-hidden />
-              <div className="relative rounded-2xl border-2 border-primary/20 bg-card p-6 shadow-elevated">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-2.5 w-2.5 rounded-full bg-accent-red" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-accent-gold" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground ml-auto font-bold">ao vivo</span>
-                </div>
-
-                <p className="text-xs uppercase tracking-wide text-muted-foreground font-bold mb-1">Sua plataforma de visto H-2A</p>
-                <p className="text-xl font-bold mb-5">Tudo num só lugar.</p>
-
-                <div className="grid grid-cols-3 gap-3 mb-5">
-                  <StatTile icon={Briefcase} value="2.4k" label="vagas DOL" />
-                  <StatTile icon={Send} value="1.2k" label="candidaturas enviadas" />
-                  <StatTile icon={GraduationCap} value="27" label="lições de inglês" />
-                </div>
-
-                <div className="space-y-2">
-                  {HERO_FEATURES.map((f) => (
-                    <div key={f} className="flex items-center gap-2 text-sm">
-                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <Check className="h-3 w-3 text-primary" />
-                      </div>
-                      <span>{f}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Hero right: Jornada H-2A visual timeline */}
+            <JourneyTimeline jobs={stats.jobs} applications={stats.applications} />
           </div>
         </div>
       </section>
@@ -464,16 +444,6 @@ function Landing() {
   );
 }
 
-function StatTile({ icon: Icon, value, label }: { icon: typeof Briefcase; value: string; label: string }) {
-  return (
-    <div className="rounded-lg bg-muted/50 p-3 text-center">
-      <Icon className="h-4 w-4 text-primary mx-auto mb-1" />
-      <p className="text-lg font-black leading-none">{value}</p>
-      <p className="text-[10px] text-muted-foreground mt-1 leading-tight">{label}</p>
-    </div>
-  );
-}
-
 function BigStat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
   return (
     <div>
@@ -483,12 +453,87 @@ function BigStat({ value, label, accent }: { value: string; label: string; accen
   );
 }
 
-const HERO_FEATURES = [
-  "Vagas DOL importadas todo dia",
-  "Carta em inglês gerada por IA",
-  "Curso de inglês com áudio nativo",
-  "Checklist completo do visto H-2A",
-];
+function JourneyTimeline({ jobs, applications }: { jobs: number; applications: number }) {
+  // Mirrors src/lib/h2a-journey.ts so the landing visual matches what
+  // signed-in users see in the sidebar. Counters at the top read live
+  // from the public stats query so the page feels alive on every load.
+  const stages: { label: string; icon: typeof FileText; copy: string }[] = [
+    { label: "Currículo",  icon: FileText, copy: "Perfil + experiência rural em inglês" },
+    { label: "Candidatura", icon: Send,    copy: "Aplique em vagas DOL com 1 clique" },
+    { label: "DS-160",      icon: Stamp,   copy: "Formulário consular sem ‘despachante’" },
+    { label: "Entrevista",  icon: Mic,     copy: "Ensaio + inglês para o consulado" },
+    { label: "Embarque",    icon: Plane,   copy: "Visto carimbado, mala pronta 🇺🇸" },
+  ];
+  return (
+    <aside
+      aria-label="Jornada H-2A em 5 fases"
+      className="relative"
+    >
+      <div className="absolute -inset-4 bg-primary/5 rounded-3xl rotate-2" aria-hidden />
+      <div className="relative rounded-2xl border-2 border-primary/20 bg-card p-5 sm:p-6 shadow-elevated">
+        <div className="flex items-center gap-2 mb-5">
+          <span className="inline-flex h-2 w-2 rounded-full bg-emerald-500 animate-pulse" aria-hidden />
+          <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
+            Jornada H-2A · ao vivo
+          </span>
+          <div className="ml-auto grid grid-cols-2 gap-2 text-right">
+            <div>
+              <p className="text-base font-black tabular-nums leading-none">
+                {jobs > 0 ? jobs.toLocaleString("pt-BR") : "—"}
+              </p>
+              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">vagas ativas</p>
+            </div>
+            <div>
+              <p className="text-base font-black tabular-nums leading-none text-accent-red">
+                {applications.toLocaleString("pt-BR")}
+              </p>
+              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">candidaturas</p>
+            </div>
+          </div>
+        </div>
+
+        <ol className="relative space-y-3">
+          {/* Vertical rail */}
+          <span
+            aria-hidden
+            className="absolute left-[19px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-primary/40 to-primary/10"
+          />
+          {stages.map((s, i) => {
+            const Icon = s.icon;
+            return (
+              <li
+                key={s.label}
+                className="relative grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3"
+              >
+                <div className="relative z-10 grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm ring-4 ring-card">
+                  <Icon className="h-4 w-4" aria-hidden />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold leading-tight">
+                    <span className="text-primary mr-1.5">{String(i + 1).padStart(2, "0")}</span>
+                    {s.label}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">{s.copy}</p>
+                </div>
+                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">
+                  {i === 0 ? "começa aqui" : i === stages.length - 1 ? "🇺🇸" : ""}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+
+        <div className="mt-5 pt-4 border-t flex items-center gap-2 text-xs">
+          <Check className="h-3.5 w-3.5 text-primary shrink-0" />
+          <span>
+            <strong>Tudo num só app:</strong> vagas, carta com IA, inglês e checklist do visto.
+          </span>
+        </div>
+      </div>
+    </aside>
+  );
+}
+
 
 const AVATAR_STACK = [
   { initials: "JS", bg: "bg-primary" },

@@ -7,9 +7,132 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { useI18n } from "@/lib/i18n";
 import { computeScore } from "@/lib/score";
-import { ArrowRight, AlertCircle, CheckCircle2, Circle, Sparkles } from "lucide-react";
+import { computeJourney, type JourneyStageKey } from "@/lib/h2a-journey";
+import {
+  ArrowRight, AlertCircle, CheckCircle2, FileText, Send,
+  Stamp, Mic, PartyPopper, Sparkles,
+} from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/")({ component: Dashboard });
+
+type PhaseAction = {
+  /** Headline microcopy: what to do TODAY. Imperative, concrete. */
+  title: string;
+  /** One short paragraph: why this, why now. */
+  why: string;
+  /** Button label. */
+  cta: string;
+  /** Where the button navigates. */
+  to: string;
+  /** Icon for the focal CTA card. */
+  icon: typeof FileText;
+};
+
+function nextActionFor(
+  stageKey: JourneyStageKey | "embarque",
+  ob: { profile: boolean; experience: boolean; media: boolean; video: boolean; firstApply: boolean },
+): PhaseAction {
+  // Within "Currículo" we still hop the user across the smallest open
+  // sub-step so the single CTA never points at a finished page.
+  if (stageKey === "curriculo") {
+    if (!ob.profile) {
+      return {
+        title: "Hoje: preencha seu perfil",
+        why: "Empregadores ignoram perfis sem nome e contato. 2 minutos resolve.",
+        cta: "Preencher perfil",
+        to: "/app/perfil",
+        icon: FileText,
+      };
+    }
+    if (!ob.experience) {
+      return {
+        title: "Hoje: adicione 1 experiência",
+        why: "Mesmo que seja meia safra. Sem experiência, sua candidatura cai no fim da pilha.",
+        cta: "Adicionar experiência",
+        to: "/app/curriculo",
+        icon: FileText,
+      };
+    }
+    if (!ob.media) {
+      return {
+        title: "Hoje: suba 3 fotos do seu trabalho",
+        why: "Foto colhendo, dirigindo trator ou no packing house. Empregadores respondem 2× mais.",
+        cta: "Subir fotos",
+        to: "/app/midia",
+        icon: FileText,
+      };
+    }
+    if (!ob.video) {
+      return {
+        title: "Hoje: grave 90 s de apresentação",
+        why: "Em inglês simples: nome, anos de experiência, o que sabe fazer. 3× mais respostas.",
+        cta: "Gravar vídeo",
+        to: "/app/video",
+        icon: Mic,
+      };
+    }
+    return {
+      title: "Currículo pronto — revise antes de aplicar",
+      why: "Confira o resumo em inglês e a disponibilidade de datas. Depois é só candidatar.",
+      cta: "Revisar currículo",
+      to: "/app/curriculo",
+      icon: FileText,
+    };
+  }
+  if (stageKey === "candidatura") {
+    if (!ob.firstApply) {
+      return {
+        title: "Hoje: envie sua primeira candidatura",
+        why: "Filtre por estado e clique em ‘Candidatar’ na vaga que paga melhor. A IA escreve a carta.",
+        cta: "Ver vagas H-2A",
+        to: "/app/vagas",
+        icon: Send,
+      };
+    }
+    return {
+      title: "Hoje: candidate em mais 3 vagas",
+      why: "Quem aplica em 10+ vagas tem 4× mais chance de fechar. Diversifique estado e cultura.",
+      cta: "Buscar mais vagas",
+      to: "/app/vagas",
+      icon: Send,
+    };
+  }
+  if (stageKey === "ds160") {
+    return {
+      title: "Hoje: abra o DS-160 no checklist",
+      why: "Você tem oferta. Agora é formulário consular: nome no passaporte, foto 5×5 e endereço da fazenda.",
+      cta: "Ir para checklist do visto",
+      to: "/app/visto",
+      icon: Stamp,
+    };
+  }
+  if (stageKey === "entrevista") {
+    return {
+      title: "Hoje: ensaie a entrevista consular",
+      why: "Treine respostas curtas em inglês. Leve I-129 + carta do empregador. Sem decorar, sem improvisar.",
+      cta: "Treinar inglês para entrevista",
+      to: "/app/ingles",
+      icon: Mic,
+    };
+  }
+  if (stageKey === "visto") {
+    return {
+      title: "Hoje: confirme retirada do passaporte",
+      why: "Acompanhe o status no portal CGI Federal e marque ‘Visto emitido’ no checklist.",
+      cta: "Marcar visto emitido",
+      to: "/app/visto",
+      icon: Stamp,
+    };
+  }
+  // "embarque" → tudo pronto
+  return {
+    title: "Tudo pronto — boa viagem 🇺🇸",
+    why: "Salve cópias digitais do contrato, I-129 e passaporte. Você terminou a jornada no app.",
+    cta: "Ver guia de embarque",
+    to: "/app/visto",
+    icon: PartyPopper,
+  };
+}
 
 function Dashboard() {
   const { t, lang } = useI18n();
@@ -29,7 +152,7 @@ function Dashboard() {
     queryFn: async () => {
       const today = new Date(); today.setHours(0, 0, 0, 0);
       const todayIso = today.toISOString();
-      const [apps, resumes, exps, media, video, jobsNew, followsDue, profileRow] = await Promise.all([
+      const [apps, resumes, exps, media, video, jobsNew, followsDue, profileRow, visa] = await Promise.all([
         supabase.from("applications").select("status,follow_up_sent_at,follow_up_due_at,responded_at,sent_at"),
         supabase.from("resumes").select("summary_pt,summary_en,availability_type,availability_start,availability_end").limit(1).maybeSingle(),
         supabase.from("resume_experiences").select("id"),
@@ -38,6 +161,7 @@ function Dashboard() {
         supabase.from("jobs").select("id", { count: "exact", head: true }).gte("imported_at", todayIso),
         supabase.from("applications").select("id", { count: "exact", head: true }).is("responded_at", null).is("follow_up_sent_at", null).lte("follow_up_due_at", new Date().toISOString()),
         supabase.from("my_profile").select("full_name,phone,onboarding_completed_at").maybeSingle(),
+        supabase.from("visa_checklist_items").select("step_key,is_completed"),
       ]);
       const list = apps.data ?? [];
       const total = list.length;
@@ -67,26 +191,33 @@ function Dashboard() {
         firstApply: total > 0,
         completed: !!profileRow.data?.onboarding_completed_at,
       };
-      return { total, responded, hired, followups, sentToday, score,
-        newJobsToday: jobsNew.count ?? 0, followupsDue: followsDue.count ?? 0, onboarding };
+      const visaSteps: Record<string, boolean> = {};
+      for (const r of visa.data ?? []) visaSteps[r.step_key] = !!r.is_completed;
+      const journey = computeJourney({
+        onboardingDone: onboarding.completed,
+        appsCount: total,
+        visaSteps,
+      });
+      return {
+        total, responded, hired, followups, sentToday, score,
+        newJobsToday: jobsNew.count ?? 0, followupsDue: followsDue.count ?? 0,
+        onboarding, journey,
+      };
     },
   });
 
   const rate = stats.data?.total ? Math.round((stats.data.responded / stats.data.total) * 100) : 0;
   const suggestions = lang === "pt" ? stats.data?.score.suggestions_pt : stats.data?.score.suggestions_en;
-  const ob = stats.data?.onboarding;
+  const journey = stats.data?.journey;
 
-  // Build next-steps list
-  const nextSteps = ob ? [
-    { key: "profile", done: ob.profile, label: "Preencher perfil (nome e contato)", to: "/app/perfil" },
-    { key: "experience", done: ob.experience, label: "Adicionar pelo menos 1 experiência", to: "/app/curriculo" },
-    { key: "media", done: ob.media, label: "Subir fotos do seu trabalho", to: "/app/midia" },
-    { key: "featured", done: ob.featured, label: "Marcar ⭐ nas melhores mídias (aparecem no link)", to: "/app/midia" },
-    { key: "video", done: ob.video, label: "Gravar vídeo de apresentação (3x mais respostas)", to: "/app/video" },
-    { key: "firstApply", done: ob.firstApply, label: "Enviar sua primeira candidatura", to: "/app/vagas" },
-  ] : [];
-  const doneCount = nextSteps.filter((s) => s.done).length;
-  const allDone = nextSteps.length > 0 && doneCount === nextSteps.length;
+  // Identify the current phase. When everything is done, fall back to the
+  // "embarque" celebration. Use the first not-done stage key when available.
+  const currentStageKey: JourneyStageKey | "embarque" = journey
+    ? (journey.stages.find((s) => !s.done)?.key ?? "embarque")
+    : "curriculo";
+  const action = stats.data
+    ? nextActionFor(currentStageKey, stats.data.onboarding)
+    : null;
 
   return (
     <div className="space-y-4">
@@ -104,48 +235,87 @@ function Dashboard() {
         </Card>
       )}
 
-      {!allDone && nextSteps.length > 0 && (
-        <Card className="border-primary/40 bg-primary/[0.03]">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between gap-2">
-              <CardTitle className="flex items-center gap-2 text-base">
-                <Sparkles className="h-4 w-4 text-primary" />
-                Próximos passos
-              </CardTitle>
-              <span className="text-xs text-muted-foreground">{doneCount}/{nextSteps.length}</span>
-            </div>
-            <Progress
-              value={(doneCount / nextSteps.length) * 100}
-              className="h-1.5 mt-2"
-              aria-label={`Próximos passos concluídos: ${doneCount} de ${nextSteps.length}`}
-            />
-          </CardHeader>
-          <CardContent className="space-y-1.5">
-            {nextSteps.map((s) => (
-              <Link
-                key={s.key}
-                to={s.to}
-                className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-sm transition-colors ${
-                  s.done ? "text-muted-foreground line-through" : "hover:bg-accent"
-                }`}
+      {/* SINGLE focused CTA: one phase, one verb, one button. */}
+      {action && journey && (
+        <Card
+          className="border-primary/40 bg-gradient-to-br from-primary/[0.04] via-card to-card overflow-hidden"
+          aria-labelledby="dashboard-focus-title"
+        >
+          <CardContent className="p-5 sm:p-6 space-y-5">
+            {/* Phase chip + journey progress */}
+            <div className="flex items-center justify-between gap-3">
+              <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 px-3 py-1 text-[11px] font-bold uppercase tracking-wider text-primary">
+                <Sparkles className="h-3 w-3" />
+                Fase atual · {journey.currentStage}
+              </div>
+              <span
+                className="text-xs text-muted-foreground"
+                aria-label={`Jornada H-2A: ${journey.doneCount} de ${journey.total} fases concluídas`}
               >
-                <div className="flex items-center gap-2 min-w-0">
-                  {s.done ? (
-                    <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                  ) : (
-                    <Circle className="h-4 w-4 text-muted-foreground shrink-0" />
-                  )}
-                  <span className="truncate">{s.label}</span>
-                </div>
-                {!s.done && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground shrink-0" />}
+                {journey.doneCount}/{journey.total}
+              </span>
+            </div>
+
+            <Progress
+              value={journey.progressPct}
+              className="h-1.5"
+              aria-label={`Progresso da Jornada H-2A: ${journey.progressPct}%`}
+            />
+
+            {/* Compact stage rail — visual only, the label list above is the source of truth. */}
+            <ol className="grid grid-cols-5 gap-1.5" aria-hidden>
+              {journey.stages.map((s) => (
+                <li
+                  key={s.key}
+                  className={
+                    "h-1 rounded-full " +
+                    (s.done
+                      ? "bg-primary"
+                      : s.label === journey.currentStage
+                        ? "bg-primary/40"
+                        : "bg-muted")
+                  }
+                />
+              ))}
+            </ol>
+
+            {/* Focal CTA */}
+            <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:gap-4 items-start pt-2">
+              <div className="grid h-11 w-11 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-elevated">
+                <action.icon className="h-5 w-5" aria-hidden />
+              </div>
+              <div className="min-w-0">
+                <h2 id="dashboard-focus-title" className="text-lg sm:text-xl font-bold leading-tight text-balance">
+                  {action.title}
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{action.why}</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              <Button asChild size="lg" className="h-11 px-5">
+                <Link to={action.to}>
+                  {action.cta} <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+              </Button>
+              <Link
+                to="/app/visto"
+                className="text-xs font-medium text-muted-foreground hover:text-foreground underline-offset-4 hover:underline"
+              >
+                Ver todas as fases da Jornada H-2A
               </Link>
-            ))}
+            </div>
           </CardContent>
         </Card>
       )}
 
       <Card>
-        <CardHeader><CardTitle>{t("quality_score")}</CardTitle></CardHeader>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base flex items-center gap-2">
+            <CheckCircle2 className="h-4 w-4 text-primary" />
+            {t("quality_score")}
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
             <div className="text-3xl font-bold text-primary">{stats.data?.score.total ?? 0}%</div>
@@ -220,4 +390,3 @@ function Funnel({ total, responded, hired }: { total: number; responded: number;
     </div>
   );
 }
-

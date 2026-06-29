@@ -19,6 +19,7 @@ import { triggerDolImport } from "@/lib/jobs.functions";
 import { generateCoverLetter, recordApplication } from "@/lib/applications.functions";
 import { sendApplicationEmail } from "@/lib/gmail.functions";
 import { ApplyDialog } from "@/components/ApplyDialog";
+import { useActionFeedback } from "@/components/ActionFeedback";
 import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/score";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Database } from "@/integrations/supabase/types";
@@ -106,6 +107,7 @@ function QualityMedal({ q }: { q: JobQuality }) {
 
 
 function Page() {
+  const { confirm } = useActionFeedback();
   const [jobs, setJobs] = useState<Job[]>([]);
   const [profile, setProfile] = useState<any>(null);
   const [resume, setResume] = useState<any>(null);
@@ -188,7 +190,15 @@ function Page() {
         toast.error("Falha ao salvar");
         setSavedJobIds((p) => { const n = new Set(p); n.delete(jobId); return n; });
       } else {
-        toast.success("Vaga salva nos favoritos");
+        // Verbose, descriptive confirmation: includes job title + state so
+        // screen-reader users hear *which* job was saved, not just "salvo".
+        const job = jobs.find((j) => j.id === jobId);
+        const title = job?.job_title?.trim() || "vaga";
+        const state = job?.worksite_state ? `, ${job.worksite_state}` : "";
+        confirm({
+          title: "Vaga salva",
+          detail: `${title}${state} — disponível em Favoritos no menu Vagas.`,
+        });
       }
     }
   }
@@ -405,8 +415,16 @@ function Page() {
       }
     }
     toast.dismiss(progressToast);
-    if (failed === 0) toast.success(`${success} candidaturas enviadas pelo Gmail.`);
-    else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
+    if (failed === 0) {
+      toast.success(`${success} candidaturas enviadas pelo Gmail.`);
+      confirm({
+        title: success === 1 ? "Candidatura enviada" : `${success} candidaturas enviadas`,
+        detail:
+          success === 1
+            ? "A vaga foi marcada como ‘Candidatado’. Acompanhe respostas em Candidaturas."
+            : `${success} vagas marcadas como ‘Candidatado’. Acompanhe respostas em Candidaturas.`,
+      });
+    } else toast.warning(`${success} enviadas, ${failed} falharam. Veja o console para detalhes.`);
     setBulkRunning(false); setSelected(new Set()); setBulkMode(false);
     await load();
   }

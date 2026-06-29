@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { FraudBanner } from "./StrategyBanner";
 import { JourneyLiveRegion } from "./JourneyLiveRegion";
 import { OnboardingTour } from "./OnboardingTour";
+import { ActionFeedbackProvider } from "./ActionFeedback";
 import logoUrl from "@/assets/vaiprala-logo.png";
 import { computeJourney } from "@/lib/h2a-journey";
 import { createShortcutMatcher } from "@/lib/sidebar-shortcuts";
@@ -505,45 +506,75 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
 
   return (
-    <div className="flex min-h-dvh bg-background">
-      <a
-        href="#main-content"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
-      >
-        Pular para o conteúdo
-      </a>
-      <div className="hidden lg:block">{Sidebar}</div>
-      {open && (
-        <div id="app-mobile-sidebar" className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
-          <div ref={drawerRef} className="relative z-50">{Sidebar}</div>
-        </div>
-      )}
-      <main id="main-content" className="flex-1 min-w-0">
-        <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
-          <button
-            ref={menuTriggerRef}
-            type="button"
-            onClick={() => setOpen(true)}
-            aria-expanded={open}
-            aria-controls="app-mobile-sidebar"
-            className="text-foreground inline-flex items-center justify-center rounded-md min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            aria-label="Abrir menu"
-            data-testid="drawer-trigger"
-
+    <ActionFeedbackProvider>
+      <div className="flex min-h-dvh bg-background">
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
+        >
+          Pular para o conteúdo
+        </a>
+        <div className="hidden lg:block">{Sidebar}</div>
+        {open && (
+          <div
+            id="app-mobile-sidebar"
+            className="fixed inset-0 z-40 lg:hidden"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu de navegação"
           >
-            <Menu className="size-5" aria-hidden />
-          </button>
-          <img src={logoUrl} alt="VaiPraLá" className="h-6 w-auto" />
-        </header>
-        <div className="mx-auto max-w-6xl p-4 lg:p-6">
-          {children ?? <Outlet />}
-          <FraudBanner />
-        </div>
-      </main>
-      {profileLoaded && showOnboarding && <OnboardingTour />}
-      {/* Anúncio acessível das mudanças de fase/progresso da Jornada H-2A */}
-      <JourneyLiveRegion message={journeyAnnouncement} />
-    </div>
+            {/* Translucent backdrop: keeps the underlying page visible
+                (~70% opacity) so the user keeps context of where they were. */}
+            <button
+              type="button"
+              aria-label="Fechar menu"
+              onClick={() => setOpen(false)}
+              className="absolute inset-0 bg-foreground/30 backdrop-blur-[2px] motion-safe:animate-fade-in"
+            />
+            {/* Drawer panel: 85% width capped at sm, slides in from the
+                left, leaving ~15% of the page visible on the right. */}
+            <div
+              ref={drawerRef}
+              className="absolute inset-y-0 left-0 w-[85vw] max-w-sm shadow-2xl shadow-black/40 motion-safe:animate-[drawer-slide-in_240ms_ease-out] focus:outline-none"
+            >
+              {Sidebar}
+              <button
+                ref={closeBtnRef}
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Fechar menu"
+                className="absolute top-3 right-3 inline-flex items-center justify-center rounded-md min-h-11 min-w-11 text-sidebar-foreground/80 hover:text-sidebar-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+              >
+                <X className="size-5" aria-hidden />
+              </button>
+            </div>
+          </div>
+        )}
+        <main id="main-content" className="flex-1 min-w-0">
+          <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
+            <button
+              ref={menuTriggerRef}
+              type="button"
+              onClick={() => setOpen(true)}
+              aria-expanded={open}
+              aria-controls="app-mobile-sidebar"
+              className="text-foreground inline-flex items-center justify-center rounded-md min-h-11 min-w-11 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              aria-label="Abrir menu"
+              data-testid="drawer-trigger"
+            >
+              <Menu className="size-5" aria-hidden />
+            </button>
+            <img src={logoUrl} alt="VaiPraLá" className="h-6 w-auto" />
+          </header>
+          <div className="mx-auto max-w-6xl p-4 lg:p-6">
+            {children ?? <Outlet />}
+            <FraudBanner />
+          </div>
+        </main>
+        {profileLoaded && showOnboarding && <OnboardingTour />}
+        {/* Anúncio acessível das mudanças de fase/progresso da Jornada H-2A */}
+        <JourneyLiveRegion message={journeyAnnouncement} />
+      </div>
+    </ActionFeedbackProvider>
   );
 }
