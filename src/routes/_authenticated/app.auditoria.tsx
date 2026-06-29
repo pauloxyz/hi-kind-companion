@@ -52,11 +52,15 @@ import { UptimePanel } from "@/components/UptimePanel";
 
 const EVENT_TYPES = [
   { v: "", label: "Todos os tipos" },
+  { v: "admin_access_denied", label: "Acesso admin negado" },
+  { v: "admin_access_denied_spike", label: "Pico de acesso admin negado" },
+  { v: "high_risk_alert", label: "Alerta de alto risco" },
   { v: "hibp_block", label: "HIBP Block" },
   { v: "weak_password_block", label: "Senha Fraca" },
   { v: "auth_failure", label: "Falha de Auth" },
   { v: "pii_access", label: "Acesso PII" },
   { v: "admin_action", label: "Ação Admin" },
+  { v: "role_change", label: "Mudança de papel" },
   { v: "settings_viewed", label: "Configurações abertas" },
   { v: "password_changed", label: "Senha alterada" },
   { v: "email_change_requested", label: "Email alterado" },
