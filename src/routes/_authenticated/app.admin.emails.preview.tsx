@@ -1,17 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, ArrowLeft, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Loader2, ArrowLeft, RefreshCw, Send } from "lucide-react";
 import { toast } from "sonner";
 import {
   renderVisaReminderPreviews,
   type VisaReminderPreview,
 } from "@/lib/email-admin.functions";
+import { sendTransactionalEmail } from "@/lib/email/send";
 import { detectEmailEnv, envLabel, envBadgeClass } from "@/lib/email/env";
 
 export const Route = createFileRoute("/_authenticated/app/admin/emails/preview")({
@@ -31,11 +34,14 @@ const TONE: Record<number, string> = {
 };
 
 function Page() {
+  const env = detectEmailEnv();
   const [recipientName, setRecipientName] = useState("João");
   const [stepLabel, setStepLabel] = useState("Entrevista no consulado");
+  const [testRecipient, setTestRecipient] = useState("");
+  const [dryRun, setDryRun] = useState(env !== "production");
   const [loading, setLoading] = useState(false);
+  const [sendingDays, setSendingDays] = useState<number | null>(null);
   const [previews, setPreviews] = useState<VisaReminderPreview[]>([]);
-  const env = detectEmailEnv();
   const renderFn = useServerFn(renderVisaReminderPreviews);
 
   async function refresh() {
@@ -53,9 +59,51 @@ function Page() {
   }
 
   useEffect(() => {
-    void refresh();
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user?.email) setTestRecipient(user.email);
+      void refresh();
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function sendVariant(days: number) {
+    if (!testRecipient) {
+      toast.error("Informe o destinatário de teste.");
+      return;
+    }
+    if (dryRun) {
+      toast.success(`Modo teste ligado — nada foi enviado para ${testRecipient}.`);
+      return;
+    }
+    if (env === "production") {
+      const ok = window.confirm(
+        `Enviar preview de ${days} dia(s) de verdade para ${testRecipient}?`,
+      );
+      if (!ok) return;
+    }
+    setSendingDays(days);
+    try {
+      const dueDate = new Date(Date.now() + days * 86400000).toLocaleDateString("pt-BR");
+      const res = await sendTransactionalEmail({
+        templateName: "visa-reminder",
+        recipientEmail: testRecipient,
+        idempotencyKey: `preview-${days}-${Date.now()}`,
+        templateData: {
+          recipientName,
+          stepLabel,
+          daysUntil: days,
+          dueDate,
+          checklistUrl: `${window.location.origin}/app/visto`,
+        },
+      });
+      toast.success(`Preview ${days}d enfileirado para ${testRecipient}${res.messageId ? ` (${res.messageId.slice(0, 8)}…)` : ""}.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao enviar");
+    } finally {
+      setSendingDays(null);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -69,7 +117,7 @@ function Page() {
           <h1 className="text-2xl font-bold mt-1">Preview dos lembretes H-2A</h1>
           <p className="text-sm text-muted-foreground">
             Renderiza as 3 variações (14, 7 e 1 dia) exatamente como sairão na
-            caixa de entrada — sem enviar nada.
+            caixa de entrada — e envia uma cópia para o destinatário de teste.
           </p>
         </div>
         <Badge className={envBadgeClass[env]}>Ambiente: {envLabel[env]}</Badge>
@@ -79,19 +127,38 @@ function Page() {
         <CardHeader>
           <CardTitle className="text-base">Dados de exemplo</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-[1fr_2fr_auto] items-end">
+        <CardContent className="grid gap-3 md:grid-cols-3 items-end">
           <div className="space-y-1">
             <Label htmlFor="rn">Nome</Label>
             <Input id="rn" value={recipientName} onChange={(e) => setRecipientName(e.target.value)} />
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1 md:col-span-2">
             <Label htmlFor="sl">Etapa</Label>
             <Input id="sl" value={stepLabel} onChange={(e) => setStepLabel(e.target.value)} />
           </div>
-          <Button onClick={() => void refresh()} disabled={loading}>
-            {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
-            Atualizar
-          </Button>
+          <div className="space-y-1 md:col-span-2">
+            <Label htmlFor="dest">Destinatário de teste</Label>
+            <Input
+              id="dest"
+              type="email"
+              value={testRecipient}
+              placeholder="voce@exemplo.com"
+              onChange={(e) => setTestRecipient(e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Cada variação que você enviar daqui vai exclusivamente para este e-mail.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-2 rounded-md border p-2">
+              <Label htmlFor="dryrun" className="text-sm">Modo teste</Label>
+              <Switch id="dryrun" checked={dryRun} onCheckedChange={setDryRun} />
+            </div>
+            <Button onClick={() => void refresh()} disabled={loading} variant="secondary">
+              {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+              Atualizar preview
+            </Button>
+          </div>
         </CardContent>
       </Card>
 
@@ -106,6 +173,19 @@ function Page() {
               <p className="text-xs text-muted-foreground">
                 <span className="font-semibold text-foreground">Assunto:</span> {p.subject}
               </p>
+              <Button
+                size="sm"
+                onClick={() => void sendVariant(p.days)}
+                disabled={sendingDays !== null}
+                className="w-full"
+              >
+                {sendingDays === p.days ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="mr-2 h-4 w-4" />
+                )}
+                {dryRun ? "Simular envio para teste" : `Enviar para ${testRecipient || "destinatário"}`}
+              </Button>
             </CardHeader>
             <CardContent className="p-0">
               <iframe
