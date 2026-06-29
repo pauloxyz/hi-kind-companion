@@ -89,6 +89,16 @@ function eventsToCsv(rows: AuditEvent[]): string {
   return lines.join("\n");
 }
 
+function downloadBlob(content: string, mime: string, filename: string) {
+  const blob = new Blob([content], { type: `${mime};charset=utf-8;` });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function alertKey(a: { hour: string; ip_address: string | null }): string {
   return `${a.hour}|${a.ip_address ?? ""}`;
 }
