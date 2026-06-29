@@ -41,6 +41,12 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-accent-red: var(--accent-red);
   --color-accent-gold: var(--accent-gold);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  --color-info: var(--info);
+  --color-info-foreground: var(--info-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
