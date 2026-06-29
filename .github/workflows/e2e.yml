@@ -20,13 +20,16 @@ jobs:
       - name: Assert no aria-live spec is missing the dupes guard
         run: |
           set -euo pipefail
-          # Files that touch the live region in any way.
-          mapfile -t live_specs < <(grep -lE 'journey-live-region|__live\b|__liveMutations' e2e/*.spec.ts || true)
+          # Detect ONLY specs that actively record live-region mutations
+          # (i.e., push into __live / __liveMutations arrays). Specs that
+          # merely wait for the live-region element to attach do not need
+          # the dupes guard because they never observe the message stream.
+          mapfile -t live_specs < <(grep -lE '__live(Mutations)?[^A-Za-z0-9_]*\.push|\.push\([^)]*\.textContent' e2e/*.spec.ts || true)
           if [ "${#live_specs[@]}" -eq 0 ]; then
-            echo "No aria-live specs found — refusing to silently pass."
+            echo "No aria-live observer specs found — refusing to silently pass."
             exit 1
           fi
-          echo "Checking ${#live_specs[@]} aria-live spec(s) for the dupes guard:"
+          echo "Checking ${#live_specs[@]} aria-live observer spec(s) for the dupes guard:"
           printf '  - %s\n' "${live_specs[@]}"
           missing=()
           for f in "${live_specs[@]}"; do
