@@ -100,16 +100,21 @@ jobs:
 
       - run: bun install --frozen-lockfile
 
-      - name: Resolve Playwright version
+      - name: Resolve Playwright + Node versions
         id: pw
-        run: echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+          echo "node=$(node --version | tr -d 'v')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: pw-cache
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+          key: ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ runner.arch }}-node${{ steps.pw.outputs.node }}-playwright-${{ steps.pw.outputs.version }}-
+            ${{ runner.os }}-${{ runner.arch }}-playwright-${{ steps.pw.outputs.version }}-
 
       - name: Install Chromium (cache miss)
         if: steps.pw-cache.outputs.cache-hit != 'true'
