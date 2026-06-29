@@ -56,6 +56,13 @@ import {
 } from "@/lib/seo-runs.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/seo")({
+  beforeLoad: async () => {
+    try {
+      await requireAdminAccess();
+    } catch {
+      throw redirect({ to: "/app" });
+    }
+  },
   head: () => ({
     meta: [
       { title: "SEO scans — VaiPraLá Admin" },
