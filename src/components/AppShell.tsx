@@ -18,6 +18,7 @@ import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
 import { computeJourney } from "@/lib/h2a-journey";
 import { createShortcutMatcher } from "@/lib/sidebar-shortcuts";
+import { createAnnouncementDebouncer, shouldAnnounceJourney } from "@/lib/journey-announcement";
 
 type NavItem = {
   to: string;
