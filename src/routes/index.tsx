@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/vaiprala-logo.png";
+import { absUrl } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight, Briefcase, FileText, Video, ShieldCheck, BarChart3,
@@ -19,10 +20,10 @@ export const Route = createFileRoute("/")({
       { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
-      { property: "og:url", content: "/" },
-      
+      { property: "og:url", content: absUrl("/") },
+      { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: absUrl("/") }],
     scripts: [
       {
         type: "application/ld+json",
@@ -31,7 +32,7 @@ export const Route = createFileRoute("/")({
           "@type": "Organization",
           name: "VaiPraLá",
           description: "Plataforma para trabalhadores rurais brasileiros aplicarem em vagas H-2A nos EUA.",
-          url: "/",
+          url: absUrl("/"),
         }),
       },
       {
@@ -53,20 +54,20 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
-  const [stats, setStats] = useState({ jobs: 0, applications: 0, profiles: 0 });
+  const [stats, setStats] = useState<{ jobs: number | null }>({ jobs: null });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
-    // Aggregate stats — best effort, anon-readable counts
-    Promise.all([
-      supabase.from("public_jobs" as unknown as "jobs").select("id", { count: "exact", head: true }),
-    ]).then(([j]) => {
-      setStats({
-        jobs: j.count ?? 0,
-        applications: 1284, // shown approximate aggregate; replaced by real DB when policies allow
-        profiles: 612,
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setSignedIn(!!data.session);
+    });
+    supabase
+      .from("public_jobs" as unknown as "jobs")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => {
+        if (!cancelled) setStats({ jobs: count ?? 0 });
       });
-    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   return (
