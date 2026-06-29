@@ -1,0 +1,1 @@
+ALTER TABLE public.my_profile ADD COLUMN IF NOT EXISTS video_script_blocks JSONB;

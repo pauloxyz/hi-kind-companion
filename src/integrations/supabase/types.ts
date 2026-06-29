@@ -662,6 +662,7 @@ export type Database = {
           public_slug: string | null
           resume_completion_pct: number | null
           updated_at: string | null
+          video_script_blocks: Json | null
           video_script_en: string | null
           video_script_generated_at: string | null
           video_script_pt: string | null
@@ -684,6 +685,7 @@ export type Database = {
           public_slug?: string | null
           resume_completion_pct?: number | null
           updated_at?: string | null
+          video_script_blocks?: Json | null
           video_script_en?: string | null
           video_script_generated_at?: string | null
           video_script_pt?: string | null
@@ -706,6 +708,7 @@ export type Database = {
           public_slug?: string | null
           resume_completion_pct?: number | null
           updated_at?: string | null
+          video_script_blocks?: Json | null
           video_script_en?: string | null
           video_script_generated_at?: string | null
           video_script_pt?: string | null
