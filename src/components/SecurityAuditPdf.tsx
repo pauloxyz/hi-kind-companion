@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { PdfLogo, PdfBrandedFooter } from "./PdfLogo";
 import type { AuditEvent, AuditStats } from "@/lib/security-admin.functions";
 
 const s = StyleSheet.create({
@@ -50,6 +51,10 @@ export function SecurityAuditPdf({
   return (
     <Document>
       <Page size="LETTER" style={s.page}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <PdfLogo />
+          <Text style={s.meta}>vaiprala.net</Text>
+        </View>
         <Text style={s.h1}>Relatório de Auditoria de Segurança</Text>
         <Text style={s.meta}>
           Gerado em {new Date().toLocaleString("pt-BR")} · Janela: {window}
@@ -101,9 +106,14 @@ export function SecurityAuditPdf({
             <Text style={s.c5}></Text>
           </View>
         ))}
+        <PdfBrandedFooter />
       </Page>
 
       <Page size="LETTER" style={s.page}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <PdfLogo />
+          <Text style={s.meta}>vaiprala.net</Text>
+        </View>
         <Text style={s.h1}>Eventos Filtrados</Text>
         <Text style={s.meta}>
           {events.length} evento(s) após aplicação dos filtros
@@ -126,6 +136,7 @@ export function SecurityAuditPdf({
             <Text style={s.c5}>{e.email_hash ? e.email_hash.slice(0, 16) + "…" : "—"}</Text>
           </View>
         ))}
+        <PdfBrandedFooter />
       </Page>
     </Document>
   );

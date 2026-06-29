@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
+import { logoUrl } from "./PdfLogo";
 
 const NAVY = "#1a3a6e";
 const CREAM = "#faf3e7";
@@ -150,6 +151,7 @@ function initials(name: string) {
 function Sidebar({ data }: { data: ResumePdfData }) {
   return (
     <View style={s.sidebar}>
+      <Image src={logoUrl} style={{ width: 90, height: 28, objectFit: "contain", alignSelf: "center", marginBottom: 12 }} />
       <View style={s.avatarWrap}>
         {data.avatarUrl ? (
           <Image src={data.avatarUrl} style={s.avatarImg} />
