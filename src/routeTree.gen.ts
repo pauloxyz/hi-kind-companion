@@ -39,6 +39,7 @@ import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
+import { Route as ApiPublicHooksSeoScanRouteImport } from './routes/api/public/hooks/seo-scan'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 import { Route as AuthenticatedAppInglesModuleRouteImport } from './routes/_authenticated/app.ingles.$module'
@@ -201,6 +202,11 @@ const ApiPublicHooksUptimeRoute = ApiPublicHooksUptimeRouteImport.update({
   path: '/api/public/hooks/uptime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksSeoScanRoute = ApiPublicHooksSeoScanRouteImport.update({
+  id: '/api/public/hooks/seo-scan',
+  path: '/api/public/hooks/seo-scan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksImportDolFeedRoute =
   ApiPublicHooksImportDolFeedRouteImport.update({
     id: '/api/public/hooks/import-dol-feed',
@@ -263,6 +269,7 @@ export interface FileRoutesByFullPath {
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -297,6 +304,7 @@ export interface FileRoutesByTo {
   '/app': typeof AuthenticatedAppIndexRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -335,6 +343,7 @@ export interface FileRoutesById {
   '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
+  '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/_authenticated/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -373,6 +382,7 @@ export interface FileRouteTypes {
     | '/app/ingles/$module'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/uptime'
     | '/app/ingles/'
     | '/app/ingles/$module/$lesson'
@@ -407,6 +417,7 @@ export interface FileRouteTypes {
     | '/app'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/uptime'
     | '/app/ingles'
     | '/app/ingles/$module/$lesson'
@@ -444,6 +455,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/ingles/$module'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
+    | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/uptime'
     | '/_authenticated/app/ingles/'
     | '/_authenticated/app/ingles/$module/$lesson'
@@ -467,6 +479,7 @@ export interface RootRouteChildren {
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
+  ApiPublicHooksSeoScanRoute: typeof ApiPublicHooksSeoScanRoute
   ApiPublicHooksUptimeRoute: typeof ApiPublicHooksUptimeRoute
 }
 
@@ -682,6 +695,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksUptimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/seo-scan': {
+      id: '/api/public/hooks/seo-scan'
+      path: '/api/public/hooks/seo-scan'
+      fullPath: '/api/public/hooks/seo-scan'
+      preLoaderRoute: typeof ApiPublicHooksSeoScanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/import-dol-feed': {
       id: '/api/public/hooks/import-dol-feed'
       path: '/api/public/hooks/import-dol-feed'
@@ -809,6 +829,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
+  ApiPublicHooksSeoScanRoute: ApiPublicHooksSeoScanRoute,
   ApiPublicHooksUptimeRoute: ApiPublicHooksUptimeRoute,
 }
 export const routeTree = rootRouteImport
