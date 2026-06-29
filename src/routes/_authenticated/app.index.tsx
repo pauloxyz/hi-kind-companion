@@ -149,7 +149,11 @@ function Dashboard() {
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
             <div className="text-3xl font-bold text-primary">{stats.data?.score.total ?? 0}%</div>
-            <Progress value={stats.data?.score.total ?? 0} className="flex-1" />
+            <Progress
+              value={stats.data?.score.total ?? 0}
+              className="flex-1"
+              aria-label={`Pontuação de qualidade do perfil: ${stats.data?.score.total ?? 0}%`}
+            />
           </div>
           {suggestions && suggestions.length > 0 && (
             <ul className="space-y-1 text-sm text-muted-foreground">{suggestions.map((s) => <li key={s}>• {s}</li>)}</ul>
