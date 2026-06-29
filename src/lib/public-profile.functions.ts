@@ -32,12 +32,20 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
   .handler(async ({ data }): Promise<PublicProfilePayload> => {
     const sb = publicClient();
     const { data: profile } = await sb
-      .from("my_profile")
-      .select("owner_id, full_name, country, public_headline, languages, has_prior_h2_experience, phone, public_page_enabled")
+      .from("public_profiles" as never)
+      .select("owner_id, full_name, country, public_headline, languages, has_prior_h2_experience")
       .eq("public_slug", data.slug)
-      .eq("public_page_enabled", true)
-      .maybeSingle();
+      .maybeSingle<{
+        owner_id: string;
+        full_name: string | null;
+        country: string | null;
+        public_headline: string | null;
+        languages: string[] | null;
+        has_prior_h2_experience: boolean | null;
+      }>();
     if (!profile) return null;
+    const { data: phoneRow } = await sb.rpc("get_public_profile_whatsapp" as never, { _slug: data.slug });
+    const phone = (typeof phoneRow === "string" ? phoneRow : null) as string | null;
 
     const ownerId = profile.owner_id;
     const [exps, skills, mediaRows, videoRow] = await Promise.all([
