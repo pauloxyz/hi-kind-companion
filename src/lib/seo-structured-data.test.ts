@@ -236,6 +236,11 @@ describe("heading discipline (one <h1> per public route)", () => {
     "__root.tsx",
     "sitemap[.]xml.ts",
     "checkout.return.tsx", // noindex; minimal page
+    // Crop landing pages that delegate rendering to a shared <CropPage>
+    // component imported from vagas-h2a.colheita-maca.tsx — the <h1> lives
+    // in that shared component and is tested via colheita-maca.tsx itself.
+    "vagas-h2a.colheita-laranja.tsx",
+    "vagas-h2a.tabaco.tsx",
   ]);
 
   const files = readdirSync(routesDir)

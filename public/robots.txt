@@ -1,4 +1,6 @@
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /lovable/
 
 Sitemap: https://www.vaiprala.net/sitemap.xml
