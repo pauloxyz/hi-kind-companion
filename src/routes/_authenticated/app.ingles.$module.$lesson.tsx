@@ -55,7 +55,7 @@ function LessonPage() {
   const reviewCard = useServerFn(reviewFlashcard);
   const saveStep = useServerFn(updateStudyStep);
 
-  const { data: lesson } = useQuery({
+  const { data: lesson, isLoading: lessonLoading } = useQuery({
     queryKey: ["english-lesson", moduleSlug, lessonSlug],
     queryFn: async () => {
       const { data: mod } = await supabase
@@ -130,7 +130,18 @@ function LessonPage() {
     }
   };
 
-  if (!lesson) return <div className="text-muted-foreground p-8">Carregando...</div>;
+  if (lessonLoading) return <div className="text-muted-foreground p-8">Carregando...</div>;
+  if (!lesson) {
+    return (
+      <div className="max-w-xl mx-auto text-center p-8 space-y-3">
+        <h2 className="text-xl font-bold">Lição não encontrada</h2>
+        <p className="text-sm text-muted-foreground">A lição que você procura não existe ou foi removida.</p>
+        <Link to="/app/ingles/$module" params={{ module: moduleSlug }} className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+          <ChevronLeft className="h-4 w-4" /> Voltar ao módulo
+        </Link>
+      </div>
+    );
+  }
 
   const locked = !lesson.is_free && !isPro;
   if (locked) {
