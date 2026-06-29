@@ -64,6 +64,7 @@ import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/pu
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
 import { Route as AuthenticatedAppVistoHistoricoRouteImport } from './routes/_authenticated/app.visto.historico'
 import { Route as AuthenticatedAppInglesModuleRouteImport } from './routes/_authenticated/app.ingles.$module'
+import { Route as AuthenticatedAppAdminEmailsRouteImport } from './routes/_authenticated/app.admin.emails'
 import { Route as AuthenticatedAppInglesModuleIndexRouteImport } from './routes/_authenticated/app.ingles.$module.index'
 import { Route as AuthenticatedAppInglesModuleLessonRouteImport } from './routes/_authenticated/app.ingles.$module.$lesson'
 
@@ -358,6 +359,12 @@ const AuthenticatedAppInglesModuleRoute =
     path: '/$module',
     getParentRoute: () => AuthenticatedAppInglesRoute,
   } as any)
+const AuthenticatedAppAdminEmailsRoute =
+  AuthenticatedAppAdminEmailsRouteImport.update({
+    id: '/app/admin/emails',
+    path: '/app/admin/emails',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppInglesModuleIndexRoute =
   AuthenticatedAppInglesModuleIndexRouteImport.update({
     id: '/',
@@ -412,6 +419,7 @@ export interface FileRoutesByFullPath {
   '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
+  '/app/admin/emails': typeof AuthenticatedAppAdminEmailsRoute
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
@@ -469,6 +477,7 @@ export interface FileRoutesByTo {
   '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/app/admin/emails': typeof AuthenticatedAppAdminEmailsRoute
   '/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
@@ -528,6 +537,7 @@ export interface FileRoutesById {
   '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
+  '/_authenticated/app/admin/emails': typeof AuthenticatedAppAdminEmailsRoute
   '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
   '/_authenticated/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
@@ -588,6 +598,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/lovable/email/suppression'
     | '/app/'
+    | '/app/admin/emails'
     | '/app/ingles/$module'
     | '/app/visto/historico'
     | '/api/public/hooks/check-replies'
@@ -645,6 +656,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/lovable/email/suppression'
     | '/app'
+    | '/app/admin/emails'
     | '/app/visto/historico'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
@@ -703,6 +715,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
+    | '/_authenticated/app/admin/emails'
     | '/_authenticated/app/ingles/$module'
     | '/_authenticated/app/visto/historico'
     | '/api/public/hooks/check-replies'
@@ -1148,6 +1161,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppInglesModuleRouteImport
       parentRoute: typeof AuthenticatedAppInglesRoute
     }
+    '/_authenticated/app/admin/emails': {
+      id: '/_authenticated/app/admin/emails'
+      path: '/app/admin/emails'
+      fullPath: '/app/admin/emails'
+      preLoaderRoute: typeof AuthenticatedAppAdminEmailsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/ingles/$module/': {
       id: '/_authenticated/app/ingles/$module/'
       path: '/'
@@ -1229,6 +1249,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppVideoRoute: typeof AuthenticatedAppVideoRoute
   AuthenticatedAppVistoRoute: typeof AuthenticatedAppVistoRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
+  AuthenticatedAppAdminEmailsRoute: typeof AuthenticatedAppAdminEmailsRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -1247,6 +1268,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppVideoRoute: AuthenticatedAppVideoRoute,
   AuthenticatedAppVistoRoute: AuthenticatedAppVistoRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
+  AuthenticatedAppAdminEmailsRoute: AuthenticatedAppAdminEmailsRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
