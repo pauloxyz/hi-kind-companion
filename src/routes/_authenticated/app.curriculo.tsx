@@ -12,8 +12,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
 import { importResumeFromPdf } from "@/lib/resume-import.functions";
+import { listResumePhotos } from "@/lib/resume-photos.functions";
 import { pdf } from "@react-pdf/renderer";
 import { ResumePdfDocument, type ResumePdfData } from "@/components/ResumePdfDocument";
+import { ResumePhotosCard } from "@/components/ResumePhotosCard";
 
 export const Route = createFileRoute("/_authenticated/app/curriculo")({ component: Page });
 
@@ -74,6 +76,7 @@ function Page() {
   const [importing, setImporting] = useState(false);
   const translateFn = useServerFn(translateToEnglish);
   const importFn = useServerFn(importResumeFromPdf);
+  const photosFn = useServerFn(listResumePhotos);
 
   useEffect(() => {
     void (async () => {
@@ -347,6 +350,15 @@ function Page() {
   async function handleDownloadPdf() {
     setGeneratingPdf(true);
     try {
+      // Fetch resume photos (signed URLs valid for 30d).
+      let resumePhotos: Array<{ url: string; caption?: string | null }> = [];
+      try {
+        const photos = await photosFn();
+        resumePhotos = photos.map((p) => ({ url: p.url, caption: p.caption }));
+      } catch {
+        // sem fotos é OK — PDF sai só com a página 1
+      }
+
       const data: ResumePdfData = {
         fullName: profile.full_name || "—",
         email: profile.email,
@@ -371,6 +383,7 @@ function Page() {
             descriptionEn: e.description_en,
           })),
         skills,
+        resumePhotos,
       };
       const blob = await pdf(<ResumePdfDocument data={data} />).toBlob();
 
@@ -639,6 +652,10 @@ function Page() {
           )}
         </CardContent>
       </Card>
+
+      <ResumePhotosCard />
+
+
 
       <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 rounded-lg border bg-background p-3 shadow">
         <Button onClick={handleTranslate} disabled={translating} variant="outline">

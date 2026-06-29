@@ -1,191 +1,280 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
-import { listIntroVideos, createIntroVideo, setActiveIntroVideo, deleteIntroVideo, getIntroVideoSignedUrl } from "@/lib/intro-video.functions";
+import { generateVideoScript, normalizeYouTubeUrl } from "@/lib/video-script.functions";
 import { toast } from "sonner";
-import { Loader2, Mic, Square, Trash2, Star, Upload } from "lucide-react";
+import { Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle } from "lucide-react";
+import { pdf, Document, Page as PdfPage, Text, View, StyleSheet } from "@react-pdf/renderer";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
 
-const MAX_SECONDS = 90;
-const SCRIPT_EN = `Hi, my name is [your name]. I am [age] years old, from [city, country].
-I have worked [N] years in [crop / livestock]. I am healthy, reliable, and used to long days in the sun.
-I can start on [date] and I am committed to finishing the full contract.
-Thank you for considering me.`;
+const scriptStyles = StyleSheet.create({
+  page: { padding: 36, fontFamily: "Helvetica", fontSize: 11, color: "#111" },
+  title: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 12, color: "#1a3a6e", textAlign: "center" },
+  twoCol: { flexDirection: "row", gap: 14 },
+  col: { flex: 1 },
+  colHeader: {
+    backgroundColor: "#1a3a6e",
+    color: "#fff",
+    padding: 6,
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  scriptText: { fontSize: 13, lineHeight: 1.7, textAlign: "justify" },
+  footer: { fontSize: 9, color: "#666", marginTop: 20, textAlign: "center", fontStyle: "italic" },
+});
 
-function VideoPreview({ path }: { path: string }) {
-  const sign = useServerFn(getIntroVideoSignedUrl);
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => { sign({ data: { path } }).then((r) => setUrl(r.url)).catch(() => {}); }, [path]);
-  if (!url) return <div className="aspect-video bg-muted animate-pulse rounded" />;
-  return <video src={url} controls className="w-full aspect-video rounded bg-black" />;
+function ScriptPdf({ pt, en, name }: { pt: string; en: string; name: string }) {
+  return (
+    <Document>
+      <PdfPage size="LETTER" style={scriptStyles.page}>
+        <Text style={scriptStyles.title}>Roteiro do vídeo de apresentação — {name}</Text>
+        <View style={scriptStyles.twoCol}>
+          <View style={scriptStyles.col}>
+            <Text style={scriptStyles.colHeader}>Português (treine primeiro)</Text>
+            <Text style={scriptStyles.scriptText}>{pt}</Text>
+          </View>
+          <View style={scriptStyles.col}>
+            <Text style={scriptStyles.colHeader}>English (grave esta)</Text>
+            <Text style={scriptStyles.scriptText}>{en}</Text>
+          </View>
+        </View>
+        <Text style={scriptStyles.footer}>
+          Grave horizontal, boa iluminação, olhe para a câmera. ~45-60 segundos.
+        </Text>
+      </PdfPage>
+    </Document>
+  );
 }
 
 function Page() {
-  const qc = useQueryClient();
-  const list = useServerFn(listIntroVideos);
-  const create = useServerFn(createIntroVideo);
-  const setActive = useServerFn(setActiveIntroVideo);
-  const del = useServerFn(deleteIntroVideo);
+  const genFn = useServerFn(generateVideoScript);
 
-  const { data: videos = [] } = useQuery({ queryKey: ["intro_videos"], queryFn: () => list() });
-  type IntroVideo = (typeof videos)[number];
+  const [scriptPt, setScriptPt] = useState("");
+  const [scriptEn, setScriptEn] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [normalizedUrl, setNormalizedUrl] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [savingUrl, setSavingUrl] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const loadedRef = useRef(false);
 
-  const [recording, setRecording] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [recordedBlob, setRecordedBlob] = useState<Blob | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const liveRef = useRef<HTMLVideoElement>(null);
-  const recRef = useRef<MediaRecorder | null>(null);
-  const chunks = useRef<BlobPart[]>([]);
-  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
+  useEffect(() => {
+    if (loadedRef.current) return;
+    loadedRef.current = true;
+    void (async () => {
+      const { data: prof } = await supabase
+        .from("my_profile")
+        .select("full_name, youtube_video_url, video_script_pt, video_script_en")
+        .maybeSingle();
+      if (prof) {
+        setName(prof.full_name ?? "");
+        setScriptPt(prof.video_script_pt ?? "");
+        setScriptEn(prof.video_script_en ?? "");
+        setYoutubeUrl(prof.youtube_video_url ?? "");
+        if (prof.youtube_video_url) setNormalizedUrl(normalizeYouTubeUrl(prof.youtube_video_url));
+      }
+    })();
+  }, []);
 
-  async function startRecording() {
+  useEffect(() => {
+    setNormalizedUrl(youtubeUrl.trim() ? normalizeYouTubeUrl(youtubeUrl) : null);
+  }, [youtubeUrl]);
+
+  async function handleGenerate() {
+    setGenerating(true);
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: true });
-      streamRef.current = stream;
-      if (liveRef.current) { liveRef.current.srcObject = stream; liveRef.current.muted = true; await liveRef.current.play().catch(()=>{}); }
-      const mime = MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus") ? "video/webm;codecs=vp9,opus" : "video/webm";
-      const rec = new MediaRecorder(stream, { mimeType: mime });
-      chunks.current = [];
-      rec.ondataavailable = (e) => { if (e.data.size) chunks.current.push(e.data); };
-      rec.onstop = () => {
-        const blob = new Blob(chunks.current, { type: "video/webm" });
-        setRecordedBlob(blob);
-        setPreviewUrl(URL.createObjectURL(blob));
-        stream.getTracks().forEach((t) => t.stop());
-        streamRef.current = null;
-      };
-      recRef.current = rec;
-      rec.start();
-      setRecording(true); setElapsed(0);
-      timer.current = setInterval(() => setElapsed((s) => { if (s + 1 >= MAX_SECONDS) { stopRecording(); return s + 1; } return s + 1; }), 1000);
-    } catch (e) { toast.error("Não foi possível acessar webcam/microfone: " + (e instanceof Error ? e.message : "")); }
+      const { pt, en } = await genFn();
+      setScriptPt(pt);
+      setScriptEn(en);
+      toast.success("Roteiro gerado e salvo ✓");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setGenerating(false);
+    }
   }
 
-  function stopRecording() {
-    if (timer.current) { clearInterval(timer.current); timer.current = null; }
-    if (recRef.current && recRef.current.state !== "inactive") recRef.current.stop();
-    setRecording(false);
+  function copy(text: string, label: string) {
+    if (!text) {
+      toast.error("Gere o roteiro primeiro.");
+      return;
+    }
+    void navigator.clipboard.writeText(text).then(() => toast.success(`${label} copiado ✓`));
   }
 
-  async function uploadFile(blob: Blob, ext: string, contentType: string, duration: number | null) {
-    setUploading(true);
+  async function handleExportPdf() {
+    if (!scriptPt || !scriptEn) {
+      toast.error("Gere o roteiro primeiro.");
+      return;
+    }
+    setExporting(true);
+    try {
+      const blob = await pdf(<ScriptPdf pt={scriptPt} en={scriptEn} name={name || "Candidato"} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Roteiro_video_${(name || "candidato").replace(/\s+/g, "_")}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function handleSaveUrl() {
+    const trimmed = youtubeUrl.trim();
+    if (trimmed && !normalizedUrl) {
+      toast.error("Link do YouTube inválido. Use o link completo do vídeo.");
+      return;
+    }
+    setSavingUrl(true);
     try {
       const { data: u } = await supabase.auth.getUser();
-      if (!u.user) throw new Error("Não autenticado");
-      const path = `${u.user.id}/${crypto.randomUUID()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from("intro-videos").upload(path, blob, { contentType });
-      if (upErr) throw upErr;
-      await create({ data: { video_url: path, duration_seconds: duration ?? undefined, language: "en" } });
-      qc.invalidateQueries({ queryKey: ["intro_videos"] });
-      setRecordedBlob(null); setPreviewUrl(null);
-      toast.success("Vídeo salvo e marcado como ativo");
-    } catch (e) { toast.error(e instanceof Error ? e.message : "Erro no upload"); }
-    finally { setUploading(false); }
+      if (!u.user) throw new Error("Sem sessão");
+      const { error } = await supabase
+        .from("my_profile")
+        .update({ youtube_video_url: trimmed ? normalizedUrl : null })
+        .eq("owner_id", u.user.id);
+      if (error) throw error;
+      toast.success(trimmed ? "Link salvo ✓" : "Link removido");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setSavingUrl(false);
+    }
   }
 
-  async function handleSaveRecorded() {
-    if (!recordedBlob) return;
-    await uploadFile(recordedBlob, "webm", "video/webm", elapsed);
-  }
-
-  async function handleFileUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]; if (!file) return;
-    const ext = file.name.split(".").pop() ?? "mp4";
-    await uploadFile(file, ext, file.type, null);
-    e.target.value = "";
-  }
-
-  function discardRecording() {
-    if (previewUrl) URL.revokeObjectURL(previewUrl);
-    setRecordedBlob(null); setPreviewUrl(null); setElapsed(0);
-  }
+  const ytId = normalizedUrl?.split("/").pop();
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Vídeo de Apresentação</h1>
+    <div className="space-y-4 max-w-4xl">
+      <div>
+        <h1 className="text-2xl font-bold">Vídeo de Apresentação</h1>
+        <p className="text-sm text-muted-foreground mt-1">
+          Empregadores H-2A confiam mais em quem mostra a cara. Você grava um vídeo curto em inglês, sobe no YouTube e cola o link aqui — vai junto em todo email de candidatura.
+        </p>
+      </div>
 
+      {/* PASSO 1 — Script personalizado */}
       <Card>
-        <CardHeader><CardTitle>Roteiro sugerido (em inglês)</CardTitle></CardHeader>
-        <CardContent>
-          <pre className="text-sm whitespace-pre-wrap bg-muted p-3 rounded">{SCRIPT_EN}</pre>
-          <p className="text-xs text-muted-foreground mt-2">Grave até 90 segundos. Boa iluminação, fundo simples, fale devagar.</p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader><CardTitle>Gravar agora</CardTitle></CardHeader>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Sparkles className="h-4 w-4 text-primary" />
+            1. Gerar seu roteiro (personalizado por IA)
+          </CardTitle>
+        </CardHeader>
         <CardContent className="space-y-3">
-          {!previewUrl && (
-            <>
-              <video ref={liveRef} className="w-full aspect-video rounded bg-black" />
-              <div className="flex items-center gap-2">
-                {!recording ? (
-                  <Button onClick={startRecording}><Mic className="h-4 w-4 mr-1" /> Iniciar gravação</Button>
-                ) : (
-                  <Button variant="destructive" onClick={stopRecording}><Square className="h-4 w-4 mr-1" /> Parar ({elapsed}s)</Button>
-                )}
-                <span className="text-xs text-muted-foreground">Máx. {MAX_SECONDS}s</span>
-              </div>
-            </>
-          )}
-          {previewUrl && (
-            <>
-              <video src={previewUrl} controls className="w-full aspect-video rounded bg-black" />
-              <div className="flex gap-2">
-                <Button onClick={handleSaveRecorded} disabled={uploading}>
-                  {uploading ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Upload className="h-4 w-4 mr-1" />}
-                  Salvar e ativar
-                </Button>
-                <Button variant="ghost" onClick={discardRecording}>Descartar</Button>
-              </div>
-            </>
-          )}
-          <div className="pt-2 border-t">
-            <label className="text-sm text-muted-foreground">Ou envie um vídeo já gravado:</label>
-            <input type="file" accept="video/*" onChange={handleFileUpload} disabled={uploading} className="block mt-1 text-sm" />
-          </div>
-        </CardContent>
-      </Card>
+          <p className="text-xs text-muted-foreground">
+            A IA lê seu currículo (experiências, cultivos, máquinas) e monta um roteiro de ~50 segundos <strong>em PT-BR e EN</strong>, citando o que <em>você</em> realmente fez. Treine em português, grave em inglês.
+          </p>
+          <Button onClick={handleGenerate} disabled={generating}>
+            {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {scriptPt ? "Gerar de novo" : "Gerar meu roteiro"}
+          </Button>
 
-      <Card>
-        <CardHeader><CardTitle>Meus vídeos</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
-          {videos.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhum vídeo ainda.</p>
-          ) : (
-            <div className="grid sm:grid-cols-2 gap-3">
-              {videos.map((v: IntroVideo) => (
-                <div key={v.id} className="space-y-2">
-                  <VideoPreview path={v.video_url} />
-                  <div className="flex items-center justify-between text-xs">
-                    <div className="flex items-center gap-2">
-                      {v.is_active && <Badge className="bg-success">Ativo</Badge>}
-                      <span className="text-muted-foreground">{v.duration_seconds ? `${v.duration_seconds}s` : ""}</span>
-                    </div>
-                    <div className="flex gap-1">
-                      {!v.is_active && (
-                        <Button size="sm" variant="outline" onClick={async () => { await setActive({ data: { id: v.id } }); qc.invalidateQueries({ queryKey: ["intro_videos"] }); }}>
-                          <Star className="h-3 w-3 mr-1" /> Ativar
-                        </Button>
-                      )}
-                      <Button size="icon" variant="ghost" onClick={async () => {
-                        if (!confirm("Apagar?")) return;
-                        await del({ data: { id: v.id, storage_path: v.video_url } });
-                        qc.invalidateQueries({ queryKey: ["intro_videos"] });
-                      }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
-                    </div>
+          {(scriptPt || scriptEn) && (
+            <>
+              <div className="grid gap-3 md:grid-cols-2 pt-2">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">🇧🇷 Português (treine)</span>
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(scriptPt, "PT")}>
+                      <Copy className="h-3 w-3 mr-1" /> Copiar
+                    </Button>
                   </div>
+                  <Textarea value={scriptPt} onChange={(e) => setScriptPt(e.target.value)} className="min-h-[180px] text-sm" />
                 </div>
-              ))}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-muted-foreground">🇺🇸 English (grave esta)</span>
+                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(scriptEn, "EN")}>
+                      <Copy className="h-3 w-3 mr-1" /> Copiar
+                    </Button>
+                  </div>
+                  <Textarea value={scriptEn} onChange={(e) => setScriptEn(e.target.value)} className="min-h-[180px] text-sm" />
+                </div>
+              </div>
+              <Button onClick={handleExportPdf} disabled={exporting} variant="outline" size="sm">
+                {exporting ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-2" />}
+                Baixar roteiro em PDF (PT + EN)
+              </Button>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* PASSO 2 — Como gravar e subir */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">2. Gravar e subir no YouTube</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-2 text-sm">
+          <ol className="list-decimal pl-5 space-y-1.5">
+            <li>Use o roteiro acima — treine 2-3 vezes em voz alta antes.</li>
+            <li><strong>Grave com o celular na horizontal</strong>, em boa luz (natural de dia funciona). Fundo neutro: parede, campo, ou seu local de trabalho. <strong>~60-90 segundos.</strong></li>
+            <li>Vá em <a href="https://youtube.com/upload" target="_blank" rel="noopener noreferrer" className="text-primary underline">youtube.com/upload</a>, suba o vídeo e marque visibilidade como <strong>"Não listado"</strong> (só quem tem o link vê).</li>
+            <li>Copie o link do vídeo e cole no campo abaixo.</li>
+          </ol>
+        </CardContent>
+      </Card>
+
+      {/* PASSO 3 — Link do YouTube */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Youtube className="h-4 w-4 text-destructive" />
+            3. Cole o link do YouTube
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex gap-2">
+            <Input
+              type="url"
+              placeholder="https://youtu.be/xxxxxxxxxxx ou https://youtube.com/watch?v=xxxx"
+              value={youtubeUrl}
+              onChange={(e) => setYoutubeUrl(e.target.value)}
+            />
+            <Button onClick={handleSaveUrl} disabled={savingUrl}>
+              {savingUrl ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
+              Salvar
+            </Button>
+          </div>
+
+          {youtubeUrl.trim() && !normalizedUrl && (
+            <div className="flex items-center gap-2 text-xs text-destructive">
+              <AlertCircle className="h-3.5 w-3.5" /> Link não parece um vídeo do YouTube.
+            </div>
+          )}
+
+          {normalizedUrl && ytId && (
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-xs text-success-foreground">
+                <Check className="h-3.5 w-3.5 text-success" />
+                <span>Link reconhecido. Aparecerá nos emails como <code className="font-mono">{normalizedUrl}</code></span>
+              </div>
+              <div className="aspect-video w-full max-w-md rounded overflow-hidden border bg-black">
+                <iframe
+                  width="100%"
+                  height="100%"
+                  src={`https://www.youtube.com/embed/${ytId}`}
+                  title="Preview"
+                  allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              <Badge className="bg-success text-success-foreground">Pronto pra usar nas candidaturas</Badge>
             </div>
           )}
         </CardContent>

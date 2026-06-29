@@ -662,6 +662,10 @@ export type Database = {
           public_slug: string | null
           resume_completion_pct: number | null
           updated_at: string | null
+          video_script_en: string | null
+          video_script_generated_at: string | null
+          video_script_pt: string | null
+          youtube_video_url: string | null
         }
         Insert: {
           application_quality_score?: number | null
@@ -680,6 +684,10 @@ export type Database = {
           public_slug?: string | null
           resume_completion_pct?: number | null
           updated_at?: string | null
+          video_script_en?: string | null
+          video_script_generated_at?: string | null
+          video_script_pt?: string | null
+          youtube_video_url?: string | null
         }
         Update: {
           application_quality_score?: number | null
@@ -698,6 +706,10 @@ export type Database = {
           public_slug?: string | null
           resume_completion_pct?: number | null
           updated_at?: string | null
+          video_script_en?: string | null
+          video_script_generated_at?: string | null
+          video_script_pt?: string | null
+          youtube_video_url?: string | null
         }
         Relationships: []
       }
@@ -1319,9 +1331,11 @@ export type Database = {
           category: string | null
           id: string
           is_featured: boolean | null
+          is_resume_photo: boolean
           media_type: string | null
           media_url: string
           owner_id: string
+          resume_photo_order: number | null
           uploaded_at: string | null
         }
         Insert: {
@@ -1329,9 +1343,11 @@ export type Database = {
           category?: string | null
           id?: string
           is_featured?: boolean | null
+          is_resume_photo?: boolean
           media_type?: string | null
           media_url: string
           owner_id: string
+          resume_photo_order?: number | null
           uploaded_at?: string | null
         }
         Update: {
@@ -1339,9 +1355,11 @@ export type Database = {
           category?: string | null
           id?: string
           is_featured?: boolean | null
+          is_resume_photo?: boolean
           media_type?: string | null
           media_url?: string
           owner_id?: string
+          resume_photo_order?: number | null
           uploaded_at?: string | null
         }
         Relationships: []

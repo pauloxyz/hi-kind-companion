@@ -19,14 +19,12 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    const [{ data: job }, { data: profile }, { data: resume }, { data: experiences }, { data: featuredMedia }, { data: video }] =
+    const [{ data: job }, { data: profile }, { data: resume }, { data: experiences }] =
       await Promise.all([
         supabase.from("jobs").select("*").eq("id", data.jobId).maybeSingle(),
         supabase.from("my_profile").select("*").eq("owner_id", userId).maybeSingle(),
         supabase.from("resumes").select("*").eq("owner_id", userId).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
         supabase.from("resume_experiences").select("*").eq("owner_id", userId).order("sort_order", { ascending: true }),
-        supabase.from("work_media").select("id,media_url,media_type,caption").eq("owner_id", userId).eq("is_featured", true).order("uploaded_at", { ascending: false }).limit(6),
-        supabase.from("intro_video").select("id,video_url").eq("owner_id", userId).eq("is_active", true).order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
       ]);
 
     if (!job) throw new Error("Vaga não encontrada");
@@ -104,36 +102,26 @@ ${expLines || "(no prior experience listed)"}
       throw new Error("Falha ao gerar carta: " + msg);
     }
 
-    // Build attachment footer. Prefer the public profile URL when available — one short link beats raw signed Storage URLs.
-    const EXPIRES = 60 * 60 * 24 * 30;
+    // Build attachment footer. PDF do currículo já carrega as 6 fotos dentro,
+    // então o footer só destaca: (a) link público do perfil OU (b) link do YouTube.
     const footer: string[] = [];
     const attachedMediaIds: string[] = [];
-    let attachedVideoId: string | null = null;
+    const attachedVideoId: string | null = null;
 
     if (profile?.public_slug && profile?.public_page_enabled) {
       const { getRequestHost } = await import("@tanstack/react-start/server");
       let host = "";
       try { host = getRequestHost(); } catch { host = ""; }
       const origin = host ? `https://${host}` : "";
-      footer.push(`Full candidate profile (video + photos + experience): ${origin}/v/${profile.public_slug}`);
-      if (video) attachedVideoId = video.id;
-      for (const m of featuredMedia ?? []) attachedMediaIds.push(m.id);
-    } else {
-      if (video) {
-        const { data: signed } = await supabase.storage.from("intro-videos").createSignedUrl(video.video_url, EXPIRES);
-        if (signed) { footer.push(`Intro video (English): ${signed.signedUrl}`); attachedVideoId = video.id; }
-      }
-      if (featuredMedia && featuredMedia.length) {
-        const mediaLines: string[] = [];
-        for (const m of featuredMedia) {
-          const { data: signed } = await supabase.storage.from("work-media").createSignedUrl(m.media_url, EXPIRES);
-          if (signed) {
-            mediaLines.push(`- ${m.caption ?? "Work sample"}: ${signed.signedUrl}`);
-            attachedMediaIds.push(m.id);
-          }
-        }
-        if (mediaLines.length) { footer.push("Work photos / videos:"); footer.push(...mediaLines); }
-      }
+      footer.push(`Full candidate profile (video, photos, experience): ${origin}/v/${profile.public_slug}`);
+    }
+
+    const ytUrl = (profile as { youtube_video_url?: string | null } | null)?.youtube_video_url;
+    if (ytUrl) {
+      footer.push("");
+      footer.push(`Watch my short introduction video (in English):`);
+      footer.push(ytUrl);
+      footer.push(`A 60-second video where I introduce myself and talk about my farm experience.`);
     }
 
     const finalText = footer.length ? `${letter}\n\n---\nReferences:\n${footer.join("\n")}` : letter;
