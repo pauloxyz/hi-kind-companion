@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   ArrowRight, Briefcase, FileText, Video, ShieldCheck, BarChart3,
   Star, Quote, Sparkles, Check, GraduationCap, Send,
+  Stamp, Mic, Plane,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
