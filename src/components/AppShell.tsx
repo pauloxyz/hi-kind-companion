@@ -288,6 +288,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </div>
           </Link>
           <button
+            ref={closeBtnRef}
             type="button"
             onClick={() => setOpen(false)}
             className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground rounded-md p-1 min-h-11 min-w-11 shrink-0 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
