@@ -257,7 +257,7 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
           summary.push({ offset: days, matched: items?.length ?? 0, enqueued, skipped });
         }
 
-        return new Response(JSON.stringify({ ok: true, dry_run: dryRun, summary }), {
+        return new Response(JSON.stringify({ ok: true, dry_run: dryRun, mode, summary }), {
           headers: { "Content-Type": "application/json" },
         });
       },
