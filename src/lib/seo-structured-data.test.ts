@@ -10,25 +10,49 @@ const routesDir = join(process.cwd(), "src/routes");
  */
 function extractJsonLd(source: string): unknown[] {
   const out: unknown[] = [];
-  const re = /JSON\.stringify\(\s*(\{[\s\S]*?\})\s*\)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(source))) {
-    const literal = m[1];
-    // Only consider blocks that look like JSON-LD ("@context" present)
-    if (!/@context/.test(literal)) continue;
-    try {
-      // Evaluate the object literal in a sandboxed Function — values may
-      // include template strings / `new Date()`; we replace those with safe
-      // stand-ins so the literal becomes a deterministic plain object.
-      const safe = literal
-        .replace(/new Date\(\)\.toISOString\(\)\.slice\([^)]+\)/g, '"2026-01-01"')
-        .replace(/new Date\(\)\.toISOString\(\)/g, '"2026-01-01T00:00:00.000Z"');
-      // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-      const obj = new Function(`return (${safe});`)();
-      out.push(obj);
-    } catch {
-      // skip un-parseable blocks; tests below will flag missing required types
+  const marker = "JSON.stringify(";
+  let idx = source.indexOf(marker);
+  while (idx !== -1) {
+    // Skip whitespace, then expect "{"
+    let i = idx + marker.length;
+    while (i < source.length && /\s/.test(source[i])) i++;
+    if (source[i] !== "{") {
+      idx = source.indexOf(marker, idx + 1);
+      continue;
     }
+    // Balanced-brace scan that respects strings, template strings, and escapes.
+    const start = i;
+    let depth = 0;
+    let inStr: '"' | "'" | "`" | null = null;
+    let escape = false;
+    while (i < source.length) {
+      const c = source[i];
+      if (escape) { escape = false; i++; continue; }
+      if (inStr) {
+        if (c === "\\") { escape = true; i++; continue; }
+        if (c === inStr) inStr = null;
+        i++;
+        continue;
+      }
+      if (c === '"' || c === "'" || c === "`") { inStr = c; i++; continue; }
+      if (c === "{") depth++;
+      else if (c === "}") { depth--; if (depth === 0) { i++; break; } }
+      i++;
+    }
+    const literal = source.slice(start, i);
+    if (/@context/.test(literal)) {
+      try {
+        const safe = literal
+          .replace(/new Date\(\)\.toISOString\(\)\.slice\([^)]+\)/g, '"2026-01-01"')
+          .replace(/new Date\(\)\.toISOString\(\)/g, '"2026-01-01T00:00:00.000Z"');
+        // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
+        const obj = new Function(`return (${safe});`)();
+        out.push(obj);
+      } catch {
+        // skip un-parseable blocks
+      }
+    }
+    idx = source.indexOf(marker, i);
   }
   return out;
 }
