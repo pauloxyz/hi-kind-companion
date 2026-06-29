@@ -1125,6 +1125,7 @@ export type Database = {
         Args: { _key: string; _max: number; _window_seconds: number }
         Returns: boolean
       }
+      escalate_admin_denied_spikes: { Args: never; Returns: number }
       escalate_high_risk_alerts: { Args: never; Returns: number }
       has_role: {
         Args: {
