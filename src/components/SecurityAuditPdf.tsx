@@ -1,4 +1,5 @@
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import { PdfLogo, PdfBrandedFooter } from "./PdfLogo";
 import type { AuditEvent, AuditStats } from "@/lib/security-admin.functions";
 
 const s = StyleSheet.create({
