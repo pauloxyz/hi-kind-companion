@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { FraudBanner } from "./StrategyBanner";
 import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
+import { computeJourney } from "@/lib/h2a-journey";
 
 type NavItem = {
   to: string;
