@@ -226,22 +226,6 @@ async def test_route_redirects(session: dict) -> set[str]:
         await browser.close()
     return expected_resources
 
-            # client-side beforeLoad needs a tick to call requireAdminAccess()
-            try:
-                await page.wait_for_url(lambda url: "/app/auditoria" not in url and "/admin/seo" not in url, timeout=8000)
-            except Exception:
-                pass
-            final = page.url
-            slug = path.replace("/", "_")
-            await page.screenshot(path=str(SCREENSHOTS / f"after{slug}.png"))
-            ok = final.endswith("/app") or "/app?" in final or "/auth" in final
-            record(
-                f"GET {path} → redirected away (non-admin)",
-                ok,
-                f"final URL = {final}",
-            )
-
-        await browser.close()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
