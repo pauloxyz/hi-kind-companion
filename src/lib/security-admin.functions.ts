@@ -5,15 +5,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
 
-async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error) throw new Error("role check failed");
-  if (!data) throw new Error("Forbidden");
-}
-
 type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
 
 export type AuditEvent = {

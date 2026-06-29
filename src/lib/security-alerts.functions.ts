@@ -6,15 +6,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
 
-async function assertAdmin(ctx: { supabase: any; userId: string }) {
-  const { data, error } = await ctx.supabase.rpc("has_role", {
-    _user_id: ctx.userId,
-    _role: "admin",
-  });
-  if (error) throw new Error("role check failed");
-  if (!data) throw new Error("Forbidden");
-}
-
 export type AlertAck = {
   id: string;
   alert_key: string;
