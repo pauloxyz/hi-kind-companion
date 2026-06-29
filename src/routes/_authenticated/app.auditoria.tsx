@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getAuditStats, getDeniedAdminSummary, listAuditEvents, type AuditEvent, getAdminSpikeConfig, updateAdminSpikeConfig } from "@/lib/security-admin.functions";
+import { getSpikeAlertStatus, bootstrapSpikeAlertConfig, sendSpikeAlertTest } from "@/lib/spike-alert.functions";
 import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
@@ -54,6 +55,7 @@ const EVENT_TYPES = [
   { v: "", label: "Todos os tipos" },
   { v: "admin_access_denied", label: "Acesso admin negado" },
   { v: "admin_access_denied_spike", label: "Pico de acesso admin negado" },
+  { v: "admin_access_denied_spike_notified", label: "Spike notificado (email/Slack)" },
   { v: "high_risk_alert", label: "Alerta de alto risco" },
   { v: "hibp_block", label: "HIBP Block" },
   { v: "weak_password_block", label: "Senha Fraca" },
@@ -735,8 +737,9 @@ function AuditPanel() {
           <RetentionTab />
         </TabsContent>
 
-        <TabsContent value="spike-config">
+        <TabsContent value="spike-config" className="space-y-4">
           <SpikeConfigTab />
+          <SpikeAlertNotificationsCard />
         </TabsContent>
       </Tabs>
 
@@ -1332,6 +1335,131 @@ function SpikeConfigTab() {
                   onClick={() => mutation.mutate({ threshold, window_minutes: windowMin })}
                 >
                   {mutation.isPending ? "Salvando…" : "Salvar"}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function SpikeAlertNotificationsCard() {
+  const fetchStatus = useServerFn(getSpikeAlertStatus);
+  const bootstrap = useServerFn(bootstrapSpikeAlertConfig);
+  const sendTest = useServerFn(sendSpikeAlertTest);
+  const queryClient = useQueryClient();
+  const q = useQuery({ queryKey: ["spike-alert-status"], queryFn: () => fetchStatus() });
+
+  const bootstrapMutation = useMutation({
+    mutationFn: (input: { base_url: string; enabled: boolean }) => bootstrap({ data: input }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["spike-alert-status"] });
+      toast.success("Webhook de alerta configurado");
+    },
+    onError: (e: Error) => toast.error(e.message ?? "Falha ao configurar"),
+  });
+
+  const testMutation = useMutation({
+    mutationFn: () => sendTest(),
+    onSuccess: () => toast.success("Alerta de teste enviado (verifique email e Slack)"),
+    onError: (e: Error) => toast.error(e.message ?? "Falha no teste"),
+  });
+
+  const handleBootstrap = (enabled: boolean) => {
+    const baseUrl = typeof window !== "undefined" ? window.location.origin : "";
+    bootstrapMutation.mutate({ base_url: baseUrl, enabled });
+  };
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base flex items-center gap-2">
+          <AlertTriangle className="size-4" aria-hidden="true" /> Notificações em tempo real
+        </CardTitle>
+        <CardDescription>
+          Toda vez que um evento <code>admin_access_denied_spike</code> for gravado, um webhook interno
+          assinado é disparado pelo banco e envia email (via Gmail) e mensagem no Slack para o time de
+          segurança.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {q.isLoading ? (
+          <p className="text-sm text-muted-foreground">Carregando…</p>
+        ) : q.error ? (
+          <p className="text-sm text-destructive">Acesso negado ou falha ao carregar.</p>
+        ) : (
+          <>
+            <dl className="grid gap-3 sm:grid-cols-2 text-sm">
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground">Webhook</dt>
+                <dd className="font-mono text-xs break-all">
+                  {q.data?.webhook_url ?? <span className="text-muted-foreground">Não configurado</span>}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground">Status</dt>
+                <dd>
+                  {q.data?.configured ? (
+                    q.data.enabled ? (
+                      <Badge className="bg-emerald-600">Ativo</Badge>
+                    ) : (
+                      <Badge variant="secondary">Pausado</Badge>
+                    )
+                  ) : (
+                    <Badge variant="destructive">Não inicializado</Badge>
+                  )}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground">Email destino</dt>
+                <dd className="font-mono text-xs">
+                  {q.data?.email_to ?? <span className="text-muted-foreground">SPIKE_ALERT_EMAIL_TO ausente</span>}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs uppercase tracking-wider text-muted-foreground">Canal Slack</dt>
+                <dd className="text-xs">
+                  {q.data?.slack_channel_configured ? (
+                    <Badge className="bg-emerald-600">Configurado</Badge>
+                  ) : (
+                    <Badge variant="destructive">SPIKE_ALERT_SLACK_CHANNEL ausente</Badge>
+                  )}
+                </dd>
+              </div>
+            </dl>
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t">
+              <p className="text-xs text-muted-foreground">
+                Última atualização:{" "}
+                {q.data?.updated_at ? new Date(q.data.updated_at).toLocaleString("pt-BR") : "—"}
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {q.data?.configured && q.data.enabled ? (
+                  <Button
+                    variant="ghost"
+                    disabled={bootstrapMutation.isPending}
+                    onClick={() => handleBootstrap(false)}
+                  >
+                    Pausar
+                  </Button>
+                ) : null}
+                <Button
+                  variant="outline"
+                  disabled={bootstrapMutation.isPending}
+                  onClick={() => handleBootstrap(true)}
+                >
+                  {bootstrapMutation.isPending
+                    ? "Configurando…"
+                    : q.data?.configured
+                    ? "Reaplicar webhook"
+                    : "Inicializar webhook"}
+                </Button>
+                <Button
+                  disabled={!q.data?.configured || testMutation.isPending}
+                  onClick={() => testMutation.mutate()}
+                >
+                  {testMutation.isPending ? "Enviando…" : "Enviar alerta de teste"}
                 </Button>
               </div>
             </div>

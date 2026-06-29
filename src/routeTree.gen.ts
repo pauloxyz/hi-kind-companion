@@ -49,6 +49,7 @@ import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
+import { Route as ApiPublicHooksSpikeAlertRouteImport } from './routes/api/public/hooks/spike-alert'
 import { Route as ApiPublicHooksSeoScanRouteImport } from './routes/api/public/hooks/seo-scan'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
@@ -263,6 +264,12 @@ const ApiPublicHooksUptimeRoute = ApiPublicHooksUptimeRouteImport.update({
   path: '/api/public/hooks/uptime',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicHooksSpikeAlertRoute =
+  ApiPublicHooksSpikeAlertRouteImport.update({
+    id: '/api/public/hooks/spike-alert',
+    path: '/api/public/hooks/spike-alert',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksSeoScanRoute = ApiPublicHooksSeoScanRouteImport.update({
   id: '/api/public/hooks/seo-scan',
   path: '/api/public/hooks/seo-scan',
@@ -341,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
+  '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -386,6 +394,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
+  '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -435,6 +444,7 @@ export interface FileRoutesById {
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
+  '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/_authenticated/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -484,6 +494,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/api/public/hooks/seo-scan'
+    | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
     | '/app/ingles/'
     | '/app/ingles/$module/$lesson'
@@ -529,6 +540,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/api/public/hooks/seo-scan'
+    | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
     | '/app/ingles'
     | '/app/ingles/$module/$lesson'
@@ -577,6 +589,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/api/public/hooks/seo-scan'
+    | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
     | '/_authenticated/app/ingles/'
     | '/_authenticated/app/ingles/$module/$lesson'
@@ -610,6 +623,7 @@ export interface RootRouteChildren {
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
   ApiPublicHooksImportDolFeedRoute: typeof ApiPublicHooksImportDolFeedRoute
   ApiPublicHooksSeoScanRoute: typeof ApiPublicHooksSeoScanRoute
+  ApiPublicHooksSpikeAlertRoute: typeof ApiPublicHooksSpikeAlertRoute
   ApiPublicHooksUptimeRoute: typeof ApiPublicHooksUptimeRoute
 }
 
@@ -895,6 +909,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksUptimeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/hooks/spike-alert': {
+      id: '/api/public/hooks/spike-alert'
+      path: '/api/public/hooks/spike-alert'
+      fullPath: '/api/public/hooks/spike-alert'
+      preLoaderRoute: typeof ApiPublicHooksSpikeAlertRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/seo-scan': {
       id: '/api/public/hooks/seo-scan'
       path: '/api/public/hooks/seo-scan'
@@ -1041,6 +1062,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
   ApiPublicHooksImportDolFeedRoute: ApiPublicHooksImportDolFeedRoute,
   ApiPublicHooksSeoScanRoute: ApiPublicHooksSeoScanRoute,
+  ApiPublicHooksSpikeAlertRoute: ApiPublicHooksSpikeAlertRoute,
   ApiPublicHooksUptimeRoute: ApiPublicHooksUptimeRoute,
 }
 export const routeTree = rootRouteImport

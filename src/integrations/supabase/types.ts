@@ -607,6 +607,33 @@ export type Database = {
         }
         Relationships: []
       }
+      private_spike_alert_config: {
+        Row: {
+          enabled: boolean
+          id: boolean
+          shared_secret: string
+          updated_at: string
+          updated_by: string | null
+          webhook_url: string
+        }
+        Insert: {
+          enabled?: boolean
+          id?: boolean
+          shared_secret: string
+          updated_at?: string
+          updated_by?: string | null
+          webhook_url: string
+        }
+        Update: {
+          enabled?: boolean
+          id?: boolean
+          shared_secret?: string
+          updated_at?: string
+          updated_by?: string | null
+          webhook_url?: string
+        }
+        Relationships: []
+      }
       profile_views: {
         Row: {
           id: string
