@@ -16,7 +16,7 @@ export const Route = createFileRoute("/")({
       { property: "og:title", content: "VaiPraLá — Visto H-2A para brasileiros" },
       { property: "og:description", content: "Vagas reais de fazendas americanas, cartas em inglês com IA, curso de inglês e acompanhamento do visto." },
       { property: "og:url", content: "/" },
-      { name: "twitter:card", content: "summary_large_image" },
+      
     ],
     links: [{ rel: "canonical", href: "/" }],
     scripts: [
