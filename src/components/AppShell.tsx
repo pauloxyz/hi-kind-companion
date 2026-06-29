@@ -164,6 +164,46 @@ export function AppShell({ children }: { children?: ReactNode }) {
     };
   }, [open]);
 
+  // Atalhos globais: G seguido de V (vagas), C (currículo), J (jornada/dashboard).
+  useEffect(() => {
+    let gPressed = false;
+    let gTimer: ReturnType<typeof setTimeout> | null = null;
+    const isTyping = (el: EventTarget | null) => {
+      const node = el as HTMLElement | null;
+      if (!node) return false;
+      const tag = node.tagName;
+      return tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || node.isContentEditable;
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTyping(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (!gPressed) {
+        if (k === "g") {
+          gPressed = true;
+          if (gTimer) clearTimeout(gTimer);
+          gTimer = setTimeout(() => { gPressed = false; }, 900);
+        }
+        return;
+      }
+      let to: string | null = null;
+      if (k === "v") to = "/app/vagas";
+      else if (k === "c") to = "/app/curriculo";
+      else if (k === "j") to = "/app";
+      gPressed = false;
+      if (gTimer) { clearTimeout(gTimer); gTimer = null; }
+      if (to) {
+        e.preventDefault();
+        navigate({ to });
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      if (gTimer) clearTimeout(gTimer);
+    };
+  }, [navigate]);
+
 
 
 
