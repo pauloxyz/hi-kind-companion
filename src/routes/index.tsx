@@ -444,6 +444,15 @@ function Landing() {
   );
 }
 
+function BigStat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+  return (
+    <div>
+      <p className={`text-3xl sm:text-4xl font-black ${accent ? "text-accent-gold" : "text-primary-foreground"}`}>{value}</p>
+      <p className="text-xs sm:text-sm text-primary-foreground/70 mt-1">{label}</p>
+    </div>
+  );
+}
+
 function JourneyTimeline({ jobs, applications }: { jobs: number; applications: number }) {
   // Mirrors src/lib/h2a-journey.ts so the landing visual matches what
   // signed-in users see in the sidebar. Counters at the top read live
