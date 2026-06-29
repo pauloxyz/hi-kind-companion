@@ -86,17 +86,34 @@ const dict: Dict = {
 type I18nCtx = { lang: Lang; setLang: (l: Lang) => void; t: (k: keyof typeof dict | string) => string };
 const Ctx = createContext<I18nCtx>({ lang: "pt", setLang: () => {}, t: (k) => k as string });
 
+const LANG_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+function readLangCookie(): Lang | null {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(/(?:^|; )lang=([^;]*)/);
+  const v = m ? decodeURIComponent(m[1]) : null;
+  return v === "pt" || v === "en" || v === "es" ? (v as Lang) : null;
+}
+function writeLangCookie(l: Lang) {
+  if (typeof document === "undefined") return;
+  document.cookie = `lang=${l}; path=/; max-age=${LANG_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>("pt");
   useEffect(() => {
-    const saved = typeof window !== "undefined" ? (localStorage.getItem("lang") as Lang | null) : null;
+    const fromLs = typeof window !== "undefined" ? (localStorage.getItem("lang") as Lang | null) : null;
+    const fromCookie = readLangCookie();
+    const saved = fromLs ?? fromCookie;
     const initial: Lang = saved === "pt" || saved === "en" || saved === "es" ? saved : "pt";
     setLangState(initial);
     if (typeof document !== "undefined") document.documentElement.lang = initial;
+    if (typeof window !== "undefined") localStorage.setItem("lang", initial);
+    writeLangCookie(initial);
   }, []);
   const setLang = (l: Lang) => {
     setLangState(l);
     if (typeof window !== "undefined") localStorage.setItem("lang", l);
+    writeLangCookie(l);
     if (typeof document !== "undefined") document.documentElement.lang = l;
   };
   const t = (k: string) => (dict[k] ? dict[k][lang] : k);
