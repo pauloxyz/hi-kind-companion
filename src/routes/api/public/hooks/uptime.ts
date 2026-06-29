@@ -20,7 +20,7 @@ export const Route = createFileRoute("/api/public/hooks/uptime")({
             { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
           );
           const t0 = Date.now();
-          const { error } = await sb.from("jobs").select("id", { count: "exact", head: true }).limit(1);
+          const { error } = await sb.from("public_jobs" as unknown as "jobs").select("id", { count: "exact", head: true }).limit(1);
           checks.database = error
             ? { ok: false, error: error.message }
             : { ok: true, latency_ms: Date.now() - t0 };
