@@ -106,8 +106,8 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["work_media"] });
       if (ok > 0) toast.success(`${ok} mídia(s) enviada(s)`);
       if (fail > 0) toast.error(`${fail} falha(s) no upload`);
-    } catch (err: any) {
-      toast.error(err.message ?? "Erro no upload");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro no upload");
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
