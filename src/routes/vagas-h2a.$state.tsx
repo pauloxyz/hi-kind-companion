@@ -59,27 +59,43 @@ export const Route = createFileRoute("/vagas-h2a/$state")({
           "@type": "ItemList",
           name: `Vagas H-2A em ${name}`,
           numberOfItems: count,
-          itemListElement: (loaderData?.jobs ?? []).slice(0, 25).map((j: Job, i: number) => ({
-            "@type": "ListItem",
-            position: i + 1,
-            item: {
-              "@type": "JobPosting",
-              title: j.job_title ?? "H-2A Farmworker",
-              hiringOrganization: { "@type": "Organization", name: j.employer_name ?? "US Farm Employer" },
-              jobLocation: {
-                "@type": "Place",
-                address: { "@type": "PostalAddress", addressLocality: j.worksite_city ?? undefined, addressRegion: code, addressCountry: "US" },
+          itemListElement: (loaderData?.jobs ?? []).slice(0, 25).map((j: Job, i: number) => {
+            const jobTitle = j.job_title ?? "H-2A Farmworker";
+            const employer = j.employer_name ?? "US Farm Employer";
+            const locationCity = j.worksite_city ?? name;
+            return {
+              "@type": "ListItem",
+              position: i + 1,
+              item: {
+                "@context": "https://schema.org",
+                "@type": "JobPosting",
+                identifier: { "@type": "PropertyValue", name: "VaiPraLá Job ID", value: j.id },
+                title: jobTitle,
+                description: `Vaga oficial H-2A: ${jobTitle} para ${employer} em ${locationCity}, ${name} (EUA). ${
+                  j.total_openings ? `${j.total_openings} posições abertas. ` : ""
+                }${j.start_date ? `Início em ${j.start_date}` : "Início conforme cronograma do empregador"}${
+                  j.end_date ? ` até ${j.end_date}.` : "."
+                } Publicada pelo Departamento do Trabalho dos EUA.`,
+                hiringOrganization: { "@type": "Organization", name: employer },
+                jobLocation: {
+                  "@type": "Place",
+                  address: { "@type": "PostalAddress", addressLocality: j.worksite_city ?? undefined, addressRegion: code, addressCountry: "US" },
+                },
+                jobLocationType: undefined,
+                applicantLocationRequirements: { "@type": "Country", name: "Brazil" },
+                datePosted: j.start_date ?? new Date().toISOString().slice(0, 10),
+                validThrough: j.end_date ?? undefined,
+                employmentType: "TEMPORARY",
+                directApply: false,
+                totalJobOpenings: j.total_openings ?? undefined,
+                baseSalary: j.wage_offered ? {
+                  "@type": "MonetaryAmount",
+                  currency: "USD",
+                  value: { "@type": "QuantitativeValue", value: j.wage_offered, unitText: (j.wage_unit ?? "HOUR").toUpperCase() },
+                } : undefined,
               },
-              datePosted: j.start_date ?? undefined,
-              validThrough: j.end_date ?? undefined,
-              employmentType: "TEMPORARY",
-              baseSalary: j.wage_offered ? {
-                "@type": "MonetaryAmount",
-                currency: "USD",
-                value: { "@type": "QuantitativeValue", value: j.wage_offered, unitText: (j.wage_unit ?? "HOUR").toUpperCase() },
-              } : undefined,
-            },
-          })),
+            };
+          }),
         }),
       }],
     };
