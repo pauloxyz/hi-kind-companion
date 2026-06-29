@@ -48,6 +48,7 @@ import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
+import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
 import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
 import { Route as ApiPublicHooksSpikeAlertRouteImport } from './routes/api/public/hooks/spike-alert'
 import { Route as ApiPublicHooksSeoScanRouteImport } from './routes/api/public/hooks/seo-scan'
@@ -260,6 +261,12 @@ const AuthenticatedAppInglesIndexRoute =
     path: '/',
     getParentRoute: () => AuthenticatedAppInglesRoute,
   } as any)
+const LovableEmailQueueProcessRoute =
+  LovableEmailQueueProcessRouteImport.update({
+    id: '/lovable/email/queue/process',
+    path: '/lovable/email/queue/process',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicHooksUptimeRoute = ApiPublicHooksUptimeRouteImport.update({
   id: '/api/public/hooks/uptime',
   path: '/api/public/hooks/uptime',
@@ -358,6 +365,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/app/ingles/$module/': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -405,6 +413,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -456,6 +465,7 @@ export interface FileRoutesById {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/_authenticated/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
   '/_authenticated/app/ingles/$module/': typeof AuthenticatedAppInglesModuleIndexRoute
@@ -507,6 +517,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/lovable/email/queue/process'
     | '/app/ingles/'
     | '/app/ingles/$module/$lesson'
     | '/app/ingles/$module/'
@@ -554,6 +565,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/lovable/email/queue/process'
     | '/app/ingles'
     | '/app/ingles/$module/$lesson'
     | '/app/ingles/$module'
@@ -604,6 +616,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/lovable/email/queue/process'
     | '/_authenticated/app/ingles/'
     | '/_authenticated/app/ingles/$module/$lesson'
     | '/_authenticated/app/ingles/$module/'
@@ -638,6 +651,7 @@ export interface RootRouteChildren {
   ApiPublicHooksSeoScanRoute: typeof ApiPublicHooksSeoScanRoute
   ApiPublicHooksSpikeAlertRoute: typeof ApiPublicHooksSpikeAlertRoute
   ApiPublicHooksUptimeRoute: typeof ApiPublicHooksUptimeRoute
+  LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -915,6 +929,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppInglesIndexRouteImport
       parentRoute: typeof AuthenticatedAppInglesRoute
     }
+    '/lovable/email/queue/process': {
+      id: '/lovable/email/queue/process'
+      path: '/lovable/email/queue/process'
+      fullPath: '/lovable/email/queue/process'
+      preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/uptime': {
       id: '/api/public/hooks/uptime'
       path: '/api/public/hooks/uptime'
@@ -1097,6 +1118,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksSeoScanRoute: ApiPublicHooksSeoScanRoute,
   ApiPublicHooksSpikeAlertRoute: ApiPublicHooksSpikeAlertRoute,
   ApiPublicHooksUptimeRoute: ApiPublicHooksUptimeRoute,
+  LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
