@@ -7,9 +7,12 @@
  * The actual "send a test email" flow uses sendTransactionalEmail() from the
  * client with the caller's own JWT — no admin server fn needed for that.
  */
+import * as React from "react";
+import { render } from "react-email";
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
+import { TEMPLATES } from "@/lib/email-templates/registry";
 
 export type LogRow = {
   id: string;
