@@ -398,6 +398,7 @@ function AuditPanel() {
           <TabsTrigger value="events">{tr("audit_tab_events")}</TabsTrigger>
           <TabsTrigger value="trend">{tr("audit_tab_trend")}</TabsTrigger>
           <TabsTrigger value="retention">{tr("audit_tab_retention")}</TabsTrigger>
+          <TabsTrigger value="spike-config">Alertas: limites</TabsTrigger>
         </TabsList>
 
 
