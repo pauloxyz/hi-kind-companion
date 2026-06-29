@@ -126,8 +126,9 @@ test.describe("drawer keyboard contract under rapid shortcut bursts", () => {
   test(`@1024px persistent sidebar replaces drawer (no trigger, no overlay)`, async ({ page }) => {
     await bootApp(page, 1024, 900);
 
-    // At lg breakpoint the mobile header (and trigger) is `lg:hidden`.
-    await expect(page.getByTestId("drawer-trigger")).toHaveCount(0);
+    // At lg breakpoint the mobile header (and trigger) is `lg:hidden`. The
+    // node may still exist in the DOM tree — assert it is not visible/clickable.
+    await expect(page.getByTestId("drawer-trigger")).toBeHidden();
     // The persistent sidebar landmark is visible and there's no z-40 overlay.
     await expect(
       page.getByRole("navigation", { name: "Navegação principal" }).first(),
