@@ -22,7 +22,13 @@ async function bootSession(page: Page) {
   await page.goto("/", { waitUntil: "domcontentloaded" });
   await page.waitForLoadState("networkidle").catch(() => {});
   await page.evaluate(
-    ({ key, json }) => window.localStorage.setItem(key!, json!),
+    ({ key, json }) => {
+      window.localStorage.setItem(key!, json!);
+      // Dismiss the first-run OnboardingTour overlay so it doesn't sit on
+      // top of the drawer and intercept pointer events in click-based
+      // tests. Keyboard-only tests don't need this, but it's harmless.
+      window.localStorage.setItem("vaiprala_tour_done_v1", "1");
+    },
     { key: STORAGE_KEY, json: SESSION_JSON },
   );
 }
