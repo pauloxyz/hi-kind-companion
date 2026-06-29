@@ -102,4 +102,127 @@ test.describe("mobile drawer focus trap across viewports", () => {
       expect(focusBackOnTrigger, "focus must return to the trigger after Escape").toBe(true);
     });
   }
+
+  /**
+   * At exactly 1023px, capture the forward Tab sequence inside the drawer
+   * and assert Shift+Tab walks it back in reverse. This is stronger than
+   * the "every step stays inside" check above: a buggy trap could keep
+   * focus inside the dialog but cycle through items in the wrong order.
+   * Catching that requires comparing the two sequences element-by-element.
+   */
+  test("1023 lg-boundary: forward Tab order is exactly mirrored by Shift+Tab (no trap leak)", async ({ page }) => {
+    await page.setViewportSize({ width: 1023, height: 900 });
+    await bootSession(page);
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+    await page.waitForLoadState("networkidle").catch(() => {});
+
+    const trigger = page.getByRole("button", { name: "Abrir menu" });
+    await trigger.focus();
+    await page.keyboard.press("Enter");
+
+    const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
+    await expect(dialog).toBeVisible();
+
+    // Identifies the focused element by something stable across renders.
+    const keyOfFocused = () =>
+      page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el) return null;
+        return (
+          el.id ||
+          el.getAttribute("data-testid") ||
+          el.getAttribute("aria-label") ||
+          (el.textContent ?? "").trim().slice(0, 40) ||
+          el.tagName
+        );
+      });
+    const isInsideDialog = () =>
+      page.evaluate(() => {
+        const dlg = document.querySelector('[role="dialog"]');
+        return !!dlg && dlg.contains(document.activeElement);
+      });
+
+    // Walk forward N steps, recording the focus key at each step. The
+    // initial focused element (auto-focused on open) is index 0.
+    const STEPS = 5;
+    const forward: (string | null)[] = [await keyOfFocused()];
+    for (let i = 0; i < STEPS; i++) {
+      await page.keyboard.press("Tab");
+      expect(await isInsideDialog(), `forward Tab ${i} leaked outside dialog at 1023px`).toBe(true);
+      forward.push(await keyOfFocused());
+    }
+
+    // Sanity: we actually moved through several distinct items, not the
+    // same element each press (which would also satisfy "still inside").
+    const distinctForward = new Set(forward.filter(Boolean));
+    expect(distinctForward.size, `forward walk visited only ${distinctForward.size} distinct items`).toBeGreaterThanOrEqual(3);
+
+    // Walk Shift+Tab back the same number of steps and check the sequence
+    // is the exact reverse of the forward walk.
+    const reverse: (string | null)[] = [forward[forward.length - 1]];
+    for (let i = 0; i < STEPS; i++) {
+      await page.keyboard.press("Shift+Tab");
+      expect(await isInsideDialog(), `reverse Tab ${i} leaked outside dialog at 1023px`).toBe(true);
+      reverse.push(await keyOfFocused());
+    }
+
+    const expectedReverse = [...forward].reverse();
+    expect(
+      reverse,
+      `Shift+Tab order mismatch at 1023px.\n  forward:  ${JSON.stringify(forward)}\n  reverse:  ${JSON.stringify(reverse)}\n  expected: ${JSON.stringify(expectedReverse)}`,
+    ).toEqual(expectedReverse);
+  });
+});
+
+/**
+ * Sibling describe — at exactly 1024px the `lg:hidden` trigger disappears
+ * and the persistent sidebar takes over. The mobile focus trap MUST NOT
+ * apply: there is no dialog to trap into, Tab from the sidebar should
+ * flow naturally into the main content, and aria-modal should be absent.
+ */
+test.describe("desktop layout at lg boundary (1024px) — no mobile trap", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+
+  test("1024px: drawer trigger is hidden, persistent sidebar exposes nav, Tab flows into main", async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 900 });
+    await bootSession(page);
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+    await page.waitForLoadState("networkidle").catch(() => {});
+
+    // 1) The mobile trigger is `lg:hidden` and must NOT render at 1024px.
+    const trigger = page.getByRole("button", { name: "Abrir menu" });
+    await expect(trigger, "mobile drawer trigger must be hidden at 1024px").toBeHidden();
+
+    // 2) No aria-modal dialog should be present — the mobile drawer trap
+    //    only exists when the drawer is mounted, which it must not be here.
+    const modalCount = await page.locator('[role="dialog"][aria-modal="true"]').count();
+    expect(modalCount, "no mobile-style aria-modal dialog allowed at 1024px").toBe(0);
+
+    // 3) The persistent sidebar surfaces the primary nav links directly.
+    const dashboardLink = page.locator("#nav-dashboard").first();
+    await expect(dashboardLink).toBeVisible();
+
+    // 4) Focusing a sidebar link and Tabbing forward must keep focus on
+    //    visible, real elements — never on <body> (which would mean the
+    //    focus left the document entirely). Importantly, focus is allowed
+    //    to leave the sidebar — that is the desktop contract; the mobile
+    //    trap must not apply.
+    await dashboardLink.focus();
+    let leftSidebar = false;
+    for (let i = 0; i < 12; i++) {
+      await page.keyboard.press("Tab");
+      const state = await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        return {
+          tag: el?.tagName ?? null,
+          inSidebar: !!el?.closest('[data-testid="app-sidebar"], aside, nav'),
+        };
+      });
+      expect(state.tag, `Tab ${i} dropped focus onto <body> at 1024px`).not.toBe("BODY");
+      if (!state.inSidebar) leftSidebar = true;
+    }
+    expect(leftSidebar, "Tab from the sidebar must be able to flow into main content at 1024px").toBe(true);
+  });
 });
