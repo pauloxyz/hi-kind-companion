@@ -46,8 +46,15 @@ function extractJsonLd(source: string): unknown[] {
         const safe = literal
           .replace(/new Date\(\)\.toISOString\(\)\.slice\([^)]+\)/g, '"2026-01-01"')
           .replace(/new Date\(\)\.toISOString\(\)/g, '"2026-01-01T00:00:00.000Z"');
+        // Provide module-level identifiers that route head() blocks reference
+        // (SITE_URL/absUrl from src/lib/site.ts) so template-literal payloads
+        // eval cleanly at test time.
         // eslint-disable-next-line @typescript-eslint/no-implied-eval, no-new-func
-        const obj = new Function(`return (${safe});`)();
+        const obj = new Function(
+          "SITE_URL",
+          "absUrl",
+          `return (${safe});`,
+        )("https://www.vaiprala.net", (p: string) => `https://www.vaiprala.net${p.startsWith("/") ? p : `/${p}`}`);
         out.push(obj);
         pushed = true;
       } catch {
