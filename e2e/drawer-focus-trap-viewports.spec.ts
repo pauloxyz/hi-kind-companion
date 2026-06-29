@@ -239,4 +239,3 @@ test.describe("desktop layout at lg boundary (1024px) — no mobile trap", () =>
     ).toBeGreaterThanOrEqual(6);
   });
 });
-});
