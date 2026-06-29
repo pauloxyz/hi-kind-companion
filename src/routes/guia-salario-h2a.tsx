@@ -34,6 +34,9 @@ export const Route = createFileRoute("/guia-salario-h2a")({
       { name: "description", content: "Tabela AEWR 2025 com salário mínimo H-2A por estado. Quanto ganha trabalhador agrícola brasileiro nos EUA em dólares e reais. Horas extras, descontos, moradia." },
       { property: "og:title", content: "Salário H-2A 2025 — Quanto ganha por estado nos EUA" },
       { property: "og:description", content: "Tabela completa AEWR 2025 + conversão em reais. Veja exatamente quanto você ganha trabalhando H-2A na Flórida, Califórnia, Geórgia e mais." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: PATH },
       { property: "og:type", content: "article" },
     ],
@@ -71,7 +74,7 @@ function SalarioPage() {
   const sorted = Object.entries(STATE_INFO).sort((a, b) => b[1].aewr2025 - a[1].aewr2025);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

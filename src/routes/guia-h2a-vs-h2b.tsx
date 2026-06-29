@@ -36,6 +36,9 @@ export const Route = createFileRoute("/guia-h2a-vs-h2b")({
       },
       { property: "og:title", content: "Visto H-2B vs H-2A: guia completo para brasileiros" },
       { property: "og:description", content: "Comparativo claro entre os dois principais vistos de trabalho temporário americano." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: "/guia-h2a-vs-h2b" },
       { property: "og:type", content: "article" },
     ],
@@ -93,7 +96,7 @@ const COMPARISON: Array<{ feature: string; h2a: string; h2b: string }> = [
 
 function GuidePage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

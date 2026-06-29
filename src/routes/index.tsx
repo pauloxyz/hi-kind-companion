@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/vaiprala-logo.png";
+import { absUrl } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import {
   ArrowRight, Briefcase, FileText, Video, ShieldCheck, BarChart3,
@@ -16,10 +17,13 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Vagas H-2A oficiais do DOL por estado, guia do visto agrícola, salário AEWR 2025, entrevista consular e curso de inglês. Sem agenciador, sem taxa." },
       { property: "og:title", content: "VaiPraLá — Vagas H-2A e visto agrícola dos EUA para brasileiros" },
       { property: "og:description", content: "Vagas reais de fazendas americanas, salário em dólar, guia completo do visto H-2A e curso de inglês — tudo num só lugar." },
-      { property: "og:url", content: "/" },
-      
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { property: "og:url", content: absUrl("/") },
+      { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: absUrl("/") }],
     scripts: [
       {
         type: "application/ld+json",
@@ -28,7 +32,7 @@ export const Route = createFileRoute("/")({
           "@type": "Organization",
           name: "VaiPraLá",
           description: "Plataforma para trabalhadores rurais brasileiros aplicarem em vagas H-2A nos EUA.",
-          url: "/",
+          url: absUrl("/"),
         }),
       },
       {
@@ -50,24 +54,24 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
-  const [stats, setStats] = useState({ jobs: 0, applications: 0, profiles: 0 });
+  const [stats, setStats] = useState<{ jobs: number | null }>({ jobs: null });
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSignedIn(!!data.session));
-    // Aggregate stats — best effort, anon-readable counts
-    Promise.all([
-      supabase.from("public_jobs" as unknown as "jobs").select("id", { count: "exact", head: true }),
-    ]).then(([j]) => {
-      setStats({
-        jobs: j.count ?? 0,
-        applications: 1284, // shown approximate aggregate; replaced by real DB when policies allow
-        profiles: 612,
+    let cancelled = false;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!cancelled) setSignedIn(!!data.session);
+    });
+    supabase
+      .from("public_jobs" as unknown as "jobs")
+      .select("id", { count: "exact", head: true })
+      .then(({ count }) => {
+        if (!cancelled) setStats({ jobs: count ?? 0 });
       });
-    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-dvh bg-background text-foreground">
       {/* NAV */}
       <header className="sticky top-0 z-30 backdrop-blur-md bg-background/85 border-b border-border/60">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
@@ -112,7 +116,7 @@ function Landing() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs font-bold mb-6">
                 <span className="inline-block w-2 h-2 rounded-full bg-accent-red animate-pulse" />
-                {stats.jobs > 0 ? (
+                {stats.jobs && stats.jobs > 0 ? (
                   <>
                     <strong className="tabular-nums">{stats.jobs.toLocaleString("pt-BR")}</strong>
                     {" "}vagas H-2A ativas agora
@@ -166,15 +170,14 @@ function Landing() {
                     <span className="ml-1.5 font-semibold text-foreground">4,9</span>
                   </div>
                   <p className="text-muted-foreground">
-                    <strong className="tabular-nums text-foreground">{stats.profiles.toLocaleString("pt-BR")}</strong>{" "}
-                    brasileiros já trilhando a Jornada H-2A
+                    Brasileiros trilhando a Jornada H-2A com a gente
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Hero right: Jornada H-2A visual timeline */}
-            <JourneyTimeline jobs={stats.jobs} applications={stats.applications} />
+            <JourneyTimeline jobs={stats.jobs ?? 0} />
           </div>
         </div>
       </section>
@@ -453,9 +456,9 @@ function BigStat({ value, label, accent }: { value: string; label: string; accen
   );
 }
 
-function JourneyTimeline({ jobs, applications }: { jobs: number; applications: number }) {
+function JourneyTimeline({ jobs }: { jobs: number }) {
   // Mirrors src/lib/h2a-journey.ts so the landing visual matches what
-  // signed-in users see in the sidebar. Counters at the top read live
+  // signed-in users see in the sidebar. Counter at the top reads live
   // from the public stats query so the page feels alive on every load.
   const stages: { label: string; icon: typeof FileText; copy: string }[] = [
     { label: "Currículo",  icon: FileText, copy: "Perfil + experiência rural em inglês" },
@@ -476,19 +479,11 @@ function JourneyTimeline({ jobs, applications }: { jobs: number; applications: n
           <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
             Jornada H-2A · ao vivo
           </span>
-          <div className="ml-auto grid grid-cols-2 gap-2 text-right">
-            <div>
-              <p className="text-base font-black tabular-nums leading-none">
-                {jobs > 0 ? jobs.toLocaleString("pt-BR") : "—"}
-              </p>
-              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">vagas ativas</p>
-            </div>
-            <div>
-              <p className="text-base font-black tabular-nums leading-none text-accent-red">
-                {applications.toLocaleString("pt-BR")}
-              </p>
-              <p className="text-[9px] uppercase tracking-wide text-muted-foreground">candidaturas</p>
-            </div>
+          <div className="ml-auto text-right">
+            <p className="text-base font-black tabular-nums leading-none">
+              {jobs > 0 ? jobs.toLocaleString("pt-BR") : "—"}
+            </p>
+            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">vagas ativas</p>
           </div>
         </div>
 

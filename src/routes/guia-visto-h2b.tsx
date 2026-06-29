@@ -49,6 +49,9 @@ export const Route = createFileRoute("/guia-visto-h2b")({
       { name: "keywords", content: "visto h2b, h2b, h-2b, visto h-2b, trabalho temporário EUA, hotelaria EUA, paisagismo EUA" },
       { property: "og:title", content: "Visto H-2B: guia completo para brasileiros que querem trabalhar nos EUA" },
       { property: "og:description", content: "Como funciona o H-2B: sorteio, salário, funções, inglês e família. Explicado para brasileiros." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: "/guia-visto-h2b" },
       { property: "og:type", content: "article" },
     ],
@@ -96,7 +99,7 @@ export const Route = createFileRoute("/guia-visto-h2b")({
 
 function H2BGuidePage() {
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-dvh bg-background text-foreground">
       <header className="border-b">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

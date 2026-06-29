@@ -23,7 +23,7 @@ function CheckoutReturn() {
   const { session_id: sessionId } = Route.useSearch();
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-6">
+    <div className="min-h-dvh bg-background flex items-center justify-center p-6">
       <div className="max-w-md w-full text-center space-y-4 bg-card border rounded-2xl p-8">
         <CheckCircle2 className="h-14 w-14 text-[#009c3b] mx-auto" />
         <h1 className="text-2xl font-bold">

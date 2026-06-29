@@ -21,6 +21,9 @@ export const Route = createFileRoute("/precos")({
       { name: "description", content: "Comece grátis. Plano Pro com candidaturas ilimitadas, alertas de novas vagas e follow-up automático a partir de R$ 19,90/mês." },
       { property: "og:title", content: "Planos VaiPraLá — a partir de R$ 19,90/mês" },
       { property: "og:description", content: "Acelere sua chance de conseguir uma vaga H-2A. Plano grátis disponível." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: "/precos" },
     ],
     links: [{ rel: "canonical", href: "/precos" }],
@@ -131,7 +134,7 @@ function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <PaymentTestModeBanner />
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">

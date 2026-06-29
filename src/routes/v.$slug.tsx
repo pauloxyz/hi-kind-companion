@@ -44,7 +44,7 @@ export const Route = createFileRoute("/v/$slug")({
   },
   errorComponent: ({ error }) => <div className="p-8 text-center text-sm text-muted-foreground">Erro: {error.message}</div>,
   notFoundComponent: () => (
-    <div className="min-h-screen flex items-center justify-center bg-background px-4">
+    <div className="min-h-dvh flex items-center justify-center bg-background px-4">
       <div className="text-center max-w-md">
         <h1 className="text-4xl font-bold">404</h1>
         <p className="mt-2 text-muted-foreground">Esta página de candidato não existe ou foi desativada.</p>
@@ -66,7 +66,7 @@ function PublicProfilePage() {
   const { profile, experiences, skills, media, video } = data;
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+    <div className="min-h-dvh bg-gradient-to-b from-background to-muted/30">
       <div className="max-w-3xl mx-auto px-4 py-8 sm:py-12 space-y-8">
         {/* Header */}
         <header className="text-center space-y-3">

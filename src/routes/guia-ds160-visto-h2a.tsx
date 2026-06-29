@@ -32,6 +32,9 @@ export const Route = createFileRoute("/guia-ds160-visto-h2a")({
       { name: "description", content: "Guia completo de preenchimento do DS-160 para visto H-2A: 12 passos com armadilhas mais comuns, o que escrever em cada campo e como evitar negação." },
       { property: "og:title", content: "DS-160 para H-2A: tutorial passo a passo" },
       { property: "og:description", content: "Aprenda a preencher cada bloco do DS-160 específico para visto H-2A, evitando os erros que causam 80% das negações." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: PATH },
       { property: "og:type", content: "article" },
     ],
@@ -63,7 +66,7 @@ export const Route = createFileRoute("/guia-ds160-visto-h2a")({
 
 function Ds160Page() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

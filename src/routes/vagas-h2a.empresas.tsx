@@ -17,6 +17,9 @@ export const Route = createFileRoute("/vagas-h2a/empresas")({
         { name: "description", content: `Lista oficial de ${count} empregadores H-2A certificados pelo Departamento do Trabalho dos EUA: fazendas, estados, salários e número de vagas. Atualizada diariamente.` },
         { property: "og:title", content: "Empresas que contratam com visto H-2A" },
         { property: "og:description", content: "Lista completa e oficial dos maiores empregadores H-2A nos EUA — direto do feed do Department of Labor." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
         { property: "og:url", content: PATH },
       ],
       links: [{ rel: "canonical", href: PATH }],
@@ -45,7 +48,7 @@ function EmpresasPage() {
   const { employers } = Route.useLoaderData();
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

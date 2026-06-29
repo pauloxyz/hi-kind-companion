@@ -17,6 +17,9 @@ export const Route = createFileRoute("/vagas-h2a/colheita-maca")({
       { name: "description", content: "Trabalhar na colheita de maçã nos EUA com visto H-2A: salário US$ 17-20/h, estados (Washington, NY, Michigan), datas da safra e como se candidatar." },
       { property: "og:title", content: "Vagas H-2A colheita de maçã EUA" },
       { property: "og:description", content: "Como trabalhar na colheita de maçã nos Estados Unidos com visto H-2A: estados, salário, datas e empregadores." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: PATH },
     ],
     links: [{ rel: "canonical", href: PATH }],
@@ -28,7 +31,7 @@ export function CropPage({ crop, path, estados, salario, temporada, descricao }:
   crop: string; path: string; estados: { code: string; name: string; note: string }[]; salario: string; temporada: string; descricao: string;
 }) {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

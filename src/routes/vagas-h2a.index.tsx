@@ -31,6 +31,9 @@ export const Route = createFileRoute("/vagas-h2a/")({
         content:
           "Encontre vagas de trabalho rural temporário (H-2A) em qualquer estado americano. Atualizado direto do DOL.",
       },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: "/vagas-h2a" },
     ],
     links: [{ rel: "canonical", href: "/vagas-h2a" }],
@@ -42,7 +45,7 @@ export const Route = createFileRoute("/vagas-h2a/")({
 function StatesIndex() {
   const { states } = Route.useLoaderData();
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

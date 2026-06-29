@@ -31,6 +31,9 @@ export const Route = createFileRoute("/guia-entrevista-visto-h2a")({
       { name: "description", content: "Guia completo da entrevista consular H-2A: 10 perguntas reais do cônsul americano, respostas modelo em inglês, documentos para levar e dicas para São Paulo, Rio, Recife, Porto Alegre e Brasília." },
       { property: "og:title", content: "Entrevista visto H-2A: perguntas reais e como responder" },
       { property: "og:description", content: "As 10 perguntas que o cônsul americano mais faz na entrevista H-2A — com respostas modelo em inglês e dicas para não ser barrado." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: PATH },
       { property: "og:type", content: "article" },
     ],
@@ -64,7 +67,7 @@ export const Route = createFileRoute("/guia-entrevista-visto-h2a")({
 
 function EntrevistaPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

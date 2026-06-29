@@ -130,7 +130,7 @@ function AuthPage() {
   };
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-background">
+    <div className="relative min-h-dvh overflow-hidden bg-background">
       {/* Full-bleed faded American farm background */}
       <div
         className="absolute inset-0 bg-cover bg-center"
@@ -152,7 +152,7 @@ function AuthPage() {
         aria-hidden
       />
 
-      <div className="relative grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
+      <div className="relative grid min-h-dvh lg:grid-cols-[1.1fr_1fr]">
         <aside className="hidden lg:flex flex-col justify-between p-12 text-white">
           <div className="flex items-center gap-3">
             <img src={logo} alt="VaiPraLá" width={56} height={56} className="h-14 w-14 drop-shadow-lg" />
