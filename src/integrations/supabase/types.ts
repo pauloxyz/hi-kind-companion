@@ -1215,7 +1215,6 @@ export type Database = {
           has_prior_h2_experience: boolean | null
           languages: string[] | null
           owner_id: string | null
-          phone: string | null
           photo_url: string | null
           public_headline: string | null
           public_slug: string | null
@@ -1226,7 +1225,6 @@ export type Database = {
           has_prior_h2_experience?: boolean | null
           languages?: string[] | null
           owner_id?: string | null
-          phone?: string | null
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
@@ -1237,7 +1235,6 @@ export type Database = {
           has_prior_h2_experience?: boolean | null
           languages?: string[] | null
           owner_id?: string | null
-          phone?: string | null
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
@@ -1282,6 +1279,7 @@ export type Database = {
       }
       escalate_admin_denied_spikes: { Args: never; Returns: number }
       escalate_high_risk_alerts: { Args: never; Returns: number }
+      get_public_profile_whatsapp: { Args: { _slug: string }; Returns: string }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
