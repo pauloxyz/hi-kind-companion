@@ -200,10 +200,15 @@ describe("heading discipline (one <h1> per public route)", () => {
     .filter((f) => f.endsWith(".tsx") && !f.startsWith("_") && !SKIP.has(f));
 
   for (const f of files) {
-    it(`${f} contains exactly one <h1> tag`, () => {
-      const src = readFileSync(join(routesDir, f), "utf8");
-      const matches = src.match(/<h1\b/g) ?? [];
-      expect(matches.length, `${f} has ${matches.length} <h1> tags (expected 1)`).toBe(1);
+    it(`${f} renders exactly one <h1> at runtime (errorComponent/notFoundComponent don't co-render)`, () => {
+      const raw = readFileSync(join(routesDir, f), "utf8");
+      // Strip notFoundComponent/errorComponent function bodies — they replace
+      // the main component on 404/error, never render alongside it.
+      const stripped = raw
+        .replace(/(notFoundComponent|errorComponent)\s*:\s*\(\s*[^)]*\)\s*=>\s*\([\s\S]*?\)\s*,/g, "")
+        .replace(/(notFoundComponent|errorComponent)\s*:\s*\(\s*[^)]*\)\s*=>\s*\{[\s\S]*?\n\s*\}\s*,/g, "");
+      const matches = stripped.match(/<h1\b/g) ?? [];
+      expect(matches.length, `${f} has ${matches.length} runtime <h1> tags (expected 1)`).toBe(1);
     });
   }
 });
