@@ -661,7 +661,44 @@ jobs:
               if [ "$n" -gt "$worst_n" ]; then worst_n="$n"; worst_name="$name"; fi
             done
             echo "Worst bucket overall: ${worst_name} (${worst_n} failed assert line(s))" >> "$COUNTS"
+
+            # ----------------------------------------------------------------
+            # Top-N buckets per (shard, viewport) — Markdown summary that
+            # the PR comment + job summary embed verbatim. Reads the row
+            # data we already computed above by reusing the same per-row
+            # bash variables; we re-parse the COUNTS table to keep the
+            # source of truth in one place. Top 5 rows by sum-across-buckets
+            # so the noisiest cells surface first in the PR.
+            # ----------------------------------------------------------------
+            TOP_MD="consolidated/top-buckets-summary.md"
+            {
+              echo "#### Top buckets per (shard, viewport)"
+              echo
+              echo "| shard | attempt | viewport | Tab | Shift+Tab | Enter | Escape | outside-click | inside-click | hidden/detached | total |"
+              echo "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |"
+              # Parse the data rows of the COUNTS table (skip header,
+              # ruler, and TOTAL row) and rank by total desc.
+              awk '
+                NR > 5 && $1 != "TOTAL" && NF >= 10 && $1 !~ /^-/ {
+                  total = $4 + $5 + $6 + $7 + $8 + $9 + $10
+                  if (total > 0) {
+                    printf "%d\t%s\t%s\t%s\t%d\t%d\t%d\t%d\t%d\t%d\t%d\n",
+                      total, $1, $2, $3, $4, $5, $6, $7, $8, $9, $10
+                  }
+                }
+              ' "$COUNTS" \
+                | sort -k1,1nr \
+                | head -n 5 \
+                | awk -F'\t' '{
+                    printf "| %s | %s | %s | %d | %d | %d | %d | %d | %d | %d | %d |\n",
+                      $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $1
+                  }' \
+                || echo "| _no failing buckets parsed_ |  |  |  |  |  |  |  |  |  |  |"
+              echo
+              echo "_Worst category overall: \`${worst_name}\` (${worst_n} assert line(s))._"
+            } > "$TOP_MD"
           fi
+
 
           # Append both the breakdown and the counts table to the main
           # consolidated report so a single artifact carries everything.
