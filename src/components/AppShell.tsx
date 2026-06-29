@@ -153,23 +153,67 @@ export function AppShell({ children }: { children?: ReactNode }) {
     .join("")
     .toUpperCase();
 
-  // Drawer mobile: trap focus no botão de fechar, fecha com Escape e bloqueia scroll.
+  // Aria-live: anuncia mudanças de fase/progresso da Jornada H-2A.
+  const [journeyAnnouncement, setJourneyAnnouncement] = useState<string>("");
+  const prevJourneyRef = useRef<{ done: number; stage: string } | null>(null);
+  useEffect(() => {
+    // Só anuncia depois que os dados carregaram pelo menos uma vez
+    // (appsCount=null indica loading).
+    if (appsCount === null) return;
+    const prev = prevJourneyRef.current;
+    const next = { done: doneCount, stage: currentStage };
+    if (prev && (prev.done !== next.done || prev.stage !== next.stage)) {
+      setJourneyAnnouncement(
+        `Jornada H-2A atualizada: ${doneCount} de ${stages.length} etapas concluídas. Próxima fase: ${currentStage}.`,
+      );
+    }
+    prevJourneyRef.current = next;
+  }, [doneCount, currentStage, stages.length, appsCount]);
+
+  // Drawer mobile: trap focus, fecha com Escape e bloqueia scroll do body.
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const drawerRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const getFocusables = (): HTMLElement[] => {
+      const root = drawerRef.current;
+      if (!root) return [];
+      const sel =
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+      return Array.from(root.querySelectorAll<HTMLElement>(sel)).filter(
+        (el) => !el.hasAttribute("aria-hidden") && el.offsetParent !== null,
+      );
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setOpen(false);
+        return;
+      }
+      if (e.key !== "Tab") return;
+      const items = getFocusables();
+      if (items.length === 0) return;
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement as HTMLElement | null;
+      // Focus trap: ciclar Tab dentro do drawer.
+      if (e.shiftKey && (active === first || !drawerRef.current?.contains(active))) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    };
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // Move o foco para o botão de fechar quando o drawer abre, garantindo
-    // que leitores de tela e usuários de teclado fiquem dentro do dialog.
     const focusTimer = window.setTimeout(() => closeBtnRef.current?.focus(), 30);
     return () => {
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
       window.clearTimeout(focusTimer);
-      // Devolve o foco para o gatilho que abriu o menu.
       menuTriggerRef.current?.focus();
     };
   }, [open]);
@@ -466,7 +510,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       {open && (
         <div id="app-mobile-sidebar" className="fixed inset-0 z-40 flex lg:hidden" role="dialog" aria-modal="true" aria-label="Menu de navegação">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
-          <div className="relative z-50">{Sidebar}</div>
+          <div ref={drawerRef} className="relative z-50">{Sidebar}</div>
         </div>
       )}
       <main id="main-content" className="flex-1 min-w-0">
@@ -490,6 +534,16 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </div>
       </main>
       <OnboardingTour />
+      {/* Anúncio acessível das mudanças de fase/progresso da Jornada H-2A */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="journey-live-region"
+        className="sr-only"
+      >
+        {journeyAnnouncement}
+      </div>
     </div>
   );
 }
