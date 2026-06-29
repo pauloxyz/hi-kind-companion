@@ -653,6 +653,10 @@ function Page() {
         </CardContent>
       </Card>
 
+      <ResumePhotosCard />
+
+
+
       <div className="sticky bottom-2 z-10 flex flex-wrap gap-2 rounded-lg border bg-background p-3 shadow">
         <Button onClick={handleTranslate} disabled={translating} variant="outline">
           {translating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
