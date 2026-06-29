@@ -350,6 +350,15 @@ function Page() {
   async function handleDownloadPdf() {
     setGeneratingPdf(true);
     try {
+      // Fetch resume photos (signed URLs valid for 30d).
+      let resumePhotos: Array<{ url: string; caption?: string | null }> = [];
+      try {
+        const photos = await photosFn();
+        resumePhotos = photos.map((p) => ({ url: p.url, caption: p.caption }));
+      } catch {
+        // sem fotos é OK — PDF sai só com a página 1
+      }
+
       const data: ResumePdfData = {
         fullName: profile.full_name || "—",
         email: profile.email,
@@ -374,6 +383,7 @@ function Page() {
             descriptionEn: e.description_en,
           })),
         skills,
+        resumePhotos,
       };
       const blob = await pdf(<ResumePdfDocument data={data} />).toBlob();
 
