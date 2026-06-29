@@ -167,11 +167,11 @@ function AuthPage() {
               <span className="h-1.5 w-1.5 rounded-full bg-[#ffdf00]" />
               <span className="text-[11px] uppercase tracking-[0.18em] text-white/90">Vagas reais · DOL</span>
             </div>
-            <h1 className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight drop-shadow-md">
+            <p className="text-5xl xl:text-6xl font-bold leading-[1.05] tracking-tight drop-shadow-md">
               Da roça brasileira <br />
               <span className="italic font-light text-[#ffdf00]">para a fazenda</span> <br />
               americana.
-            </h1>
+            </p>
             <p className="text-lg text-white/90 leading-relaxed max-w-md">
               Encontre vagas H-2A reais do Departamento do Trabalho, gere cartas em inglês,
               grave seu vídeo de apresentação e acompanhe cada passo do visto.
@@ -195,7 +195,6 @@ function AuthPage() {
 
         <main className="flex items-center justify-center p-6 sm:p-12">
           <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/40 bg-card/95 p-7 shadow-2xl backdrop-blur-xl">
-            <h1 className="sr-only">VaiPraLá — Entrar ou criar conta</h1>
             <div className="lg:hidden flex flex-col items-center gap-2">
               <img src={logo} alt="VaiPraLá" width={72} height={72} className="h-18 w-18" />
               <div className="text-xl font-bold tracking-tight">VaiPraLá</div>
@@ -203,11 +202,11 @@ function AuthPage() {
 
 
             <div className="space-y-1.5">
-              <h2 className="text-3xl font-bold tracking-tight">
+              <h1 className="text-3xl font-bold tracking-tight">
                 {mode === "signin" && "Bem-vindo de volta"}
                 {mode === "signup" && "Comece sua jornada"}
                 {mode === "forgot" && "Recuperar senha"}
-              </h2>
+              </h1>
               <p className="text-sm text-muted-foreground">
                 {mode === "signin" && "Entre para acompanhar suas candidaturas."}
                 {mode === "signup" && "Crie sua conta gratuita em menos de um minuto."}
