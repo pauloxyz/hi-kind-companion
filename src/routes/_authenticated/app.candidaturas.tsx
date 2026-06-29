@@ -60,37 +60,50 @@ function exportCsv(rows: Row[]) {
   a.click(); URL.revokeObjectURL(url);
 }
 
+const PAGE_SIZE = 20;
+
 function Page() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "responded" | "interview" | "offer" | "rejected">("all");
+  const [page, setPage] = useState(1);
   const checkReplies = useServerFn(checkApplicationReplies);
+  const qc = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["applications", "list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("applications")
+        .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,reply_snippet,reply_from,reply_received_at,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
+        .order("sent_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data as Row[]) ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const rows = query.data ?? [];
+  const loading = query.isPending;
+  const errorMsg = query.error ? (query.error as Error).message : null;
 
   async function loadRows() {
-    const { data, error } = await supabase
-      .from("applications")
-      .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,reply_snippet,reply_from,reply_received_at,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
-      .order("sent_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setRows((data as Row[]) ?? []);
+    await qc.invalidateQueries({ queryKey: ["applications", "list"] });
   }
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("lastSeenRespondedAt", String(Date.now()));
+    }
+    // Background auto-check for replies (silent). Only if it hasn't run in the last 30 min.
+    const KEY = "lastReplyCheckAt";
+    const last = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
+    const stale = !last || Date.now() - Number(last) > 30 * 60 * 1000;
+    if (!stale) return;
+    let cancelled = false;
     void (async () => {
-      await loadRows();
-      setLoading(false);
-      // Mark replies as "seen" so the sidebar badge clears on next nav
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("lastSeenRespondedAt", String(Date.now()));
-      }
-      // Background auto-check for replies (silent). Only if it hasn't run in the last 30 min.
-      const KEY = "lastReplyCheckAt";
-      const last = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
-      const stale = !last || Date.now() - Number(last) > 30 * 60 * 1000;
-      if (!stale) return;
       try {
         const r = await checkReplies({ data: {} });
+        if (cancelled) return;
         if (typeof window !== "undefined") window.localStorage.setItem(KEY, String(Date.now()));
         if (r && r.newReplies > 0) {
           toast.success(`${r.newReplies} nova(s) resposta(s) detectada(s) no Gmail!`);
@@ -98,12 +111,21 @@ function Page() {
         }
       } catch { /* silent */ }
     })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function updateLocal(id: string, patch: Partial<Row>) {
+    qc.setQueryData<Row[]>(["applications", "list"], (prev) =>
+      (prev ?? []).map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    );
+  }
+
   async function markResponded(id: string) {
-    const { error } = await supabase.from("applications").update({ responded_at: new Date().toISOString(), status: "responded" }).eq("id", id);
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from("applications").update({ responded_at: nowIso, status: "responded" }).eq("id", id);
     if (error) { toast.error(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, responded_at: new Date().toISOString(), status: "responded" } : r));
+    updateLocal(id, { responded_at: nowIso, status: "responded" });
   }
 
   async function setStatus(id: string, status: "interview" | "offer" | "rejected") {
@@ -113,7 +135,7 @@ function Page() {
     if (!current?.responded_at) patch.responded_at = nowIso;
     const { error } = await supabase.from("applications").update(patch as never).eq("id", id);
     if (error) { toast.error(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
+    updateLocal(id, patch as Partial<Row>);
     toast.success("Status atualizado");
   }
 
@@ -140,13 +162,19 @@ function Page() {
   const offer = rows.filter((r) => r.status === "offer" || r.status === "hired").length;
   const rejected = rows.filter((r) => r.status === "rejected").length;
 
-  const visible = rows.filter((r) => {
+  const filtered = rows.filter((r) => {
     if (filter === "all") return true;
     if (filter === "pending") return !r.responded_at;
     if (filter === "responded") return !!r.responded_at && !["interview", "offer", "hired", "rejected"].includes(r.status ?? "");
     if (filter === "offer") return r.status === "offer" || r.status === "hired";
     return r.status === filter;
   });
+
+  // Reset page when filter changes ou quando o total filtrado encolhe.
+  useEffect(() => { setPage(1); }, [filter]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const chip = (key: typeof filter, label: string, count: number, cls = "") => (
     <button
