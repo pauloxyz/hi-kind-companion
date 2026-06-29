@@ -69,6 +69,37 @@ test.describe("axe scan across Jornada H-2A shortcut navigation", () => {
     await expectClean(page, "desktop-after-g-c");
   });
 
+  test("tablet 768: drawer + Jornada H-2A após alternar fases", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await bootSession(page);
+    await page.goto("/app");
+    await page.waitForLoadState("domcontentloaded");
+
+    // Switch to tablet width before exercising the navigation.
+    await page.setViewportSize({ width: 768, height: 1024 });
+
+    // Alternate phases via shortcuts (tablet still uses drawer at < lg).
+    await page.keyboard.press("g"); await page.keyboard.press("j");
+    await page.waitForURL(/\/app$/);
+    await expectClean(page, "tablet-after-g-j");
+
+    await page.keyboard.press("g"); await page.keyboard.press("v");
+    await page.waitForURL(/\/app\/vagas/);
+    await expectClean(page, "tablet-after-g-v");
+
+    await page.keyboard.press("g"); await page.keyboard.press("c");
+    await page.waitForURL(/\/app\/curriculo/);
+    await expectClean(page, "tablet-after-g-c");
+
+    // Open the drawer at tablet width and scan again.
+    const trigger = page.getByRole("button", { name: "Abrir menu" });
+    if (await trigger.isVisible().catch(() => false)) {
+      await trigger.click();
+      await expect(page.getByRole("dialog", { name: "Menu de navegação" })).toBeVisible();
+      await expectClean(page, "tablet-drawer-open");
+    }
+  });
+
   test("mobile 360: drawer open after shortcut navigation remains accessible", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await bootSession(page);
