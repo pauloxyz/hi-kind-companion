@@ -373,7 +373,7 @@ function AuditPanel() {
           </Button>
           <Button
             onClick={handleExport}
-            disabled={exporting || !stats.data}
+            disabled={exporting || !stats.data || !filteredEvents.length}
             aria-label={tr("audit_export_pdf")}
           >
             <Download className="size-4" aria-hidden="true" />{" "}
