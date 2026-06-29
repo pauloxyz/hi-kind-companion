@@ -12,8 +12,10 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
 import { importResumeFromPdf } from "@/lib/resume-import.functions";
+import { listResumePhotos } from "@/lib/resume-photos.functions";
 import { pdf } from "@react-pdf/renderer";
 import { ResumePdfDocument, type ResumePdfData } from "@/components/ResumePdfDocument";
+import { ResumePhotosCard } from "@/components/ResumePhotosCard";
 
 export const Route = createFileRoute("/_authenticated/app/curriculo")({ component: Page });
 
