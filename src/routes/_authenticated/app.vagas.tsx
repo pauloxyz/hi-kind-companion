@@ -109,8 +109,10 @@ function QualityMedal({ q }: { q: JobQuality }) {
 function Page() {
   const { confirm } = useActionFeedback();
   const [jobs, setJobs] = useState<Job[]>([]);
-  const [profile, setProfile] = useState<any>(null);
-  const [resume, setResume] = useState<any>(null);
+  type ProfileRow = Database["public"]["Tables"]["my_profile"]["Row"];
+  type ResumeRow = Database["public"]["Tables"]["resumes"]["Row"];
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [resume, setResume] = useState<ResumeRow | null>(null);
   const [suspiciousEmployers, setSuspiciousEmployers] = useState<Set<string>>(new Set());
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -128,6 +130,7 @@ function Page() {
   const [bulkMode, setBulkMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkRunning, setBulkRunning] = useState(false);
+  const bulkAbortRef = useRef(false);
   const [compareMode, setCompareMode] = useState(false);
   const [compareIds, setCompareIds] = useState<Set<string>>(new Set());
   const [compareOpen, setCompareOpen] = useState(false);
