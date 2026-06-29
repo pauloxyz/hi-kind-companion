@@ -76,12 +76,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [unreadReplies, setUnreadReplies] = useState(0);
+  const [unreadReplies, setUnreadReplies] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [fullName, setFullName] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [appsCount, setAppsCount] = useState(0);
-  const [savedJobsCount, setSavedJobsCount] = useState(0);
+  const [appsCount, setAppsCount] = useState<number | null>(null);
+  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
   const [visaSteps, setVisaSteps] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
