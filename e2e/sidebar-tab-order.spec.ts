@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { attachFailureDiagnostics, fireShortcut } from "./_helpers/diagnostics";
 
 /**
  * Tab order and keyboard behavior (Escape/Enter) inside the sidebar on
@@ -14,18 +15,23 @@ const HAS_SESSION = Boolean(STORAGE_KEY && SESSION_JSON);
 test.describe("sidebar tab order + Escape/Enter", () => {
   test.skip(!HAS_SESSION, "needs an injected Supabase session");
 
+  test.afterEach(async ({ page }, testInfo) => {
+    await attachFailureDiagnostics(page, testInfo);
+  });
+
   async function boot(page: import("@playwright/test").Page, w: number, h: number) {
     await page.setViewportSize({ width: w, height: h });
-    await page.goto("/");
+    await page.goto("/", { waitUntil: "domcontentloaded" });
+    await page.waitForLoadState("networkidle").catch(() => {});
     await page.evaluate(
       ({ key, json }) => window.localStorage.setItem(key!, json!),
       { key: STORAGE_KEY, json: SESSION_JSON },
     );
-    await page.goto("/app");
-    await page.waitForLoadState("domcontentloaded");
+    await page.goto("/app", { waitUntil: "domcontentloaded" });
+    await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
+    await page.waitForLoadState("networkidle").catch(() => {});
     // Navigate via shortcut so we're explicitly past a phase change.
-    await page.keyboard.press("g"); await page.keyboard.press("v");
-    await page.waitForURL(/\/app\/vagas/);
+    await fireShortcut(page, "v", /\/app\/vagas/);
   }
 
   test("desktop 1280: Tab cycles through the persistent sidebar in DOM order; Enter activates a link", async ({ page }) => {
@@ -40,7 +46,7 @@ test.describe("sidebar tab order + Escape/Enter", () => {
 
     // Tab into the sidebar logo → first nav link.
     const seenIds: string[] = [];
-    for (let i = 0; i < 10; i++) {
+    for (let i = 0; i < 12; i++) {
       await page.keyboard.press("Tab");
       const id = await page.evaluate(
         () => (document.activeElement as HTMLElement | null)?.id ?? null,
@@ -60,7 +66,7 @@ test.describe("sidebar tab order + Escape/Enter", () => {
   test("mobile 360: Escape closes the drawer; Tab traps inside it; Enter activates focused item", async ({ page }) => {
     await boot(page, 360, 780);
 
-    const trigger = page.getByRole("button", { name: "Abrir menu" });
+    const trigger = page.getByTestId("drawer-trigger");
     await trigger.click();
     const dialog = page.getByRole("dialog", { name: "Menu de navegação" });
     await expect(dialog).toBeVisible();
