@@ -23,18 +23,40 @@ const s = StyleSheet.create({
 const sevColor = (lvl: string) =>
   lvl === "high" ? "#dc2626" : lvl === "medium" ? "#d97706" : "#16a34a";
 
+export type SecurityAuditPdfFilters = {
+  event_type?: string | null;
+  since_days?: number | null;
+  route?: string | null;
+  user_id?: string | null;
+  search?: string | null;
+};
+
 export function SecurityAuditPdf({
   stats,
   events,
+  filters,
 }: {
   stats: AuditStats;
   events: AuditEvent[];
+  filters?: SecurityAuditPdfFilters;
 }) {
+  const f = filters ?? {};
+  const activeFilters: string[] = [];
+  if (f.event_type) activeFilters.push(`tipo=${f.event_type}`);
+  if (f.route) activeFilters.push(`rota~${f.route}`);
+  if (f.user_id) activeFilters.push(`user~${f.user_id}`);
+  if (f.search) activeFilters.push(`busca~${f.search}`);
+  const window = `${f.since_days ?? 30} dia(s)`;
   return (
     <Document>
       <Page size="LETTER" style={s.page}>
         <Text style={s.h1}>Relatório de Auditoria de Segurança</Text>
-        <Text style={s.meta}>Gerado em {new Date().toLocaleString("pt-BR")} · Janela: 30 dias</Text>
+        <Text style={s.meta}>
+          Gerado em {new Date().toLocaleString("pt-BR")} · Janela: {window}
+          {activeFilters.length > 0 ? ` · Filtros: ${activeFilters.join(" · ")}` : " · Filtros: nenhum"}
+        </Text>
+
+
 
         <View style={s.kpiRow}>
           <View style={s.kpi}><Text style={s.kpiLabel}>HIBP Blocks</Text><Text style={s.kpiValue}>{stats.totals.hibp}</Text></View>
