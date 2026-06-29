@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { pdf } from "@react-pdf/renderer";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -20,8 +21,12 @@ import {
   Calendar as CalendarIcon,
   Loader2,
   AlertTriangle,
+  Download,
+  History,
 } from "lucide-react";
 import { toast } from "sonner";
+import { VisaChecklistPdf, type VisaPdfData } from "@/components/VisaChecklistPdf";
+import { VisaAttachmentViewer, type ViewerAttachment } from "@/components/VisaAttachmentViewer";
 
 export const Route = createFileRoute("/_authenticated/app/visto")({
   component: VistoPage,
@@ -34,18 +39,17 @@ export const Route = createFileRoute("/_authenticated/app/visto")({
 type StepMeta = {
   help: string;
   link?: { href: string; label: string };
-  /** Date input legend, when the date field makes sense for this step. */
   eventLabel?: string;
   dueLabel?: string;
+  /**
+   * Whether this step has a tangible artifact worth attaching as evidence.
+   * Steps without a real document (e.g. "contrato assinado", "entrevista
+   * realizada", "passaporte entregue") intentionally hide the upload UI.
+   */
+  hasAttachments?: boolean;
 };
 
 const STEP_META: Record<string, StepMeta> = {
-  employer_dol_certified: {
-    help:
-      "Confirme no portal do DOL que o empregador tem a Labor Certification (ETA-9142A) aprovada. Sem ela, não há patrocínio legal.",
-    link: { href: "https://flag.dol.gov/case-disclosure/h-2a", label: "Consultar DOL H-2A" },
-    eventLabel: "Data em que confirmou",
-  },
   hired_by_employer: {
     help:
       "Você precisa receber e assinar o Job Order em português. O Wilberforce Act exige o contrato no idioma do trabalhador.",
@@ -56,6 +60,7 @@ const STEP_META: Record<string, StepMeta> = {
       "Validade mínima de 6 meses após a data prevista de retorno. Se faltar, renove antes de marcar entrevista.",
     link: { href: "https://www.gov.br/pf/pt-br/assuntos/passaporte", label: "Renovar passaporte (PF)" },
     dueLabel: "Vence em",
+    hasAttachments: true,
   },
   photo_5x5_white: {
     help: "Foto recente (≤ 6 meses), 5×5 cm, fundo branco, sem óculos. Servirá para DS-160 e CASV.",
@@ -64,32 +69,38 @@ const STEP_META: Record<string, StepMeta> = {
       label: "Requisitos oficiais",
     },
     eventLabel: "Tirada em",
+    hasAttachments: true,
   },
   i129_filed: {
     help:
       "Quando a I-129 é aprovada, o USCIS emite o I-797 (Notice of Action). Peça a cópia digital ao recrutador — você apresenta na entrevista.",
     link: { href: "https://www.uscis.gov/i-129", label: "USCIS · I-129" },
     eventLabel: "Data do I-797",
+    hasAttachments: true,
   },
   ds160: {
     help: "Preencha em inglês no CEAC. Guarde o número de confirmação e imprima a página com código de barras.",
     link: { href: "https://ceac.state.gov/genniv/", label: "Abrir CEAC/DS-160" },
     eventLabel: "Data de envio",
+    hasAttachments: true,
   },
   mrv_paid: {
     help: "Gere o boleto MRV (US$ 190) no portal CGI Federal. Sem comprovante, não agenda CASV/entrevista.",
     link: { href: "https://www.usvisascheduling.com/pt-BR/", label: "Pagar MRV (CGI Federal)" },
     eventLabel: "Data do pagamento",
+    hasAttachments: true,
   },
   casv_scheduled: {
     help: "Após o pagamento, agende a biometria no Centro de Atendimento (CASV). Acontece antes da entrevista.",
     link: { href: "https://www.usvisascheduling.com/pt-BR/", label: "Agendar CASV" },
     dueLabel: "Data agendada no CASV",
+    hasAttachments: true,
   },
   interview_scheduled: {
     help: "Agende a entrevista no consulado mais próximo (Rio, SP, Recife, Brasília ou Porto Alegre).",
     link: { href: "https://www.usvisascheduling.com/pt-BR/", label: "Agendar entrevista" },
     dueLabel: "Data agendada",
+    hasAttachments: true,
   },
   interview_done: {
     help:
@@ -99,6 +110,7 @@ const STEP_META: Record<string, StepMeta> = {
   visa_issued: {
     help: "Decisão informada na hora. Aprovado: o passaporte fica retido para o visto ser impresso.",
     eventLabel: "Data da aprovação",
+    hasAttachments: true,
   },
   passport_delivered: {
     help: "Acompanhe pelo portal CGI. Chega em 5–10 dias úteis aos Correios ou ao CASV escolhido.",
@@ -142,13 +154,11 @@ type Attachment = {
   size_bytes: number | null;
 };
 
-/** Format an ISO date string as YYYY-MM-DD for `<input type="date">`. */
 function toDateInput(iso: string | null): string {
   if (!iso) return "";
   return iso.slice(0, 10);
 }
 
-/** Days from today to ISO date. Negative = past. */
 function daysFromToday(iso: string | null): number | null {
   if (!iso) return null;
   const d = new Date(iso);
@@ -171,12 +181,21 @@ function formatBytes(b: number | null): string {
 
 function VistoPage() {
   const qc = useQueryClient();
-  /** Accessible live region for status announcements (completion / uploads). */
   const [liveMessage, setLiveMessage] = useState("");
   const announce = (msg: string) => {
     setLiveMessage("");
     requestAnimationFrame(() => setLiveMessage(msg));
   };
+
+  /** Viewer state (replaces "open in new tab" for attachments). */
+  const [viewer, setViewer] = useState<{
+    open: boolean;
+    list: ViewerAttachment[];
+    initialIndex: number;
+    stepLabel: string;
+  }>({ open: false, list: [], initialIndex: 0, stepLabel: "" });
+
+  const [exporting, setExporting] = useState(false);
 
   const itemsQ = useQuery({
     queryKey: ["visa-checklist"],
@@ -219,7 +238,6 @@ function VistoPage() {
   const total = items.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
-  /** Reminders: not-completed steps with a due_at in the next 14 days, or already late. */
   const reminders = useMemo(() => {
     return items
       .map((i) => ({ item: i, days: daysFromToday(i.due_at) }))
@@ -245,6 +263,7 @@ function VistoPage() {
       .update({ is_completed: next, completed_at: next ? new Date().toISOString() : null })
       .eq("id", item.id);
     qc.invalidateQueries({ queryKey: ["visa-checklist"] });
+    qc.invalidateQueries({ queryKey: ["visa-history"] });
     announce(next ? `Etapa concluída: ${item.step_label}.` : `Etapa reaberta: ${item.step_label}.`);
   };
 
@@ -253,11 +272,71 @@ function VistoPage() {
     const patch = field === "event_at" ? { event_at: iso } : { due_at: iso };
     await supabase.from("visa_checklist_items").update(patch).eq("id", item.id);
     qc.invalidateQueries({ queryKey: ["visa-checklist"] });
+    qc.invalidateQueries({ queryKey: ["visa-history"] });
+  };
+
+  const openViewer = (list: Attachment[], index: number, stepLabel: string) => {
+    setViewer({
+      open: true,
+      list: list.map((a) => ({
+        id: a.id,
+        file_name: a.file_name,
+        storage_path: a.storage_path,
+        mime_type: a.mime_type,
+        size_bytes: a.size_bytes,
+      })),
+      initialIndex: index,
+      stepLabel,
+    });
+  };
+
+  const exportPdf = async () => {
+    if (exporting) return;
+    setExporting(true);
+    try {
+      const profile = await supabase.from("my_profile").select("full_name").maybeSingle();
+      const fullName = profile.data?.full_name ?? null;
+      const pdfData: VisaPdfData = {
+        fullName,
+        generatedAt: new Date().toISOString(),
+        done,
+        total,
+        phases: grouped.map((phase) => ({
+          title: phase.title,
+          items: phase.items.map((it) => {
+            const meta = STEP_META[it.step_key];
+            return {
+              stepLabel: it.step_label,
+              isCompleted: !!it.is_completed,
+              eventLabel: meta?.eventLabel ?? null,
+              eventAt: it.event_at,
+              dueLabel: meta?.dueLabel ?? null,
+              dueAt: it.due_at,
+              attachments: (attByItem.get(it.id) ?? []).map((a) => a.file_name),
+            };
+          }),
+        })),
+      };
+      const blob = await pdf(<VisaChecklistPdf data={pdfData} />).toBlob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `checklist-visto-h2a-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      announce("PDF do checklist gerado.");
+    } catch (err) {
+      console.error(err);
+      toast.error("Falha ao gerar PDF. Tente novamente.");
+    } finally {
+      setExporting(false);
+    }
   };
 
   return (
     <div className="space-y-6">
-      {/* sr-only live region (page-wide) */}
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only">
         {liveMessage}
       </div>
@@ -272,7 +351,7 @@ function VistoPage() {
           Checklist oficial do visto H-2A
         </h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          12 etapas em 3 fases, na ordem real do fluxo brasileiro. Marque conforme avança;
+          11 etapas em 3 fases, na ordem real do fluxo brasileiro. Marque conforme avança;
           o progresso aqui alimenta sua Jornada H-2A no painel.
         </p>
 
@@ -282,6 +361,32 @@ function VistoPage() {
             <span className="text-sm text-muted-foreground">de {total} etapas</span>
           </div>
           <Progress value={pct} aria-label={`Progresso do checklist do visto: ${pct}%`} />
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="min-h-11"
+            onClick={exportPdf}
+            disabled={exporting || total === 0}
+          >
+            {exporting ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> Gerando…
+              </>
+            ) : (
+              <>
+                <Download className="h-4 w-4" aria-hidden /> Exportar PDF
+              </>
+            )}
+          </Button>
+          <Button asChild type="button" variant="ghost" size="sm" className="min-h-11">
+            <Link to="/app/visto/historico" aria-label="Abrir histórico de alterações">
+              <History className="h-4 w-4" aria-hidden /> Histórico
+            </Link>
+          </Button>
         </div>
       </header>
 
@@ -297,6 +402,9 @@ function VistoPage() {
               Lembretes próximos
             </h2>
           </div>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Você também recebe esses avisos por email quando faltar 14, 7 e 1 dia (ou ao vencer).
+          </p>
           <ul className="mt-2 space-y-1.5 text-sm">
             {reminders.map(({ item, days }) => {
               const late = (days ?? 0) < 0;
@@ -362,7 +470,11 @@ function VistoPage() {
                     onToggle={() => toggle(it)}
                     onDate={(field, value) => updateDate(it, field, value)}
                     announce={announce}
-                    refetchAttachments={() => qc.invalidateQueries({ queryKey: ["visa-attachments"] })}
+                    refetchAttachments={() => {
+                      qc.invalidateQueries({ queryKey: ["visa-attachments"] });
+                      qc.invalidateQueries({ queryKey: ["visa-history"] });
+                    }}
+                    onOpenViewer={(idx, list) => openViewer(list, idx, it.step_label)}
                   />
                 ))}
               </CardContent>
@@ -375,8 +487,17 @@ function VistoPage() {
         Fontes oficiais: U.S. Department of State (travel.state.gov), USCIS (uscis.gov/i-129),
         U.S. Department of Labor (flag.dol.gov), CGI Federal (usvisascheduling.com) e Wilberforce
         Pamphlet. Este checklist é apoio informativo; sempre confirme valores e prazos com o
-        consulado.
+        consulado. Todas as vagas listadas no app já passam por filtro de certificação DOL —
+        por isso essa etapa não aparece aqui.
       </footer>
+
+      <VisaAttachmentViewer
+        open={viewer.open}
+        onOpenChange={(open) => setViewer((v) => ({ ...v, open }))}
+        attachments={viewer.list}
+        initialIndex={viewer.initialIndex}
+        stepLabel={viewer.stepLabel}
+      />
     </div>
   );
 }
@@ -393,6 +514,7 @@ function ChecklistRow({
   onDate,
   announce,
   refetchAttachments,
+  onOpenViewer,
 }: {
   item: Item;
   meta?: StepMeta;
@@ -401,6 +523,7 @@ function ChecklistRow({
   onDate: (field: "event_at" | "due_at", value: string) => void;
   announce: (msg: string) => void;
   refetchAttachments: () => void;
+  onOpenViewer: (index: number, list: Attachment[]) => void;
 }) {
   const checked = !!item.is_completed;
   const dueDays = daysFromToday(item.due_at);
@@ -415,7 +538,6 @@ function ChecklistRow({
         (checked ? "bg-primary/[0.03]" : "hover:bg-muted/40")
       }
     >
-      {/* Header row: checkbox + title + external link */}
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
         <Checkbox
           checked={checked}
@@ -453,7 +575,6 @@ function ChecklistRow({
             </p>
           )}
 
-          {/* Dates */}
           {(meta?.eventLabel || meta?.dueLabel) && (
             <div className="grid gap-3 sm:grid-cols-2 pt-1">
               {meta.eventLabel && (
@@ -486,14 +607,16 @@ function ChecklistRow({
             </div>
           )}
 
-          {/* Attachments */}
-          <Attachments
-            itemId={item.id}
-            itemLabel={item.step_label}
-            attachments={attachments}
-            announce={announce}
-            onChange={refetchAttachments}
-          />
+          {meta?.hasAttachments && (
+            <Attachments
+              itemId={item.id}
+              itemLabel={item.step_label}
+              attachments={attachments}
+              announce={announce}
+              onChange={refetchAttachments}
+              onOpenViewer={onOpenViewer}
+            />
+          )}
         </div>
       </div>
     </div>
@@ -548,12 +671,14 @@ function Attachments({
   attachments,
   announce,
   onChange,
+  onOpenViewer,
 }: {
   itemId: string;
   itemLabel: string;
   attachments: Attachment[];
   announce: (msg: string) => void;
   onChange: () => void;
+  onOpenViewer: (index: number, list: Attachment[]) => void;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -597,7 +722,6 @@ function Attachments({
         });
         if (ins.error) {
           toast.error(`Falha ao salvar ${file.name}: ${ins.error.message}`);
-          // Try to clean up orphan storage file
           await supabase.storage.from("visa-evidence").remove([path]);
           continue;
         }
@@ -608,17 +732,6 @@ function Attachments({
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
     }
-  };
-
-  const openAttachment = async (a: Attachment) => {
-    const { data, error } = await supabase.storage
-      .from("visa-evidence")
-      .createSignedUrl(a.storage_path, 60);
-    if (error || !data?.signedUrl) {
-      toast.error("Não foi possível abrir o anexo.");
-      return;
-    }
-    window.open(data.signedUrl, "_blank", "noopener,noreferrer");
   };
 
   const removeAttachment = async (a: Attachment) => {
@@ -671,7 +784,7 @@ function Attachments({
 
       {attachments.length > 0 && (
         <ul className="space-y-1.5">
-          {attachments.map((a) => (
+          {attachments.map((a, idx) => (
             <li
               key={a.id}
               className="flex items-center gap-2 rounded-md border bg-muted/30 p-2"
@@ -679,9 +792,9 @@ function Attachments({
               <Paperclip className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden />
               <button
                 type="button"
-                onClick={() => openAttachment(a)}
+                onClick={() => onOpenViewer(idx, attachments)}
                 className="min-w-0 flex-1 truncate text-left text-sm font-medium hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded"
-                aria-label={`Abrir anexo: ${a.file_name}`}
+                aria-label={`Visualizar anexo: ${a.file_name}`}
               >
                 {a.file_name}
               </button>

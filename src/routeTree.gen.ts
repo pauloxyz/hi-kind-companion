@@ -53,6 +53,7 @@ import { Route as ApiPublicHooksSpikeAlertRouteImport } from './routes/api/publi
 import { Route as ApiPublicHooksSeoScanRouteImport } from './routes/api/public/hooks/seo-scan'
 import { Route as ApiPublicHooksImportDolFeedRouteImport } from './routes/api/public/hooks/import-dol-feed'
 import { Route as ApiPublicHooksCheckRepliesRouteImport } from './routes/api/public/hooks/check-replies'
+import { Route as AuthenticatedAppVistoHistoricoRouteImport } from './routes/_authenticated/app.visto.historico'
 import { Route as AuthenticatedAppInglesModuleRouteImport } from './routes/_authenticated/app.ingles.$module'
 import { Route as AuthenticatedAppInglesModuleIndexRouteImport } from './routes/_authenticated/app.ingles.$module.index'
 import { Route as AuthenticatedAppInglesModuleLessonRouteImport } from './routes/_authenticated/app.ingles.$module.$lesson'
@@ -287,6 +288,12 @@ const ApiPublicHooksCheckRepliesRoute =
     path: '/api/public/hooks/check-replies',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedAppVistoHistoricoRoute =
+  AuthenticatedAppVistoHistoricoRouteImport.update({
+    id: '/historico',
+    path: '/historico',
+    getParentRoute: () => AuthenticatedAppVistoRoute,
+  } as any)
 const AuthenticatedAppInglesModuleRoute =
   AuthenticatedAppInglesModuleRouteImport.update({
     id: '/$module',
@@ -341,10 +348,11 @@ export interface FileRoutesByFullPath {
   '/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/app/vagas': typeof AuthenticatedAppVagasRoute
   '/app/video': typeof AuthenticatedAppVideoRoute
-  '/app/visto': typeof AuthenticatedAppVistoRoute
+  '/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
   '/api/public/health': typeof ApiPublicHealthRoute
   '/app/': typeof AuthenticatedAppIndexRoute
   '/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
+  '/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
@@ -388,9 +396,10 @@ export interface FileRoutesByTo {
   '/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/app/vagas': typeof AuthenticatedAppVagasRoute
   '/app/video': typeof AuthenticatedAppVideoRoute
-  '/app/visto': typeof AuthenticatedAppVistoRoute
+  '/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
   '/api/public/health': typeof ApiPublicHealthRoute
   '/app': typeof AuthenticatedAppIndexRoute
+  '/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
@@ -437,10 +446,11 @@ export interface FileRoutesById {
   '/_authenticated/app/perfil': typeof AuthenticatedAppPerfilRoute
   '/_authenticated/app/vagas': typeof AuthenticatedAppVagasRoute
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
-  '/_authenticated/app/visto': typeof AuthenticatedAppVistoRoute
+  '/_authenticated/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
   '/api/public/health': typeof ApiPublicHealthRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
   '/_authenticated/app/ingles/$module': typeof AuthenticatedAppInglesModuleRouteWithChildren
+  '/_authenticated/app/visto/historico': typeof AuthenticatedAppVistoHistoricoRoute
   '/api/public/hooks/check-replies': typeof ApiPublicHooksCheckRepliesRoute
   '/api/public/hooks/import-dol-feed': typeof ApiPublicHooksImportDolFeedRoute
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
@@ -491,6 +501,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/app/'
     | '/app/ingles/$module'
+    | '/app/visto/historico'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/api/public/hooks/seo-scan'
@@ -537,6 +548,7 @@ export interface FileRouteTypes {
     | '/app/visto'
     | '/api/public/health'
     | '/app'
+    | '/app/visto/historico'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/api/public/hooks/seo-scan'
@@ -586,6 +598,7 @@ export interface FileRouteTypes {
     | '/api/public/health'
     | '/_authenticated/app/'
     | '/_authenticated/app/ingles/$module'
+    | '/_authenticated/app/visto/historico'
     | '/api/public/hooks/check-replies'
     | '/api/public/hooks/import-dol-feed'
     | '/api/public/hooks/seo-scan'
@@ -937,6 +950,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksCheckRepliesRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/app/visto/historico': {
+      id: '/_authenticated/app/visto/historico'
+      path: '/historico'
+      fullPath: '/app/visto/historico'
+      preLoaderRoute: typeof AuthenticatedAppVistoHistoricoRouteImport
+      parentRoute: typeof AuthenticatedAppVistoRoute
+    }
     '/_authenticated/app/ingles/$module': {
       id: '/_authenticated/app/ingles/$module'
       path: '/$module'
@@ -996,6 +1016,19 @@ const AuthenticatedAppInglesRouteWithChildren =
     AuthenticatedAppInglesRouteChildren,
   )
 
+interface AuthenticatedAppVistoRouteChildren {
+  AuthenticatedAppVistoHistoricoRoute: typeof AuthenticatedAppVistoHistoricoRoute
+}
+
+const AuthenticatedAppVistoRouteChildren: AuthenticatedAppVistoRouteChildren = {
+  AuthenticatedAppVistoHistoricoRoute: AuthenticatedAppVistoHistoricoRoute,
+}
+
+const AuthenticatedAppVistoRouteWithChildren =
+  AuthenticatedAppVistoRoute._addFileChildren(
+    AuthenticatedAppVistoRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminSeoRoute: typeof AuthenticatedAdminSeoRoute
   AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
@@ -1010,7 +1043,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppPerfilRoute: typeof AuthenticatedAppPerfilRoute
   AuthenticatedAppVagasRoute: typeof AuthenticatedAppVagasRoute
   AuthenticatedAppVideoRoute: typeof AuthenticatedAppVideoRoute
-  AuthenticatedAppVistoRoute: typeof AuthenticatedAppVistoRoute
+  AuthenticatedAppVistoRoute: typeof AuthenticatedAppVistoRouteWithChildren
   AuthenticatedAppIndexRoute: typeof AuthenticatedAppIndexRoute
 }
 
@@ -1028,7 +1061,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppPerfilRoute: AuthenticatedAppPerfilRoute,
   AuthenticatedAppVagasRoute: AuthenticatedAppVagasRoute,
   AuthenticatedAppVideoRoute: AuthenticatedAppVideoRoute,
-  AuthenticatedAppVistoRoute: AuthenticatedAppVistoRoute,
+  AuthenticatedAppVistoRoute: AuthenticatedAppVistoRouteWithChildren,
   AuthenticatedAppIndexRoute: AuthenticatedAppIndexRoute,
 }
 
@@ -1068,13 +1101,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
