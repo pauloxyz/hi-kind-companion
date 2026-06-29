@@ -86,11 +86,16 @@ test.describe("drawer keyboard contract under rapid shortcut bursts", () => {
       }
 
       // Enter on a focused nav link activates it and closes the drawer.
+      // Pick a link whose `to` differs from the current URL so the navigation
+      // is observable (the first nav link is `/app` which may match the
+      // current location after the G+J burst).
       await page.evaluate(() => {
-        const link = document.querySelector(
-          '#app-mobile-sidebar a[id^="nav-"]',
-        ) as HTMLElement | null;
-        link?.focus();
+        const links = Array.from(
+          document.querySelectorAll<HTMLAnchorElement>('#app-mobile-sidebar a[id^="nav-"]'),
+        );
+        const target =
+          links.find((l) => new URL(l.href).pathname !== location.pathname) ?? links[0];
+        target?.focus();
       });
       const beforeUrl = page.url();
       await page.keyboard.press("Enter");
