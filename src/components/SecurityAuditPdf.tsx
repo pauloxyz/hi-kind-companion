@@ -106,9 +106,14 @@ export function SecurityAuditPdf({
             <Text style={s.c5}></Text>
           </View>
         ))}
+        <PdfBrandedFooter />
       </Page>
 
       <Page size="LETTER" style={s.page}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <PdfLogo />
+          <Text style={s.meta}>vaiprala.net</Text>
+        </View>
         <Text style={s.h1}>Eventos Filtrados</Text>
         <Text style={s.meta}>
           {events.length} evento(s) após aplicação dos filtros
