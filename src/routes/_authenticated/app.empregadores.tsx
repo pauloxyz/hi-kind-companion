@@ -55,7 +55,7 @@ function Page() {
       )}
 
       <div className="grid gap-3">
-        {emps.map((e: any) => (
+        {emps.map((e: Employer) => (
           <Card key={e.id} className={e.is_flagged_suspicious ? "border-destructive" : ""}>
             <CardHeader>
               <CardTitle className="text-base flex items-center justify-between gap-2">
