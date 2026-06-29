@@ -14,6 +14,7 @@ import { useTheme, type Theme } from "@/lib/theme";
 import { cn } from "@/lib/utils";
 
 import { FraudBanner } from "./StrategyBanner";
+import { JourneyLiveRegion } from "./JourneyLiveRegion";
 import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
 import { computeJourney } from "@/lib/h2a-journey";
@@ -538,15 +539,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </main>
       <OnboardingTour />
       {/* Anúncio acessível das mudanças de fase/progresso da Jornada H-2A */}
-      <div
-        role="status"
-        aria-live="polite"
-        aria-atomic="true"
-        data-testid="journey-live-region"
-        className="sr-only"
-      >
-        {journeyAnnouncement}
-      </div>
+      <JourneyLiveRegion message={journeyAnnouncement} />
     </div>
   );
 }

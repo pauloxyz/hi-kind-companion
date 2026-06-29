@@ -32,9 +32,16 @@ test.describe("shortcut visual feedback", () => {
   ];
 
   for (const c of cases) {
-    test(`G ${c.keys[1].toUpperCase()} shows toast "${c.label}" and preserves focus`, async ({ page }) => {
+    test(`G ${c.keys[1].toUpperCase()} shows toast "${c.label}", keeps focus visible, leaves aria-live untouched`, async ({ page }) => {
       // Snapshot live region before; must not change because of navigation.
       const before = await page.getByTestId("journey-live-region").innerText();
+
+      // Move focus to the matching sidebar nav link so we can observe its
+      // focus ring through the transition. The shortcut still works because
+      // the link is not an editable input.
+      const navId =
+        c.keys[1] === "v" ? "nav-jobs" : c.keys[1] === "c" ? "nav-resume" : "nav-dashboard";
+      await page.evaluate((id) => document.getElementById(id)?.focus(), navId);
 
       await page.keyboard.press(c.keys[0]);
       await page.keyboard.press(c.keys[1]);
@@ -45,14 +52,24 @@ test.describe("shortcut visual feedback", () => {
       await expect(toast).toBeVisible({ timeout: 2_000 });
 
       // The focused element after navigation is still on the page (not lost
-      // to <body>) and a visible interactive element.
-      const focusedOk = await page.evaluate(() => {
+      // to <body>) and the focus ring computed style is non-zero (visible).
+      const focus = await page.evaluate(() => {
         const a = document.activeElement as HTMLElement | null;
-        if (!a || a === document.body) return false;
+        if (!a || a === document.body) return null;
         const r = a.getBoundingClientRect();
-        return r.width > 0 && r.height > 0;
+        const cs = getComputedStyle(a);
+        return {
+          inViewport: r.width > 0 && r.height > 0,
+          outline: cs.outlineStyle,
+          boxShadow: cs.boxShadow,
+          // Tailwind's focus-visible:ring uses box-shadow; outline-none is OK
+          // as long as box-shadow shows the ring.
+          hasRing: cs.boxShadow !== "none" || cs.outlineStyle !== "none",
+        };
       });
-      expect(focusedOk).toBe(true);
+      expect(focus, "active element after navigation").not.toBeNull();
+      expect(focus!.inViewport).toBe(true);
+      expect(focus!.hasRing).toBe(true);
 
       // Aria-live region must not have been spammed by the route change.
       const after = await page.getByTestId("journey-live-region").innerText();
