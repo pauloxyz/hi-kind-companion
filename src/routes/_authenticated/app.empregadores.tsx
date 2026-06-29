@@ -28,7 +28,26 @@ function Page() {
       <h1 className="text-2xl font-bold">Empregadores</h1>
       <p className="text-sm text-muted-foreground">Empregadores são criados automaticamente quando você se candidata. Use esta tela para anotar histórico e marcar suspeitos.</p>
 
-      {emps.length === 0 && (
+      {isPending && (
+        <div className="grid gap-3" aria-busy="true" aria-label="Carregando empregadores">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <div className="flex items-center justify-between gap-2">
+                  <Skeleton className="h-5 w-40" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <Skeleton className="h-20 w-full" />
+                <Skeleton className="h-10 w-full" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!isPending && emps.length === 0 && (
         <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">Nenhum empregador ainda — candidate-se a uma vaga para começar.</CardContent></Card>
       )}
 
