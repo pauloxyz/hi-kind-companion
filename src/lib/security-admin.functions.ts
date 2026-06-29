@@ -3,6 +3,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
@@ -37,7 +38,7 @@ export const listAuditEvents = createServerFn({ method: "POST" })
     }),
   )
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "security_admin.fn");
     const since = new Date(Date.now() - data.since_days * 86400_000).toISOString();
     let q = context.supabase
       .from("security_audit_log")
@@ -68,7 +69,7 @@ export type AuditStats = {
 export const getAuditStats = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "security_admin.fn");
     const since30 = new Date(Date.now() - 30 * 86400_000).toISOString();
     const [hibp, alerts, all] = await Promise.all([
       context.supabase.from("security_hibp_daily").select("*").limit(30),

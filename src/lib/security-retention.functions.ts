@@ -3,6 +3,7 @@
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
 
 async function assertAdmin(ctx: { supabase: any; userId: string }) {
   const { data, error } = await ctx.supabase.rpc("has_role", {
@@ -23,7 +24,7 @@ export type RetentionPolicy = {
 export const listRetentionPolicies = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "security_retention.fn");
     const { data, error } = await context.supabase
       .from("security_retention_policy")
       .select("*")
@@ -42,7 +43,7 @@ export const upsertRetentionPolicy = createServerFn({ method: "POST" })
     return input;
   })
   .handler(async ({ data, context }) => {
-    await assertAdmin(context);
+    await assertAdminWithAudit(context as never, "security_retention.fn");
     const { error } = await context.supabase
       .from("security_retention_policy")
       .upsert(
