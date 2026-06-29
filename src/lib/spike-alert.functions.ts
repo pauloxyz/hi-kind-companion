@@ -12,6 +12,18 @@ export type SpikeAlertStatus = {
   slack_channel_configured: boolean;
 };
 
+function normalizeAlertBaseUrl(baseUrl: string): string {
+  const url = new URL(baseUrl);
+  const previewMatch = url.hostname.match(/^id-preview--([a-f0-9-]+)\.lovable\.app$/i);
+  if (previewMatch) {
+    url.hostname = `project--${previewMatch[1]}-dev.lovable.app`;
+  }
+  url.pathname = "";
+  url.search = "";
+  url.hash = "";
+  return url.toString().replace(/\/$/, "");
+}
+
 export const getSpikeAlertStatus = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<SpikeAlertStatus> => {
@@ -43,7 +55,7 @@ export const bootstrapSpikeAlertConfig = createServerFn({ method: "POST" })
     await assertAdminWithAudit(context as never, "security_admin.spike_alert_bootstrap");
     const secret = process.env.SPIKE_ALERT_WEBHOOK_SECRET;
     if (!secret) throw new Error("SPIKE_ALERT_WEBHOOK_SECRET is not configured");
-    const url = `${data.base_url.replace(/\/$/, "")}/api/public/hooks/spike-alert`;
+    const url = `${normalizeAlertBaseUrl(data.base_url)}/api/public/hooks/spike-alert`;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin
