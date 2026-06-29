@@ -47,6 +47,7 @@ test.describe("prefers-reduced-motion: aria-live + visual regression", () => {
 
   test("aria-live: rapid bursts produce no duplicate consecutive messages and respect per-transition cap", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await bootSession(page);
     await page.goto("/app");
     await page.waitForLoadState("networkidle");
