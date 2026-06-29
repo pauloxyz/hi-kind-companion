@@ -13,6 +13,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider } from "../lib/theme";
 import { Toaster } from "@/components/ui/sonner";
+import { SITE_URL, absUrl } from "@/lib/site";
 
 function NotFoundComponent() {
   return (
@@ -95,10 +96,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Organization",
-          "@id": "/#organization",
+          "@id": `${SITE_URL}/#organization`,
           name: "VaiPraLá",
-          url: "/",
-          logo: { "@type": "ImageObject", url: "/favicon.ico" },
+          url: SITE_URL,
+          logo: { "@type": "ImageObject", url: absUrl("/favicon.ico") },
           sameAs: [],
           description:
             "Plataforma que conecta trabalhadores brasileiros a vagas H-2A oficiais nos EUA, com IA para cartas em inglês e preparação de inglês prático.",
@@ -109,14 +110,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "WebSite",
-          "@id": "/#website",
+          "@id": `${SITE_URL}/#website`,
           name: "VaiPraLá",
-          url: "/",
+          url: SITE_URL,
           inLanguage: "pt-BR",
-          publisher: { "@id": "/#organization" },
+          publisher: { "@id": `${SITE_URL}/#organization` },
           potentialAction: {
             "@type": "SearchAction",
-            target: "/vagas-h2a?q={search_term_string}",
+            target: `${SITE_URL}/vagas-h2a?q={search_term_string}`,
             "query-input": "required name=search_term_string",
           },
         }),
