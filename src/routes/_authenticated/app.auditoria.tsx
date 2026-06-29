@@ -240,17 +240,34 @@ function AuditPanel() {
   }
 
   const handleExport = async () => {
-    if (!stats.data || !events.data) return;
+    if (!stats.data) return;
+    const rows = filteredEvents;
+    if (!rows.length) {
+      toast.error("Nenhum evento para exportar");
+      return;
+    }
     setExporting(true);
     try {
-      const blob = await pdf(<SecurityAuditPdf stats={stats.data} events={events.data} />).toBlob();
+      const blob = await pdf(
+        <SecurityAuditPdf
+          stats={stats.data}
+          events={rows}
+          filters={{
+            event_type: filter || null,
+            since_days: sinceDays,
+            route: routeFilter || null,
+            user_id: userIdFilter || null,
+            search: search || null,
+          }}
+        />,
+      ).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
       a.download = `auditoria-${new Date().toISOString().slice(0, 10)}.pdf`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success("Relatório PDF gerado");
+      toast.success(`Relatório PDF gerado (${rows.length} eventos)`);
     } catch (e) {
       toast.error("Falha ao gerar PDF");
       console.error(e);
@@ -258,6 +275,7 @@ function AuditPanel() {
       setExporting(false);
     }
   };
+
 
   const handleExportCsv = () => {
     const rows = filteredEvents;
