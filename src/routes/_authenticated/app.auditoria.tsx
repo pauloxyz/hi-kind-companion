@@ -335,6 +335,9 @@ function AuditPanel() {
 
       <UptimePanel />
 
+      <DeniedAdminCard sinceDays={sinceDays} />
+
+
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <Kpi icon={<Lock className="size-4" aria-hidden="true" />} label={tr("audit_kpi_hibp")} value={t?.hibp ?? 0} />
         <Kpi icon={<KeyRound className="size-4" aria-hidden="true" />} label={tr("audit_kpi_weak")} value={t?.weak ?? 0} />
