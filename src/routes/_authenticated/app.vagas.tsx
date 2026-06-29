@@ -190,7 +190,15 @@ function Page() {
         toast.error("Falha ao salvar");
         setSavedJobIds((p) => { const n = new Set(p); n.delete(jobId); return n; });
       } else {
-        toast.success("Vaga salva nos favoritos");
+        // Verbose, descriptive confirmation: includes job title + state so
+        // screen-reader users hear *which* job was saved, not just "salvo".
+        const job = jobs.find((j) => j.id === jobId);
+        const title = job?.job_title?.trim() || "vaga";
+        const state = job?.state_code ? `, ${job.state_code}` : "";
+        confirm({
+          title: "Vaga salva",
+          detail: `${title}${state} — disponível em Favoritos no menu Vagas.`,
+        });
       }
     }
   }
