@@ -1,4 +1,5 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { useServerFn } from "@tanstack/react-start";
@@ -93,6 +94,13 @@ function alertKey(a: { hour: string; ip_address: string | null }): string {
 }
 
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
+  beforeLoad: async () => {
+    try {
+      await requireAdminAccess();
+    } catch {
+      throw redirect({ to: "/app" });
+    }
+  },
   component: AuditPanel,
 });
 
