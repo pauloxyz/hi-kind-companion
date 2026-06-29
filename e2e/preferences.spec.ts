@@ -19,6 +19,13 @@ test("theme + language preferences persist across reload and route changes", asy
   // Navigate through an SSR-rendered route.
   await page.goto("/auth");
   await page.waitForLoadState("domcontentloaded");
+  // The boot script in __root.tsx applies lang/dark from cookie/localStorage
+  // synchronously before React hydrates; the I18nProvider keeps it in sync after.
+  await page.waitForFunction(
+    () => document.documentElement.lang === "en" && document.documentElement.classList.contains("dark"),
+    null,
+    { timeout: 5_000 },
+  );
   const afterAuth = await page.evaluate(() => ({
     theme: localStorage.getItem("theme"),
     lang: localStorage.getItem("lang"),
@@ -35,6 +42,11 @@ test("theme + language preferences persist across reload and route changes", asy
 
   // Full reload preserves the choices.
   await page.reload();
+  await page.waitForFunction(
+    () => document.documentElement.lang === "en" && document.documentElement.classList.contains("dark"),
+    null,
+    { timeout: 5_000 },
+  );
   const afterReload = await page.evaluate(() => ({
     theme: localStorage.getItem("theme"),
     lang: localStorage.getItem("lang"),

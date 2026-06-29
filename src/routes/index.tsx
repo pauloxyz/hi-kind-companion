@@ -95,6 +95,7 @@ function Landing() {
         </div>
       </header>
 
+      <main id="main">
       {/* HERO — Americana */}
       <section className="relative overflow-hidden bg-flag-stripes">
         <div
@@ -440,6 +441,7 @@ function Landing() {
           </div>
         </div>
       </section>
+      </main>
 
       {/* FOOTER */}
       <footer className="border-t border-border/60 bg-card">

@@ -131,11 +131,33 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+const PREFS_BOOT_SCRIPT = `
+(function(){try{
+  var m = document.cookie.match(/(?:^|; )lang=([^;]*)/);
+  var ls = null;
+  try { ls = localStorage.getItem('lang'); } catch(_) {}
+  var lang = ls || (m && decodeURIComponent(m[1])) || 'pt-BR';
+  if (lang === 'pt') lang = 'pt-BR';
+  document.documentElement.lang = lang;
+  var tm = document.cookie.match(/(?:^|; )theme=([^;]*)/);
+  var tls = null;
+  try { tls = localStorage.getItem('theme'); } catch(_) {}
+  var theme = tls || (tm && decodeURIComponent(tm[1])) || 'system';
+  var resolved = theme;
+  if (theme === 'system') {
+    resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  if (resolved === 'dark') document.documentElement.classList.add('dark');
+  document.documentElement.style.colorScheme = resolved;
+}catch(_){}})();
+`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="pt-BR">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT_SCRIPT }} />
       </head>
       <body>
         {children}
@@ -153,7 +175,7 @@ function RootComponent() {
       <ThemeProvider>
         {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
         <Outlet />
-        <Toaster richColors position="top-right" />
+        <Toaster richColors position="bottom-right" />
       </ThemeProvider>
     </QueryClientProvider>
   );
