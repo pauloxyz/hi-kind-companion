@@ -6,6 +6,18 @@ type ThemeCtx = { theme: Theme; resolved: "light" | "dark"; setTheme: (t: Theme)
 const Ctx = createContext<ThemeCtx>({ theme: "system", resolved: "light", setTheme: () => {} });
 
 const STORAGE_KEY = "theme";
+const COOKIE_MAX_AGE = 60 * 60 * 24 * 365; // 1 ano
+
+function writeCookie(name: string, value: string) {
+  if (typeof document === "undefined") return;
+  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+function readCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const m = document.cookie.match(new RegExp("(?:^|; )" + name + "=([^;]*)"));
+  return m ? decodeURIComponent(m[1]) : null;
+}
 
 function getSystem(): "light" | "dark" {
   if (typeof window === "undefined") return "light";
