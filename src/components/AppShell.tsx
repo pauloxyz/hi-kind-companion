@@ -23,6 +23,7 @@ type NavItem = {
   exact?: boolean;
   highlight?: boolean;
   badgeKey?: "unreadReplies";
+  countKey?: "savedJobs" | "applications";
 };
 type NavGroup = { label: string; items: NavItem[] };
 
@@ -46,8 +47,8 @@ const groups: NavGroup[] = [
   {
     label: "Busca de vagas",
     items: [
-      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase },
-      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies" },
+      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase, countKey: "savedJobs" },
+      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies", countKey: "applications" },
       { to: "/app/followups", labelKey: "followups", icon: Bell },
       { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
     ],
@@ -79,7 +80,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const [fullName, setFullName] = useState<string>("");
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [appsCount, setAppsCount] = useState(0);
-  const [respondedCount, setRespondedCount] = useState(0);
+  const [savedJobsCount, setSavedJobsCount] = useState(0);
+  const [visaSteps, setVisaSteps] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -116,21 +118,30 @@ export function AppShell({ children }: { children?: ReactNode }) {
         if (!cancelled) setAppsCount(count ?? 0);
       });
     supabase
-      .from("applications")
+      .from("saved_jobs")
       .select("id", { count: "exact", head: true })
-      .not("responded_at", "is", null)
       .then(({ count }) => {
-        if (!cancelled) setRespondedCount(count ?? 0);
+        if (!cancelled) setSavedJobsCount(count ?? 0);
+      });
+    supabase
+      .from("visa_checklist_items")
+      .select("step_key, is_completed")
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        const m: Record<string, boolean> = {};
+        for (const r of data) m[r.step_key] = !!r.is_completed;
+        setVisaSteps(m);
       });
     return () => { cancelled = true; };
   }, [pathname]);
 
-  // Journey stages: Cadastro · Currículo · Candidaturas · Respostas
+  // Jornada H-2A: derivada de onboarding + candidaturas + checklist de visto
   const stages = [
-    { key: "cadastro", label: "Cadastro", done: true },
     { key: "curriculo", label: "Currículo", done: !showOnboarding },
-    { key: "candidaturas", label: "Candidaturas", done: appsCount > 0 },
-    { key: "respostas", label: "Entrevistas", done: respondedCount > 0 },
+    { key: "candidatura", label: "Candidatura", done: appsCount > 0 },
+    { key: "ds160", label: "DS-160", done: !!visaSteps.ds160 },
+    { key: "entrevista", label: "Entrevista", done: !!visaSteps.interview_done },
+    { key: "visto", label: "Visto emitido", done: !!visaSteps.visa_issued },
   ];
   const doneCount = stages.filter((s) => s.done).length;
   const progressPct = Math.round((doneCount / stages.length) * 100);
@@ -142,6 +153,21 @@ export function AppShell({ children }: { children?: ReactNode }) {
     .slice(0, 2)
     .join("")
     .toUpperCase();
+
+  // Fecha drawer mobile com Escape e bloqueia scroll do body quando aberto
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+
 
 
   const topItemsFinal: NavItem[] = showOnboarding
@@ -157,29 +183,41 @@ export function AppShell({ children }: { children?: ReactNode }) {
     const active = it.exact ? pathname === it.to : pathname.startsWith(it.to);
     const Icon = it.icon;
     const badge = it.badgeKey === "unreadReplies" ? unreadReplies : 0;
+    const count =
+      it.countKey === "savedJobs" ? savedJobsCount :
+      it.countKey === "applications" ? appsCount : 0;
     return (
       <Link
         key={it.to}
         to={it.to}
         onClick={() => setOpen(false)}
+        aria-current={active ? "page" : undefined}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all",
+          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
           active
-            ? "bg-emerald-800/30 text-white border border-emerald-700/30 shadow-inner"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground border border-sidebar-border shadow-inner"
             : it.highlight
-              ? "bg-[#b56d2d]/15 text-[#f0c08a] font-semibold hover:bg-[#b56d2d]/25"
-              : "text-emerald-100/60 hover:text-white hover:bg-emerald-800/15",
+              ? "bg-sidebar-primary/15 text-sidebar-primary font-semibold hover:bg-sidebar-primary/25"
+              : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60",
         )}
       >
         <Icon
           className={cn(
             "size-[18px] shrink-0 transition-colors",
-            active ? "text-[#b56d2d]" : "opacity-70 group-hover:opacity-100",
+            active ? "text-sidebar-primary" : "opacity-70 group-hover:opacity-100",
           )}
         />
         <span className="flex-1 truncate font-medium">{t(it.labelKey)}</span>
+        {count > 0 && badge === 0 && (
+          <span className="text-[10px] font-bold tabular-nums text-sidebar-foreground/40 group-hover:text-sidebar-foreground/70">
+            {count}
+          </span>
+        )}
         {badge > 0 && (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white border-2 border-[#1a2e24]">
+          <span
+            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-red px-1.5 text-[10px] font-bold text-white border-2 border-sidebar"
+            aria-label={`${badge} respostas novas`}
+          >
             {badge}
           </span>
         )}
@@ -188,19 +226,22 @@ export function AppShell({ children }: { children?: ReactNode }) {
   };
 
   const Sidebar = (
-    <aside className="flex h-full w-72 shrink-0 flex-col bg-[#1a2e24] text-stone-200 overflow-hidden">
+    <aside
+      className="flex h-full w-72 max-w-[85vw] shrink-0 flex-col bg-sidebar text-sidebar-foreground overflow-hidden"
+      aria-label="Navegação principal"
+    >
       {/* Header */}
       <div className="p-5 pb-2">
         <div className="flex items-center justify-between mb-6">
-          <Link to="/app" className="flex items-center gap-3" onClick={() => setOpen(false)}>
-            <div className="w-10 h-10 bg-[#b56d2d] rounded-xl flex items-center justify-center shadow-lg shadow-black/30">
-              <Sparkles className="size-5 text-white" aria-hidden />
+          <Link to="/app" className="flex items-center gap-3 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring rounded-md" onClick={() => setOpen(false)}>
+            <div className="w-10 h-10 shrink-0 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-lg shadow-black/30">
+              <Sparkles className="size-5 text-sidebar-primary-foreground" aria-hidden />
             </div>
-            <div>
-              <h1 className="font-bold text-base leading-tight tracking-tight text-white uppercase italic">
-                Jornada <span className="text-[#b56d2d] not-italic">H-2A</span>
+            <div className="min-w-0">
+              <h1 className="font-bold text-base leading-tight tracking-tight text-sidebar-foreground uppercase italic truncate">
+                Jornada <span className="text-sidebar-primary not-italic">H-2A</span>
               </h1>
-              <p className="text-[10px] text-emerald-500 font-bold tracking-widest leading-none mt-0.5">
+              <p className="text-[10px] text-sidebar-primary/80 font-bold tracking-widest leading-none mt-0.5">
                 TRABALHO RURAL
               </p>
             </div>
@@ -208,7 +249,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <button
             type="button"
             onClick={() => setOpen(false)}
-            className="lg:hidden text-emerald-300/60 hover:text-white rounded-md p-1 min-h-11 min-w-11 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]"
+            className="lg:hidden text-sidebar-foreground/60 hover:text-sidebar-foreground rounded-md p-1 min-h-11 min-w-11 shrink-0 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
             aria-label="Fechar menu"
           >
             <X className="size-5" aria-hidden />
@@ -216,46 +257,48 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </div>
 
         {/* Journey Progress Card */}
-        <div className="bg-emerald-900/30 border border-emerald-800/40 rounded-2xl p-4 mb-2">
+        <div className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-4 mb-2">
           <div className="flex items-center gap-3 mb-3">
             <div className="relative shrink-0">
               {photoUrl ? (
                 <img
                   src={photoUrl}
                   alt=""
-                  className="w-10 h-10 rounded-full border-2 border-[#b56d2d] object-cover"
+                  className="w-10 h-10 rounded-full border-2 border-sidebar-primary object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full border-2 border-[#b56d2d] bg-emerald-950 flex items-center justify-center text-[#b56d2d] text-xs font-bold">
+                <div className="w-10 h-10 rounded-full border-2 border-sidebar-primary bg-sidebar flex items-center justify-center text-sidebar-primary text-xs font-bold">
                   {initials}
                 </div>
               )}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-[#1a2e24] rounded-full" aria-hidden />
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-sidebar rounded-full" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-white truncate">
+              <div className="text-sm font-semibold text-sidebar-foreground truncate">
                 {fullName || "Olá!"}
               </div>
-              <div className="text-[10px] text-emerald-400/80 font-bold truncate uppercase tracking-tighter">
+              <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-tighter">
                 Fase: {currentStage}
               </div>
             </div>
           </div>
           <div className="space-y-1.5">
             <div className="flex justify-between text-[11px] font-bold">
-              <span className="text-emerald-500/90 uppercase tracking-tighter">Progresso</span>
-              <span className="text-[#b56d2d]">{progressPct}%</span>
+              <span className="text-sidebar-foreground/60 uppercase tracking-tighter">
+                Progresso · {doneCount}/{stages.length}
+              </span>
+              <span className="text-sidebar-primary">{progressPct}%</span>
             </div>
             <div
-              className="h-1.5 w-full bg-emerald-950 rounded-full overflow-hidden"
+              className="h-1.5 w-full bg-sidebar rounded-full overflow-hidden"
               role="progressbar"
               aria-valuenow={progressPct}
               aria-valuemin={0}
               aria-valuemax={100}
-              aria-label="Progresso da jornada H-2A"
+              aria-label={`Progresso da jornada H-2A: ${progressPct}%, fase atual ${currentStage}`}
             >
               <div
-                className="h-full bg-[#b56d2d] shadow-[0_0_10px_rgba(181,109,45,0.4)] transition-all duration-500"
+                className="h-full bg-sidebar-primary shadow-[0_0_10px_rgba(181,109,45,0.4)] transition-all duration-500"
                 style={{ width: `${progressPct}%` }}
               />
             </div>
@@ -264,23 +307,24 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2 space-y-5">
+      <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2 space-y-5" aria-label="Seções do app">
         <div className="space-y-0.5">
           {topItemsFinal.map(renderItem)}
         </div>
 
         {groups.map((g) => (
-          <section key={g.label}>
-            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/70">
+          <section key={g.label} aria-label={g.label}>
+            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/40">
               {g.label}
             </h3>
             <div className="space-y-0.5">{g.items.map(renderItem)}</div>
           </section>
         ))}
 
+
         {isAdmin && (
-          <section>
-            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/70">
+          <section aria-label="Admin">
+            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-sidebar-foreground/40">
               Admin
             </h3>
             <div className="space-y-0.5">
@@ -292,8 +336,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </nav>
 
       {/* Footer */}
-      <div className="mt-auto p-4 bg-black/20 border-t border-emerald-900/50 space-y-2">
-        <div role="radiogroup" aria-label="Idioma" className="flex items-center gap-1 bg-emerald-950/40 rounded-lg p-1">
+      <div className="mt-auto p-4 bg-black/20 border-t border-sidebar-border space-y-2">
+        <div role="radiogroup" aria-label="Idioma" className="flex items-center gap-1 bg-sidebar/60 rounded-lg p-1">
           {LANG_OPTIONS.map((opt) => {
             const selected = lang === opt.code;
             return (
@@ -310,8 +354,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   }
                 }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]",
-                  selected ? "bg-[#b56d2d] text-white shadow" : "text-emerald-200/60 hover:text-white",
+                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  selected ? "bg-sidebar-primary text-sidebar-primary-foreground shadow" : "text-sidebar-foreground/60 hover:text-sidebar-foreground",
                 )}
               >
                 <span aria-hidden className="text-sm leading-none">{opt.flag}</span>
@@ -321,7 +365,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           })}
         </div>
 
-        <div role="radiogroup" aria-label="Tema visual" className="flex items-center gap-1 bg-emerald-950/40 rounded-lg p-1">
+        <div role="radiogroup" aria-label="Tema visual" className="flex items-center gap-1 bg-sidebar/60 rounded-lg p-1">
           {(
             [
               { code: "light", label: "Claro", Icon: Sun },
@@ -344,8 +388,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   }
                 }}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]",
-                  selected ? "bg-[#b56d2d] text-white shadow" : "text-emerald-200/60 hover:text-white",
+                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring",
+                  selected ? "bg-sidebar-primary text-sidebar-primary-foreground shadow" : "text-sidebar-foreground/60 hover:text-sidebar-foreground",
                 )}
               >
                 <Icon className="size-3.5" aria-hidden />
@@ -358,7 +402,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         <button
           type="button"
           onClick={onLogout}
-          className="w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-red-400/70 hover:text-red-300 hover:bg-red-500/10 transition-colors text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+          className="w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-accent-red/80 hover:text-accent-red hover:bg-accent-red/10 transition-colors text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent-red"
         >
           <LogOut className="size-4" aria-hidden />
           <span className="flex-1 text-left">{t("logout")}</span>
@@ -366,6 +410,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </div>
     </aside>
   );
+
 
   return (
     <div className="flex min-h-dvh bg-background">
