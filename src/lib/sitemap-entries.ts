@@ -50,6 +50,7 @@ export const NOINDEX_STATIC_SITEMAP_ENTRIES: SitemapEntry[] = [
   { path: "/app/vagas", changefreq: "monthly", priority: "0.1" },
   { path: "/app/video", changefreq: "monthly", priority: "0.1" },
   { path: "/app/visto", changefreq: "monthly", priority: "0.1" },
+  { path: "/admin/seo", changefreq: "monthly", priority: "0.1" },
 ];
 
 export const STATIC_SITEMAP_ENTRIES: SitemapEntry[] = [
