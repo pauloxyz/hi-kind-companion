@@ -23,6 +23,7 @@ type NavItem = {
   exact?: boolean;
   highlight?: boolean;
   badgeKey?: "unreadReplies";
+  countKey?: "savedJobs" | "applications";
 };
 type NavGroup = { label: string; items: NavItem[] };
 
@@ -46,8 +47,8 @@ const groups: NavGroup[] = [
   {
     label: "Busca de vagas",
     items: [
-      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase },
-      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies" },
+      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase, countKey: "savedJobs" },
+      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies", countKey: "applications" },
       { to: "/app/followups", labelKey: "followups", icon: Bell },
       { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
     ],
