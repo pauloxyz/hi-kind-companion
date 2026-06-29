@@ -120,13 +120,20 @@ jobs:
         env:
           CI: "1"
 
-      - name: Upload Playwright artifacts on failure
-        if: failure()
+      # Same nomenclature/contract as the full shards: upload screenshots,
+      # videos, traces, and error contexts on failure OR timeout. The job is
+      # single-shard so the artifact name uses `shard-targeted` to keep the
+      # `playwright-artifacts-shard-*` family consistent across all jobs.
+      - name: Upload Playwright artifacts (shard targeted)
+        if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-targeted-artifacts
+          name: playwright-artifacts-shard-targeted
           path: |
-            test-results/**
+            test-results/**/*.png
+            test-results/**/*.webm
+            test-results/**/*.zip
+            test-results/**/error-context.md
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
