@@ -307,7 +307,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         )}
         {hasBadge && (
           <span
-            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-red px-1.5 text-[10px] font-bold text-white border-2 border-sidebar"
+            className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-red px-1.5 text-[10px] font-bold text-accent-red-foreground border-2 border-sidebar"
             aria-label={`${badge} respostas novas`}
           >
             {badge}
@@ -356,7 +356,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               {photoUrl ? (
                 <img
                   src={photoUrl}
-                  alt=""
+                  alt={fullName ? `Foto de ${fullName}` : "Foto do perfil"}
                   className="w-10 h-10 rounded-full border-2 border-sidebar-primary object-cover"
                 />
               ) : (
@@ -364,7 +364,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
                   {initials}
                 </div>
               )}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-sidebar rounded-full" aria-hidden />
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-sidebar rounded-full" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-sm font-semibold text-sidebar-foreground truncate">
@@ -400,7 +400,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2 space-y-5" aria-label="Seções do app">
+      <div className="flex-1 overflow-y-auto px-3 pb-4 pt-2 space-y-5" role="navigation" aria-label="Seções do app">
         <div className="space-y-0.5">
           {topItemsFinal.map(renderItem)}
         </div>
@@ -427,10 +427,10 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </div>
           </section>
         )}
-      </nav>
+      </div>
 
       {/* Footer */}
-      <div className="mt-auto p-4 bg-black/20 border-t border-sidebar-border space-y-2">
+      <div className="mt-auto p-4 bg-sidebar-foreground/5 border-t border-sidebar-border space-y-2">
         <div role="radiogroup" aria-label="Idioma" className="flex items-center gap-1 bg-sidebar/60 rounded-lg p-1">
           {LANG_OPTIONS.map((opt) => {
             const selected = lang === opt.code;
