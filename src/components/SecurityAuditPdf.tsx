@@ -51,6 +51,10 @@ export function SecurityAuditPdf({
   return (
     <Document>
       <Page size="LETTER" style={s.page}>
+        <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <PdfLogo />
+          <Text style={s.meta}>vaiprala.net</Text>
+        </View>
         <Text style={s.h1}>Relatório de Auditoria de Segurança</Text>
         <Text style={s.meta}>
           Gerado em {new Date().toLocaleString("pt-BR")} · Janela: {window}
