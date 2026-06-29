@@ -953,10 +953,17 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
         keyHistory.push("Enter(reopen)");
         await expect(dialog, `[${vp.width}px] Enter after outside-close did not reopen drawer`).toBeVisible();
 
-        const insideAfterReopen = await page.evaluate(() => {
-          const dlg = document.querySelector('[role="dialog"]');
-          return !!dlg && dlg.contains(document.activeElement);
-        });
+        // Focus auto-moves into the dialog asynchronously after mount;
+        // poll briefly so we don't race the auto-focus effect.
+        let insideAfterReopen = false;
+        for (let i = 0; i < 20; i++) {
+          insideAfterReopen = await page.evaluate(() => {
+            const dlg = document.querySelector('[role="dialog"]');
+            return !!dlg && dlg.contains(document.activeElement);
+          });
+          if (insideAfterReopen) break;
+          await page.waitForTimeout(50);
+        }
         if (!insideAfterReopen) {
           const dump = await attachFocusDump(testInfo, page, keyHistory, `${vp.width}px-after-reopen`);
           expect(
@@ -964,6 +971,7 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
             `[${vp.width}px] on reopen via Enter, focus did NOT enter the dialog.${dump}`,
           ).toBe(true);
         }
+
 
         // 4) Escape → same-node identity must hold again.
         await page.keyboard.press("Escape");
