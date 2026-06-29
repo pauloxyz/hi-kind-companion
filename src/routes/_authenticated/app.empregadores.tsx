@@ -12,13 +12,16 @@ import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/empregadores")({ component: Page });
 
+type Employer = Awaited<ReturnType<typeof listEmployers>>[number];
+type EmployerPatch = { notes?: string; is_flagged_suspicious?: boolean; flagged_reason?: string };
+
 function Page() {
   const qc = useQueryClient();
   const list = useServerFn(listEmployers);
   const update = useServerFn(updateEmployer);
   const { data: emps = [], isPending } = useQuery({ queryKey: ["employers"], queryFn: () => list() });
 
-  async function save(id: string, patch: any) {
+  async function save(id: string, patch: EmployerPatch) {
     await update({ data: { id, ...patch } });
     qc.invalidateQueries({ queryKey: ["employers"] });
   }
