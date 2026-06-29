@@ -1,77 +1,59 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { assertAdminWithAudit } from "./admin-guard.shared";
 
-function makeCtx(opts: { isAdmin: boolean; rpcError?: boolean }) {
-  const inserts: Array<Record<string, unknown>> = [];
+function makeCtx(opts: { isAdmin: boolean; rpcRoleError?: boolean; denialThrows?: boolean }) {
+  const rpcCalls: Array<{ name: string; params: Record<string, unknown> }> = [];
   const ctx = {
     userId: "user-123",
     supabase: {
-      rpc: vi.fn(async () =>
-        opts.rpcError
-          ? { data: null, error: { message: "rpc fail" } }
-          : { data: opts.isAdmin, error: null },
-      ),
-      from: vi.fn((table: string) => ({
-        insert: vi.fn(async (row: Record<string, unknown>) => {
-          inserts.push({ table, ...row });
-          return { error: null };
-        }),
-      })),
+      rpc: vi.fn(async (name: string, params: Record<string, unknown>) => {
+        rpcCalls.push({ name, params });
+        if (name === "has_role") {
+          return opts.rpcRoleError
+            ? { data: null, error: { message: "rpc fail" } }
+            : { data: opts.isAdmin, error: null };
+        }
+        if (name === "record_admin_denial") {
+          if (opts.denialThrows) throw new Error("log unavailable");
+          return { data: null, error: null };
+        }
+        return { data: null, error: null };
+      }),
     },
   };
-  return { ctx, inserts };
+  return { ctx, rpcCalls };
 }
 
 describe("assertAdminWithAudit", () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it("passes silently when user is admin", async () => {
-    const { ctx, inserts } = makeCtx({ isAdmin: true });
+  it("passes silently when user is admin and does NOT log anything", async () => {
+    const { ctx, rpcCalls } = makeCtx({ isAdmin: true });
     await expect(
       assertAdminWithAudit(ctx as never, "route:/admin/seo"),
     ).resolves.toBeUndefined();
-    expect(ctx.supabase.rpc).toHaveBeenCalledWith("has_role", {
-      _user_id: "user-123",
-      _role: "admin",
-    });
-    expect(inserts).toHaveLength(0);
+    expect(rpcCalls.map((c) => c.name)).toEqual(["has_role"]);
   });
 
-  it("throws Forbidden and audits denial when user is not admin", async () => {
-    const { ctx, inserts } = makeCtx({ isAdmin: false });
+  it("throws Forbidden and calls record_admin_denial when user is not admin", async () => {
+    const { ctx, rpcCalls } = makeCtx({ isAdmin: false });
     await expect(
       assertAdminWithAudit(ctx as never, "route:/admin/seo"),
     ).rejects.toThrow("Forbidden");
-    expect(inserts).toHaveLength(1);
-    expect(inserts[0]).toMatchObject({
-      table: "security_audit_log",
-      event_type: "admin_access_denied",
-      user_id: "user-123",
-      resource: "route:/admin/seo",
-      metadata: { reason: "missing_admin_role", severity: "medium" },
-    });
+    expect(rpcCalls.map((c) => c.name)).toEqual(["has_role", "record_admin_denial"]);
+    expect(rpcCalls[1].params).toEqual({ _resource: "route:/admin/seo" });
   });
 
-  it("throws role check failed and does NOT audit on rpc error", async () => {
-    const { ctx, inserts } = makeCtx({ isAdmin: false, rpcError: true });
+  it("throws 'role check failed' on rpc error and does NOT log a denial", async () => {
+    const { ctx, rpcCalls } = makeCtx({ isAdmin: false, rpcRoleError: true });
     await expect(
       assertAdminWithAudit(ctx as never, "any.fn"),
     ).rejects.toThrow("role check failed");
-    expect(inserts).toHaveLength(0);
+    expect(rpcCalls.map((c) => c.name)).toEqual(["has_role"]);
   });
 
-  it("never throws because of an audit-log insert failure (best effort)", async () => {
-    const ctx = {
-      userId: "user-xyz",
-      supabase: {
-        rpc: vi.fn(async () => ({ data: false, error: null })),
-        from: vi.fn(() => ({
-          insert: vi.fn(async () => {
-            throw new Error("log table unavailable");
-          }),
-        })),
-      },
-    };
+  it("never throws because of a denial-log failure (best effort)", async () => {
+    const { ctx } = makeCtx({ isAdmin: false, denialThrows: true });
     await expect(
       assertAdminWithAudit(ctx as never, "fn.x"),
     ).rejects.toThrow("Forbidden");
