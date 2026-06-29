@@ -116,7 +116,7 @@ function Landing() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs font-bold mb-6">
                 <span className="inline-block w-2 h-2 rounded-full bg-accent-red animate-pulse" />
-                {stats.jobs > 0 ? (
+                {stats.jobs && stats.jobs > 0 ? (
                   <>
                     <strong className="tabular-nums">{stats.jobs.toLocaleString("pt-BR")}</strong>
                     {" "}vagas H-2A ativas agora
@@ -170,15 +170,14 @@ function Landing() {
                     <span className="ml-1.5 font-semibold text-foreground">4,9</span>
                   </div>
                   <p className="text-muted-foreground">
-                    <strong className="tabular-nums text-foreground">{stats.profiles.toLocaleString("pt-BR")}</strong>{" "}
-                    brasileiros já trilhando a Jornada H-2A
+                    Brasileiros trilhando a Jornada H-2A com a gente
                   </p>
                 </div>
               </div>
             </div>
 
             {/* Hero right: Jornada H-2A visual timeline */}
-            <JourneyTimeline jobs={stats.jobs} applications={stats.applications} />
+            <JourneyTimeline jobs={stats.jobs ?? 0} />
           </div>
         </div>
       </section>
