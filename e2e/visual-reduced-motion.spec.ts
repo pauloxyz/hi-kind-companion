@@ -17,6 +17,13 @@ const VISUAL_OPTS = { maxDiffPixelRatio: 0.02, animations: "disabled" as const }
 
 test.use({ colorScheme: "light", reducedMotion: "reduce" });
 
+// Debounce window used by JourneyLiveRegion (keep aligned with the source).
+const DEBOUNCE_MS = 600;
+// 5 burst transitions over ~300ms + 800ms drain = ~1.1s total → at most
+// ceil(1100 / 600) + 1 = 3 distinct announcements. Cap a bit higher to absorb
+// CI jitter without masking real regressions.
+const MAX_ANNOUNCEMENTS_PER_BURST = 4;
+
 async function bootSession(page: Page) {
   await page.goto("/");
   await page.evaluate(
