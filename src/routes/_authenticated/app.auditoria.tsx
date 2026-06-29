@@ -824,13 +824,32 @@ function pageRange(current: number, total: number): Array<number | "…"> {
   return pages;
 }
 
-function EventDetailsDialog({ event, onClose }: { event: AuditEvent | null; onClose: () => void }) {
+function EventDetailsDialog({
+  event,
+  onClose,
+  onFilterRoute,
+  onFilterUser,
+}: {
+  event: AuditEvent | null;
+  onClose: () => void;
+  onFilterRoute?: (route: string) => void;
+  onFilterUser?: (userId: string) => void;
+}) {
   const copy = (text: string) => {
     navigator.clipboard?.writeText(text).then(
       () => toast.success("Copiado"),
       () => toast.error("Falha ao copiar"),
     );
   };
+  const isSpike = event?.event_type === "admin_access_denied_spike";
+  const meta = (event?.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+    ? (event.metadata as Record<string, unknown>)
+    : {}) as Record<string, unknown>;
+  const dim = typeof meta.dimension === "string" ? meta.dimension : null;
+  const hits = typeof meta.hits_in_window === "number" ? meta.hits_in_window : null;
+  const threshold = typeof meta.threshold === "number" ? meta.threshold : null;
+  const windowMin = typeof meta.window_minutes === "number" ? meta.window_minutes : null;
+  const lastAt = typeof meta.last_at === "string" ? meta.last_at : null;
   return (
     <Dialog open={!!event} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
@@ -845,7 +864,7 @@ function EventDetailsDialog({ event, onClose }: { event: AuditEvent | null; onCl
         {event && (
           <div className="grid grid-cols-[120px_1fr] gap-x-3 gap-y-2 text-sm">
             <Field label="Tipo">
-              <Badge variant="outline">{event.event_type}</Badge>
+              <Badge variant={isSpike ? "destructive" : "outline"}>{event.event_type}</Badge>
             </Field>
             <Field label="ID">
               <code className="text-xs">{event.id}</code>
@@ -865,6 +884,43 @@ function EventDetailsDialog({ event, onClose }: { event: AuditEvent | null; onCl
             <Field label="User-Agent">
               <span className="text-xs break-all">{event.user_agent ?? "—"}</span>
             </Field>
+            {isSpike && (
+              <Field label="Resumo">
+                <div className="rounded border border-destructive/40 bg-destructive/5 p-3 space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    {dim && <Badge variant="outline">dimensão: {dim}</Badge>}
+                    {hits !== null && <Badge variant="destructive">{hits} tentativas</Badge>}
+                    {threshold !== null && <Badge variant="outline">limite: {threshold}</Badge>}
+                    {windowMin !== null && <Badge variant="outline">janela: {windowMin}min</Badge>}
+                  </div>
+                  {lastAt && (
+                    <div className="text-xs text-muted-foreground">
+                      Última tentativa: {new Date(lastAt).toLocaleString("pt-BR")}
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    {event.resource && onFilterRoute && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onFilterRoute(event.resource!)}
+                      >
+                        Filtrar por rota
+                      </Button>
+                    )}
+                    {event.user_id && onFilterUser && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => onFilterUser(event.user_id!)}
+                      >
+                        Filtrar por usuário
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </Field>
+            )}
             <Field label="Metadata">
               <pre className="text-xs bg-muted rounded p-2 overflow-auto max-h-64">
                 {JSON.stringify(event.metadata ?? {}, null, 2)}
@@ -872,6 +928,7 @@ function EventDetailsDialog({ event, onClose }: { event: AuditEvent | null; onCl
             </Field>
           </div>
         )}
+
         <DialogFooter>
           {event && (
             <Button variant="outline" onClick={() => copy(JSON.stringify(event, null, 2))}>
