@@ -195,10 +195,12 @@ function AuthPage() {
 
         <main className="flex items-center justify-center p-6 sm:p-12">
           <div className="w-full max-w-sm space-y-6 rounded-2xl border border-white/40 bg-card/95 p-7 shadow-2xl backdrop-blur-xl">
+            <h1 className="sr-only">VaiPraLá — Entrar ou criar conta</h1>
             <div className="lg:hidden flex flex-col items-center gap-2">
               <img src={logo} alt="VaiPraLá" width={72} height={72} className="h-18 w-18" />
               <div className="text-xl font-bold tracking-tight">VaiPraLá</div>
             </div>
+
 
             <div className="space-y-1.5">
               <h2 className="text-3xl font-bold tracking-tight">
