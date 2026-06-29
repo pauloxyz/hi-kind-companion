@@ -1,5 +1,4 @@
-import * as React from 'react'
-
+import * as React from "react";
 import {
   Body,
   Button,
@@ -7,63 +6,65 @@ import {
   Head,
   Heading,
   Html,
+  Link,
   Preview,
+  Section,
   Text,
-} from '@react-email/components'
+} from "@react-email/components";
+import { brand, styles } from "./_brand";
 
 interface RecoveryEmailProps {
-  siteName: string
-  confirmationUrl: string
+  siteName: string;
+  siteUrl: string;
+  confirmationUrl: string;
 }
 
 export const RecoveryEmail = ({
   siteName,
+  siteUrl,
   confirmationUrl,
 }: RecoveryEmailProps) => (
-  <Html lang="en" dir="ltr">
+  <Html lang="pt-BR" dir="ltr">
     <Head />
-    <Preview>Reset your password for {siteName}</Preview>
-    <Body style={main}>
-      <Container style={container}>
-        <Heading style={h1}>Reset your password</Heading>
-        <Text style={text}>
-          We received a request to reset your password for {siteName}. Click
-          the button below to choose a new password.
-        </Text>
-        <Button style={button} href={confirmationUrl}>
-          Reset Password
-        </Button>
-        <Text style={footer}>
-          If you didn't request a password reset, you can safely ignore this
-          email. Your password will not be changed.
+    <Preview>Redefina sua senha do {siteName}</Preview>
+    <Body style={styles.main}>
+      <Container style={styles.container}>
+        <Section style={styles.band} />
+        <Section style={styles.header}>
+          <Text style={styles.brandLine}>V+ USA</Text>
+          <Text style={styles.brandTag}>Recuperação de acesso</Text>
+        </Section>
+        <Section style={styles.body}>
+          <Heading style={styles.h1}>Redefinir senha</Heading>
+          <Text style={styles.text}>
+            Recebemos um pedido para redefinir a senha da sua conta no{" "}
+            <Link href={siteUrl} style={styles.link}>
+              <strong>{siteName}</strong>
+            </Link>
+            . Use o botão abaixo para criar uma nova senha — o link expira em 1 hora.
+          </Text>
+          <Button style={styles.button} href={confirmationUrl}>
+            Criar nova senha
+          </Button>
+          <Text style={{ ...styles.text, fontSize: "13px", color: brand.muted }}>
+            Se o botão não funcionar, copie e cole este link no navegador:
+            <br />
+            <Link href={confirmationUrl} style={styles.link}>
+              {confirmationUrl}
+            </Link>
+          </Text>
+          <div style={styles.divider} />
+        </Section>
+        <Text style={styles.footer}>
+          Se você não solicitou esta redefinição, ignore este e-mail — sua senha
+          atual continua válida.
+          <br />
+          <br />
+          {siteName} · vplusa.com
         </Text>
       </Container>
     </Body>
   </Html>
-)
+);
 
-export default RecoveryEmail
-
-const main = { backgroundColor: '#ffffff', fontFamily: 'Arial, sans-serif' }
-const container = { padding: '20px 25px' }
-const h1 = {
-  fontSize: '22px',
-  fontWeight: 'bold' as const,
-  color: '#000000',
-  margin: '0 0 20px',
-}
-const text = {
-  fontSize: '14px',
-  color: '#55575d',
-  lineHeight: '1.5',
-  margin: '0 0 25px',
-}
-const button = {
-  backgroundColor: '#000000',
-  color: '#ffffff',
-  fontSize: '14px',
-  borderRadius: '8px',
-  padding: '12px 20px',
-  textDecoration: 'none',
-}
-const footer = { fontSize: '12px', color: '#999999', margin: '30px 0 0' }
+export default RecoveryEmail;
