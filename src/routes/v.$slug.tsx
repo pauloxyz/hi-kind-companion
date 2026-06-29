@@ -1,6 +1,7 @@
 import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { getPublicProfileBySlug, trackProfileView, type PublicSkill, type PublicExperience, type PublicMedia } from "@/lib/public-profile.functions";
+import { absUrl } from "@/lib/site";
 
 export const Route = createFileRoute("/v/$slug")({
   loader: async ({ params }) => {
@@ -12,18 +13,20 @@ export const Route = createFileRoute("/v/$slug")({
     const name = loaderData?.profile.full_name ?? "Candidato H-2A";
     const headline = loaderData?.profile.public_headline ?? "Disponível para a próxima safra nos EUA";
     const path = `/v/${params.slug}`;
-    const image = (loaderData?.profile as { photo_url?: string | null })?.photo_url ?? undefined;
+    const absPath = absUrl(path);
+    const rawImage = (loaderData?.profile as { photo_url?: string | null })?.photo_url ?? undefined;
+    const image = rawImage ? (rawImage.startsWith("http") ? rawImage : absUrl(rawImage)) : undefined;
     return {
       meta: [
         { title: `${name} — H-2A Candidate` },
         { name: "description", content: headline },
         { property: "og:title", content: `${name} — H-2A Candidate` },
         { property: "og:description", content: headline },
-        { property: "og:url", content: path },
+        { property: "og:url", content: absPath },
         { property: "og:type", content: "profile" },
         ...(image ? [{ property: "og:image", content: image } as const, { name: "twitter:image", content: image } as const] : []),
       ],
-      links: [{ rel: "canonical", href: path }],
+      links: [{ rel: "canonical", href: absPath }],
       scripts: [{
         type: "application/ld+json",
         children: JSON.stringify({
@@ -34,7 +37,7 @@ export const Route = createFileRoute("/v/$slug")({
           nationality: loaderData?.profile.country ?? undefined,
           image,
           knowsLanguage: loaderData?.profile.languages ?? undefined,
-          url: path,
+          url: absPath,
         }),
       }],
     };

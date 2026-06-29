@@ -3,9 +3,9 @@ import type {} from "@tanstack/react-start";
 import { listPublicJobStates } from "@/lib/public-jobs.functions";
 import { listPublicProfileSlugs } from "@/lib/public-profile.functions";
 import { STATIC_SITEMAP_ENTRIES, type SitemapEntry } from "@/lib/sitemap-entries";
+import { SITE_URL } from "@/lib/site";
 
-// TODO: replace with your project URL once a project name or custom domain is set.
-const BASE_URL = "";
+const BASE_URL = SITE_URL;
 
 export const Route = createFileRoute("/sitemap.xml")({
   server: {

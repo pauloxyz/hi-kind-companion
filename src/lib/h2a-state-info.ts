@@ -82,6 +82,103 @@ export const STATE_INFO: Record<string, StateInfo> = {
     intro:
       "O Texas tem programa H-2A diversificado: cebola e melão no Rio Grande Valley, cítricos no sul, pecuária e algodão no oeste. AEWR 2025: US$ 15,97/hora. A safra de inverno (cebola, cítricos) vai de outubro a junho, oposta à maioria dos estados — boa opção para quem quer trabalhar fora do verão.",
   },
+  LA: {
+    name: "Louisiana",
+    aewr2025: 14.83,
+    crops: ["cana-de-açúcar", "batata-doce", "cítricos", "algodão"],
+    peakSeason: "Ago–Jan",
+    intro:
+      "A Louisiana é o principal estado H-2A para colheita de cana-de-açúcar dos EUA — safra concentrada entre setembro e janeiro nos engenhos do sul do estado. O AEWR 2025 é US$ 14,83/hora e o empregador cobre alojamento e transporte. Brasileiros experientes em cana têm forte vantagem aqui, especialmente em Iberia, St. Mary e Assumption Parish.",
+  },
+  KY: {
+    name: "Kentucky",
+    aewr2025: 16.32,
+    crops: ["tabaco", "cavalos", "milho", "soja"],
+    peakSeason: "Mai–Nov",
+    intro:
+      "Kentucky é, ao lado da Carolina do Norte, o principal empregador H-2A para colheita de tabaco. A safra vai de maio (plantio) a novembro (cura em barracões). AEWR 2025: US$ 16,32/hora. Também há demanda H-2A em fazendas de cavalos puro-sangue de Lexington e na agricultura de milho/soja no oeste do estado.",
+  },
+  VA: {
+    name: "Virgínia",
+    aewr2025: 16.13,
+    crops: ["maçã", "tomate", "tabaco", "fumo escuro"],
+    peakSeason: "Mai–Out",
+    intro:
+      "A Virgínia tem programa H-2A consolidado em colheita de maçã (Shenandoah Valley), tomate (Eastern Shore) e tabaco (sudeste). AEWR 2025: US$ 16,13/hora. A safra principal vai de maio a outubro, com pico de maçã em setembro. Empregadores tradicionais oferecem alojamento em fazendas históricas dos Apalaches.",
+  },
+  AR: {
+    name: "Arkansas",
+    aewr2025: 15.05,
+    crops: ["arroz", "soja", "algodão", "mirtilo", "pêssego"],
+    peakSeason: "Mar–Out",
+    intro:
+      "Arkansas é o maior produtor de arroz dos EUA e tem programa H-2A em arroz, soja, algodão e frutas de caroço. AEWR 2025: US$ 15,05/hora. As fazendas concentram-se no Mississippi Delta (leste do estado) e no vale do rio Arkansas. A safra principal vai de março a outubro.",
+  },
+  SC: {
+    name: "Carolina do Sul",
+    shortName: "carolina-do-sul",
+    aewr2025: 15.81,
+    crops: ["pêssego", "tomate", "melancia", "tabaco"],
+    peakSeason: "Mai–Out",
+    intro:
+      "A Carolina do Sul é o segundo maior produtor de pêssego dos EUA (atrás apenas da Geórgia) e tem forte demanda H-2A em colheita de pêssego, tomate e melancia. AEWR 2025: US$ 15,81/hora. As fazendas estão concentradas em Edgefield, Saluda e no condado de Aiken. Safra: maio a outubro.",
+  },
+  AL: {
+    name: "Alabama",
+    aewr2025: 14.83,
+    crops: ["amendoim", "algodão", "mirtilo", "tomate", "batata-doce"],
+    peakSeason: "Abr–Out",
+    intro:
+      "O Alabama tem programa H-2A em amendoim, mirtilo, algodão e batata-doce. AEWR 2025: US$ 14,83/hora. As fazendas estão concentradas no sul do estado (Baldwin, Mobile, Houston) e a safra vai de abril a outubro, com pico de mirtilo em maio/junho e amendoim em setembro.",
+  },
+  TN: {
+    name: "Tennessee",
+    aewr2025: 16.32,
+    crops: ["tabaco", "tomate", "morango", "abóbora"],
+    peakSeason: "Mai–Out",
+    intro:
+      "O Tennessee combina tradição em tabaco (Burley e Dark) com colheita de tomate e morango em fazendas familiares de pequeno e médio porte. AEWR 2025: US$ 16,32/hora. Polos H-2A: Cumberland Plateau, Robertson e Greene County. Safra: maio a outubro.",
+  },
+  MS: {
+    name: "Mississippi",
+    aewr2025: 15.05,
+    crops: ["batata-doce", "algodão", "mirtilo", "milho"],
+    peakSeason: "Abr–Out",
+    intro:
+      "O Mississippi tem programa H-2A em batata-doce (o estado é #2 dos EUA), mirtilo, algodão e milho. AEWR 2025: US$ 15,05/hora. Fazendas concentram-se no Delta (Bolivar, Sunflower) e em Vardaman, capital nacional da batata-doce. Safra: abril a outubro.",
+  },
+  OR: {
+    name: "Oregon",
+    aewr2025: 19.25,
+    crops: ["cereja", "pera", "mirtilo", "uva", "lúpulo", "árvores de natal"],
+    peakSeason: "Mai–Nov",
+    intro:
+      "Oregon é forte em cereja, pera e mirtilo no Willamette Valley e Hood River, além de lúpulo e árvores de natal. AEWR 2025: US$ 19,25/hora — um dos maiores do país. Safra: maio a novembro, com pico de cereja em junho/julho e maçã/pera em setembro.",
+  },
+  ID: {
+    name: "Idaho",
+    aewr2025: 17.86,
+    crops: ["batata", "beterraba açucareira", "cebola", "maçã"],
+    peakSeason: "Mai–Out",
+    intro:
+      "Idaho é o maior produtor de batata dos EUA e tem programa H-2A consolidado em batata, beterraba e cebola. AEWR 2025: US$ 17,86/hora. As fazendas concentram-se em Twin Falls, Magic Valley e Treasure Valley. A safra vai de maio (plantio) a outubro (colheita), com pico em setembro.",
+  },
+  MO: {
+    name: "Missouri",
+    aewr2025: 18.04,
+    crops: ["melancia", "milho", "soja", "abóbora"],
+    peakSeason: "Abr–Out",
+    intro:
+      "Missouri oferece AEWR 2025 alto (US$ 18,04/hora) e demanda H-2A em melancia, milho, soja e abóbora. As fazendas concentram-se no Bootheel (sudeste) e ao norte do Rio Missouri. Safra: abril a outubro, com pico de melancia em junho/julho.",
+  },
+  WI: {
+    name: "Wisconsin",
+    aewr2025: 18.50,
+    crops: ["ginseng", "cranberry", "maçã", "milho"],
+    peakSeason: "Mai–Out",
+    intro:
+      "Wisconsin tem programa H-2A particular: é o maior produtor de ginseng e cranberry dos EUA. AEWR 2025: US$ 18,50/hora. Polos H-2A: Wausau (ginseng), Wisconsin Rapids (cranberry) e Door County (cereja, maçã). Safra: maio a outubro, com colheita de cranberry em setembro/outubro.",
+  },
 };
 
 /**

@@ -1,6 +1,7 @@
 import { createFileRoute, Link, notFound } from "@tanstack/react-router";
 import { listPublicJobsByState } from "@/lib/public-jobs.functions";
 import { STATE_INFO } from "@/lib/h2a-state-info";
+import { absUrl } from "@/lib/site";
 import logo from "@/assets/vaiprala-logo.png";
 
 const US_STATE_NAMES: Record<string, string> = {
@@ -44,15 +45,17 @@ export const Route = createFileRoute("/vagas-h2a/$state")({
     const title = `Vagas H-2A em ${name} (${count}) | VaiPraLá`;
     const desc = `Veja ${count} vagas H-2A abertas em fazendas de ${name}. Salário, datas e empregadores oficiais do Departamento do Trabalho dos EUA.`;
     const path = `/vagas-h2a/${params.state.toLowerCase()}`;
+    const absPath = absUrl(path);
     return {
       meta: [
         { title },
         { name: "description", content: desc },
         { property: "og:title", content: title },
         { property: "og:description", content: desc },
-        { property: "og:url", content: path },
+        { property: "og:url", content: absPath },
+        { property: "og:type", content: "website" },
       ],
-      links: [{ rel: "canonical", href: path }],
+      links: [{ rel: "canonical", href: absPath }],
       scripts: [{
         type: "application/ld+json",
         children: JSON.stringify({
@@ -64,12 +67,16 @@ export const Route = createFileRoute("/vagas-h2a/$state")({
             const jobTitle = j.job_title ?? "H-2A Farmworker";
             const employer = j.employer_name ?? "US Farm Employer";
             const locationCity = j.worksite_city ?? name;
+            const jobUrl = absUrl(`${path}#job-${j.id}`);
             return {
               "@type": "ListItem",
               position: i + 1,
+              url: jobUrl,
               item: {
                 "@context": "https://schema.org",
                 "@type": "JobPosting",
+                "@id": jobUrl,
+                url: jobUrl,
                 identifier: { "@type": "PropertyValue", name: "VaiPraLá Job ID", value: j.id },
                 title: jobTitle,
                 description: `Vaga oficial H-2A: ${jobTitle} para ${employer} em ${locationCity}, ${name} (EUA). ${
@@ -77,22 +84,36 @@ export const Route = createFileRoute("/vagas-h2a/$state")({
                 }${j.start_date ? `Início em ${j.start_date}` : "Início conforme cronograma do empregador"}${
                   j.end_date ? ` até ${j.end_date}.` : "."
                 } Publicada pelo Departamento do Trabalho dos EUA.`,
-                hiringOrganization: { "@type": "Organization", name: employer },
+                hiringOrganization: {
+                  "@type": "Organization",
+                  name: employer,
+                  sameAs: absUrl("/"),
+                },
                 jobLocation: {
                   "@type": "Place",
-                  address: { "@type": "PostalAddress", addressLocality: j.worksite_city ?? undefined, addressRegion: code, addressCountry: "US" },
+                  address: {
+                    "@type": "PostalAddress",
+                    addressLocality: j.worksite_city ?? locationCity,
+                    addressRegion: code,
+                    addressCountry: "US",
+                  },
                 },
-                jobLocationType: undefined,
                 applicantLocationRequirements: { "@type": "Country", name: "Brazil" },
                 datePosted: j.start_date ?? new Date().toISOString().slice(0, 10),
-                validThrough: j.end_date ?? undefined,
+                validThrough:
+                  j.end_date ??
+                  new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10),
                 employmentType: "TEMPORARY",
                 directApply: false,
                 totalJobOpenings: j.total_openings ?? undefined,
                 baseSalary: j.wage_offered ? {
                   "@type": "MonetaryAmount",
                   currency: "USD",
-                  value: { "@type": "QuantitativeValue", value: j.wage_offered, unitText: (j.wage_unit ?? "HOUR").toUpperCase() },
+                  value: {
+                    "@type": "QuantitativeValue",
+                    value: j.wage_offered,
+                    unitText: (j.wage_unit ?? "HOUR").toUpperCase(),
+                  },
                 } : undefined,
               },
             };
