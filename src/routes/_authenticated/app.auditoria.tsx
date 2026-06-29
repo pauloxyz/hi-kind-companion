@@ -548,16 +548,32 @@ function AuditPanel() {
                   </select>
                 </div>
               </div>
-              <div className="relative">
-                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <label htmlFor="audit-search" className="sr-only">{tr("audit_search_placeholder")}</label>
+              <div className="grid gap-2 sm:grid-cols-[1fr_220px_220px]">
+                <div className="relative">
+                  <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <label htmlFor="audit-search" className="sr-only">{tr("audit_search_placeholder")}</label>
+                  <Input
+                    id="audit-search"
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={tr("audit_search_placeholder")}
+                    className="pl-8"
+                  />
+                </div>
                 <Input
-                  id="audit-search"
                   type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={tr("audit_search_placeholder")}
-                  className="pl-8"
+                  value={routeFilter}
+                  onChange={(e) => setRouteFilter(e.target.value)}
+                  placeholder="Filtrar rota / recurso…"
+                  aria-label="Filtrar por rota"
+                />
+                <Input
+                  type="search"
+                  value={userIdFilter}
+                  onChange={(e) => setUserIdFilter(e.target.value)}
+                  placeholder="Filtrar user id…"
+                  aria-label="Filtrar por user id"
                 />
               </div>
             </CardHeader>
