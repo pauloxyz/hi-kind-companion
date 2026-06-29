@@ -234,7 +234,7 @@ function Page() {
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
-            <Youtube className="h-4 w-4 text-red-600" />
+            <Youtube className="h-4 w-4 text-destructive" />
             3. Cole o link do YouTube
           </CardTitle>
         </CardHeader>
@@ -261,7 +261,7 @@ function Page() {
           {normalizedUrl && ytId && (
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-xs text-success-foreground">
-                <Check className="h-3.5 w-3.5 text-green-600" />
+                <Check className="h-3.5 w-3.5 text-success" />
                 <span>Link reconhecido. Aparecerá nos emails como <code className="font-mono">{normalizedUrl}</code></span>
               </div>
               <div className="aspect-video w-full max-w-md rounded overflow-hidden border bg-black">
@@ -274,7 +274,7 @@ function Page() {
                   allowFullScreen
                 />
               </div>
-              <Badge className="bg-green-600 text-white">Pronto pra usar nas candidaturas</Badge>
+              <Badge className="bg-success text-success-foreground">Pronto pra usar nas candidaturas</Badge>
             </div>
           )}
         </CardContent>
