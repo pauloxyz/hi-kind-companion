@@ -45,6 +45,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { getAuditStats, getDeniedAdminSummary, listAuditEvents, type AuditEvent, getAdminSpikeConfig, updateAdminSpikeConfig } from "@/lib/security-admin.functions";
+import { getSpikeAlertStatus, bootstrapSpikeAlertConfig, sendSpikeAlertTest } from "@/lib/spike-alert.functions";
 import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
@@ -54,6 +55,7 @@ const EVENT_TYPES = [
   { v: "", label: "Todos os tipos" },
   { v: "admin_access_denied", label: "Acesso admin negado" },
   { v: "admin_access_denied_spike", label: "Pico de acesso admin negado" },
+  { v: "admin_access_denied_spike_notified", label: "Spike notificado (email/Slack)" },
   { v: "high_risk_alert", label: "Alerta de alto risco" },
   { v: "hibp_block", label: "HIBP Block" },
   { v: "weak_password_block", label: "Senha Fraca" },
