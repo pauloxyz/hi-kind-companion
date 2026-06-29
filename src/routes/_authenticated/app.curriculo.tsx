@@ -76,6 +76,7 @@ function Page() {
   const [importing, setImporting] = useState(false);
   const translateFn = useServerFn(translateToEnglish);
   const importFn = useServerFn(importResumeFromPdf);
+  const photosFn = useServerFn(listResumePhotos);
 
   useEffect(() => {
     void (async () => {
