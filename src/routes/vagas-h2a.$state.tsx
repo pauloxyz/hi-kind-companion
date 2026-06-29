@@ -141,10 +141,23 @@ function StateJobsPage() {
         <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
           Vagas H-2A em {name}
         </h1>
-        <p className="mt-3 text-muted-foreground max-w-2xl">
-          {jobs.length} vagas oficiais publicadas pelo Departamento do Trabalho dos EUA.
-          Crie sua conta gratuita para se candidatar com carta em inglês gerada por IA.
-        </p>
+        {STATE_INFO[code] ? (
+          <>
+            <p className="mt-4 text-base text-foreground/85 max-w-3xl leading-relaxed">
+              {STATE_INFO[code].intro}
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1">💰 AEWR 2025: US$ {STATE_INFO[code].aewr2025.toFixed(2)}/h</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1">📅 Safra: {STATE_INFO[code].peakSeason}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full border bg-card px-3 py-1">🌱 {STATE_INFO[code].crops.slice(0, 3).join(", ")}</span>
+            </div>
+          </>
+        ) : (
+          <p className="mt-3 text-muted-foreground max-w-2xl">
+            {jobs.length} vagas oficiais publicadas pelo Departamento do Trabalho dos EUA.
+            Crie sua conta gratuita para se candidatar com carta em inglês gerada por IA.
+          </p>
+        )}
 
         <div className="mt-8 space-y-3">
           {jobs.map((j: Job) => (
