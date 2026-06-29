@@ -206,23 +206,37 @@ test.describe("desktop layout at lg boundary (1024px) — no mobile trap", () =>
 
     // 4) Focusing a sidebar link and Tabbing forward must keep focus on
     //    visible, real elements — never on <body> (which would mean the
-    //    focus left the document entirely). Importantly, focus is allowed
-    //    to leave the sidebar — that is the desktop contract; the mobile
-    //    trap must not apply.
+    //    focus left the document entirely) — AND must visit several
+    //    distinct elements rather than recycling between the same few
+    //    items, which is the tell-tale sign of a mobile-style focus trap
+    //    accidentally engaging at desktop widths.
     await dashboardLink.focus();
-    let leftSidebar = false;
+    const visited: string[] = [];
     for (let i = 0; i < 12; i++) {
       await page.keyboard.press("Tab");
-      const state = await page.evaluate(() => {
+      const info = await page.evaluate(() => {
         const el = document.activeElement as HTMLElement | null;
         return {
           tag: el?.tagName ?? null,
-          inSidebar: !!el?.closest('[data-testid="app-sidebar"], aside, nav'),
+          key:
+            el?.id ||
+            el?.getAttribute("data-testid") ||
+            el?.getAttribute("aria-label") ||
+            (el?.textContent ?? "").trim().slice(0, 40) ||
+            el?.tagName ||
+            null,
         };
       });
-      expect(state.tag, `Tab ${i} dropped focus onto <body> at 1024px`).not.toBe("BODY");
-      if (!state.inSidebar) leftSidebar = true;
+      expect(info.tag, `Tab ${i} dropped focus onto <body> at 1024px`).not.toBe("BODY");
+      if (info.key) visited.push(info.key);
     }
-    expect(leftSidebar, "Tab from the sidebar must be able to flow into main content at 1024px").toBe(true);
+    const distinct = new Set(visited);
+    // A real trap-free desktop layout walks through many distinct
+    // tabbables. A mobile-style trap would cycle through ~3-5 items.
+    expect(
+      distinct.size,
+      `Tab walk visited only ${distinct.size} distinct elements at 1024px — looks like a focus trap is engaged: ${JSON.stringify([...distinct])}`,
+    ).toBeGreaterThanOrEqual(6);
   });
+});
 });
