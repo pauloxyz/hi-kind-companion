@@ -36,37 +36,48 @@ async function expectClean(page: import("@playwright/test").Page, label: string)
 test.describe("axe scan across Jornada H-2A shortcut navigation", () => {
   test.skip(!HAS_SESSION, "needs an injected Supabase session");
 
-  test("sidebar + G J/V/C transitions remain accessible", async ({ page }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
+  async function bootSession(page: import("@playwright/test").Page) {
     await page.goto("/");
     await page.evaluate(
       ({ key, json }) => window.localStorage.setItem(key!, json!),
       { key: STORAGE_KEY, json: SESSION_JSON },
     );
+  }
+
+  test("desktop 1280: persistent sidebar + G J/V/C transitions remain accessible", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await bootSession(page);
 
     await page.goto("/app");
     await page.waitForLoadState("domcontentloaded");
-    await expectClean(page, "app-dashboard");
+    // Persistent left sidebar is visible at lg breakpoint.
+    await expect(page.getByRole("navigation", { name: "Navegação principal" }).first()).toBeVisible();
+    // Aria-live region for the Jornada H-2A is rendered (initially empty).
+    await expect(page.getByTestId("journey-live-region")).toBeAttached();
+    await expectClean(page, "desktop-app-dashboard");
 
-    // G J → Jornada/dashboard
-    await page.keyboard.press("g");
-    await page.keyboard.press("j");
+    await page.keyboard.press("g"); await page.keyboard.press("j");
     await page.waitForURL(/\/app$/);
-    await expectClean(page, "after-g-j");
+    await expectClean(page, "desktop-after-g-j");
 
-    // G V → Vagas
-    await page.keyboard.press("g");
-    await page.keyboard.press("v");
+    await page.keyboard.press("g"); await page.keyboard.press("v");
     await page.waitForURL(/\/app\/vagas/);
-    await expectClean(page, "after-g-v");
+    await expectClean(page, "desktop-after-g-v");
 
-    // G C → Currículo
-    await page.keyboard.press("g");
-    await page.keyboard.press("c");
+    await page.keyboard.press("g"); await page.keyboard.press("c");
     await page.waitForURL(/\/app\/curriculo/);
-    await expectClean(page, "after-g-c");
+    await expectClean(page, "desktop-after-g-c");
+  });
 
-    // Mobile drawer at 360 wide after navigation
+  test("mobile 360: drawer open after shortcut navigation remains accessible", async ({ page }) => {
+    await page.setViewportSize({ width: 1280, height: 900 });
+    await bootSession(page);
+    await page.goto("/app");
+    await page.waitForLoadState("domcontentloaded");
+
+    await page.keyboard.press("g"); await page.keyboard.press("v");
+    await page.waitForURL(/\/app\/vagas/);
+
     await page.setViewportSize({ width: 360, height: 780 });
     await page.getByRole("button", { name: "Abrir menu" }).click();
     await expect(page.getByRole("dialog", { name: "Menu de navegação" })).toBeVisible();

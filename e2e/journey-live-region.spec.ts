@@ -1,0 +1,68 @@
+import { test, expect } from "@playwright/test";
+
+/**
+ * Rapid G+key shortcut bursts must NOT pollute the Jornada H-2A aria-live
+ * region — the live region only narrates real journey-state transitions
+ * (DS-160 / Entrevista / Visto). Route changes alone are not progress
+ * changes, so the polite live region must stay quiet even under a burst.
+ *
+ * This protects against accidental regressions where someone wires the
+ * live region to route changes, badge counts, or any high-frequency signal.
+ */
+
+const STORAGE_KEY = process.env.LOVABLE_BROWSER_SUPABASE_STORAGE_KEY;
+const SESSION_JSON = process.env.LOVABLE_BROWSER_SUPABASE_SESSION_JSON;
+const HAS_SESSION = Boolean(STORAGE_KEY && SESSION_JSON);
+
+test.describe("aria-live debounce under rapid shortcut bursts", () => {
+  test.skip(!HAS_SESSION, "needs an injected Supabase session");
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  test("rapid G J/V/C bursts emit at most one aggregated announcement per debounce window", async ({ page }) => {
+    await page.goto("/");
+    await page.evaluate(
+      ({ key, json }) => window.localStorage.setItem(key!, json!),
+      { key: STORAGE_KEY, json: SESSION_JSON },
+    );
+    await page.goto("/app");
+    await page.waitForLoadState("domcontentloaded");
+
+    const live = page.getByTestId("journey-live-region");
+    await expect(live).toBeAttached();
+
+    // Track every mutation to the live region across the burst.
+    await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="journey-live-region"]');
+      if (!el) return;
+      (window as unknown as { __liveMutations: string[] }).__liveMutations = [];
+      const obs = new MutationObserver(() => {
+        const txt = (el.textContent ?? "").trim();
+        (window as unknown as { __liveMutations: string[] }).__liveMutations.push(txt);
+      });
+      obs.observe(el, { childList: true, characterData: true, subtree: true });
+    });
+
+    // Fire ~9 G+key shortcuts as fast as Playwright will allow.
+    for (const k of ["j", "v", "c", "j", "v", "c", "j", "v", "c"]) {
+      await page.keyboard.press("g");
+      await page.keyboard.press(k);
+    }
+    // Wait two full debounce windows so any pending announcement settles.
+    await page.waitForTimeout(1500);
+
+    const mutations = await page.evaluate(
+      () => (window as unknown as { __liveMutations: string[] }).__liveMutations ?? [],
+    );
+
+    // Route changes alone must not trigger journey announcements. If journey
+    // data also moved during the burst (rare), the debouncer guarantees at
+    // most one aggregated message per ~600ms window — for ~1.5s that is ≤ 3.
+    expect(mutations.length).toBeLessThanOrEqual(3);
+    for (const txt of mutations) {
+      if (txt.length === 0) continue;
+      // Every non-empty announcement must be a full, legible sentence.
+      expect(txt).toMatch(/Jornada H-2A (atualizada|concluída):/);
+      expect(txt).toMatch(/\d+ de \d+/);
+    }
+  });
+});
