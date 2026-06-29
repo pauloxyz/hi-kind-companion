@@ -125,4 +125,75 @@ test.describe("journey progression → aria-live", () => {
       expect(last).toMatch(/Jornada H-2A atualizada/);
     }
   });
+
+  test("slow cadence emits one message per change; fast cadence coalesces; no duplicates", async ({
+    page,
+    request,
+  }) => {
+    for (const s of STEPS) await upsertStep(request, s, false);
+
+    await page.goto("/");
+    await page.evaluate(
+      ({ key, json }) => window.localStorage.setItem(key!, json!),
+      { key: STORAGE_KEY, json: SESSION_JSON },
+    );
+    await page.goto("/app");
+    await page.waitForLoadState("domcontentloaded");
+
+    await page.evaluate(() => {
+      const el = document.querySelector('[data-testid="journey-live-region"]');
+      if (!el) return;
+      (window as unknown as { __live: string[] }).__live = [];
+      new MutationObserver(() => {
+        const t = (el.textContent ?? "").trim();
+        if (t) (window as unknown as { __live: string[] }).__live.push(t);
+      }).observe(el, { childList: true, characterData: true, subtree: true });
+    });
+
+    const refetch = async () => {
+      await page.goto("/app/visto");
+      await page.waitForLoadState("domcontentloaded");
+      await page.goto("/app");
+      await page.waitForLoadState("domcontentloaded");
+    };
+
+    // SLOW: each change separated by > debounce window (600ms).
+    await upsertStep(request, "ds160", true);
+    await refetch();
+    await page.waitForTimeout(900);
+    await upsertStep(request, "interview_done", true);
+    await refetch();
+    await page.waitForTimeout(900);
+
+    const afterSlow = await page.evaluate(
+      () => [...((window as unknown as { __live: string[] }).__live ?? [])],
+    );
+    expect(afterSlow.length).toBeGreaterThanOrEqual(2);
+    expect(new Set(afterSlow).size).toBe(afterSlow.length); // no duplicates
+    for (const m of afterSlow) {
+      expect(m).toMatch(/Jornada H-2A (atualizada|concluída):/);
+    }
+
+    // FAST: flip the last step + redundant rewrites inside one window.
+    await page.evaluate(() => {
+      (window as unknown as { __live: string[] }).__live = [];
+    });
+    await Promise.all([
+      upsertStep(request, "visa_issued", true),
+      upsertStep(request, "ds160", true), // re-affirm; doesn't change progress
+      upsertStep(request, "interview_done", true),
+    ]);
+    await refetch();
+    await page.waitForTimeout(1600); // two debounce windows
+
+    const afterFast = await page.evaluate(
+      () => [...((window as unknown as { __live: string[] }).__live ?? [])],
+    );
+    // Fast burst → at most one message per debounce window (~2 for 1.6s window).
+    expect(afterFast.length).toBeGreaterThanOrEqual(1);
+    expect(afterFast.length).toBeLessThanOrEqual(2);
+    expect(new Set(afterFast).size).toBe(afterFast.length);
+    // Last message should be the 100% wording.
+    expect(afterFast[afterFast.length - 1]).toMatch(/Jornada H-2A concluída/);
+  });
 });
