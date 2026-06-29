@@ -1092,9 +1092,52 @@ export type Database = {
         }
         Relationships: []
       }
+      visa_checklist_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          id: string
+          item_id: string
+          mime_type: string | null
+          owner_id: string
+          size_bytes: number | null
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          id?: string
+          item_id: string
+          mime_type?: string | null
+          owner_id: string
+          size_bytes?: number | null
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          id?: string
+          item_id?: string
+          mime_type?: string | null
+          owner_id?: string
+          size_bytes?: number | null
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "visa_checklist_attachments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "visa_checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       visa_checklist_items: {
         Row: {
           completed_at: string | null
+          due_at: string | null
+          event_at: string | null
           id: string
           is_completed: boolean | null
           owner_id: string
@@ -1104,6 +1147,8 @@ export type Database = {
         }
         Insert: {
           completed_at?: string | null
+          due_at?: string | null
+          event_at?: string | null
           id?: string
           is_completed?: boolean | null
           owner_id: string
@@ -1113,6 +1158,8 @@ export type Database = {
         }
         Update: {
           completed_at?: string | null
+          due_at?: string | null
+          event_at?: string | null
           id?: string
           is_completed?: boolean | null
           owner_id?: string
