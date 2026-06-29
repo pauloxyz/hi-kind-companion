@@ -6,7 +6,68 @@ on:
   pull_request:
 
 jobs:
-  playwright:
+  # Fast feedback: only the critical shortcuts + aria-live specs.
+  smoke:
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Cache bun's global install store, keyed on the lockfile.
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - run: bun install --frozen-lockfile
+
+      # Cache Playwright's browser download. The cache key includes the
+      # @playwright/test version so a Playwright bump invalidates it.
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
+      - name: Install Chromium (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+
+      - name: Install system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+
+      - name: Run e2e smoke (shortcuts + aria-live)
+        run: bun run e2e:smoke
+        env:
+          CI: "1"
+
+      - name: Upload Playwright artifacts on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-smoke-artifacts
+          path: |
+            test-results/**
+            playwright-report/**
+          retention-days: 14
+          if-no-files-found: ignore
+
+  # Full e2e suite (visual regression, axe, keyboard-only, drawer, etc.).
+  full:
+    needs: smoke
     timeout-minutes: 30
     runs-on: ubuntu-latest
     steps:
@@ -16,19 +77,40 @@ jobs:
         with:
           bun-version: latest
 
+      - name: Cache bun dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
       - run: bun install --frozen-lockfile
 
-      - name: Install Playwright browsers
+      - name: Resolve Playwright version
+        id: pw
+        run: echo "version=$(bun pm ls --json | jq -r '.dependencies["@playwright/test"].version // .devDependencies["@playwright/test"].version')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: pw-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ runner.os }}-playwright-${{ steps.pw.outputs.version }}
+
+      - name: Install Chromium (cache miss)
+        if: steps.pw-cache.outputs.cache-hit != 'true'
         run: bunx playwright install --with-deps chromium
 
-      - name: Run e2e
+      - name: Install system deps (cache hit)
+        if: steps.pw-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
+
+      - name: Run full e2e suite
         run: bun run e2e
         env:
           CI: "1"
 
-      # Upload trace, video and screenshots for any failing spec. The shortcuts
-      # and aria-live suites are the most flaky to diagnose without artifacts,
-      # so we make sure those (plus everything else) ship their evidence on red.
       - name: Upload Playwright artifacts on failure
         if: failure()
         uses: actions/upload-artifact@v4
