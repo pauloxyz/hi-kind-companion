@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { logAccountEvent } from "@/lib/security-audit.functions";
 import {
@@ -80,68 +81,92 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const [profileLoaded, setProfileLoaded] = useState(false);
-  const [unreadReplies, setUnreadReplies] = useState<number | null>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [fullName, setFullName] = useState<string>("");
-  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
-  const [appsCount, setAppsCount] = useState<number | null>(null);
-  const [savedJobsCount, setSavedJobsCount] = useState<number | null>(null);
-  const [visaSteps, setVisaSteps] = useState<Record<string, boolean>>({});
 
-  useEffect(() => {
-    let cancelled = false;
-    supabase
-      .from("my_profile")
-      .select("onboarding_completed_at, full_name, photo_url")
-      .maybeSingle()
-      .then(({ data }) => {
-        if (cancelled) return;
-        setShowOnboarding(!data?.onboarding_completed_at);
-        setFullName(data?.full_name ?? "");
-        setPhotoUrl(data?.photo_url ?? null);
-        setProfileLoaded(true);
-      });
-    supabase.auth.getUser().then(({ data }) => {
-      if (!data.user) return;
-      supabase.rpc("has_role", { _user_id: data.user.id, _role: "admin" }).then(({ data: ok }) => {
-        if (!cancelled) setIsAdmin(!!ok);
-      });
-    });
-    const lastSeen = typeof window !== "undefined" ? window.localStorage.getItem("lastSeenRespondedAt") : null;
-    const since = lastSeen ? new Date(Number(lastSeen)).toISOString() : new Date(0).toISOString();
-    supabase
-      .from("applications")
-      .select("id", { count: "exact", head: true })
-      .not("responded_at", "is", null)
-      .gte("responded_at", since)
-      .then(({ count }) => {
-        if (!cancelled) setUnreadReplies(count ?? 0);
-      });
-    supabase
-      .from("applications")
-      .select("id", { count: "exact", head: true })
-      .then(({ count }) => {
-        if (!cancelled) setAppsCount(count ?? 0);
-      });
-    supabase
-      .from("saved_jobs")
-      .select("id", { count: "exact", head: true })
-      .then(({ count }) => {
-        if (!cancelled) setSavedJobsCount(count ?? 0);
-      });
-    supabase
-      .from("visa_checklist_items")
-      .select("step_key, is_completed")
-      .then(({ data }) => {
-        if (cancelled || !data) return;
-        const m: Record<string, boolean> = {};
-        for (const r of data) m[r.step_key] = !!r.is_completed;
-        setVisaSteps(m);
-      });
-    return () => { cancelled = true; };
-  }, [pathname]);
+  // Sidebar data → React Query. staleTime de 30 s evita refetch a cada
+  // navegação dentro do app; queryKey por usuário garante isolamento.
+  const lastSeenIso = (() => {
+    const v = typeof window !== "undefined" ? window.localStorage.getItem("lastSeenRespondedAt") : null;
+    return v ? new Date(Number(v)).toISOString() : new Date(0).toISOString();
+  })();
+
+  const profileQ = useQuery({
+    queryKey: ["sidebar", "profile"],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("my_profile")
+        .select("onboarding_completed_at, full_name, photo_url")
+        .maybeSingle();
+      return {
+        onboardingDone: !!data?.onboarding_completed_at,
+        fullName: data?.full_name ?? "",
+        photoUrl: data?.photo_url ?? null,
+      };
+    },
+    staleTime: 30_000,
+  });
+
+  const adminQ = useQuery({
+    queryKey: ["sidebar", "isAdmin"],
+    queryFn: async () => {
+      const { data: u } = await supabase.auth.getUser();
+      if (!u.user) return false;
+      const { data } = await supabase.rpc("has_role", { _user_id: u.user.id, _role: "admin" });
+      return !!data;
+    },
+    staleTime: 5 * 60_000,
+  });
+
+  const unreadQ = useQuery({
+    queryKey: ["sidebar", "unreadReplies", lastSeenIso],
+    queryFn: async () => {
+      const { count } = await supabase
+        .from("applications")
+        .select("id", { count: "exact", head: true })
+        .not("responded_at", "is", null)
+        .gte("responded_at", lastSeenIso);
+      return count ?? 0;
+    },
+    staleTime: 30_000,
+  });
+
+  const appsCountQ = useQuery({
+    queryKey: ["sidebar", "appsCount"],
+    queryFn: async () => {
+      const { count } = await supabase.from("applications").select("id", { count: "exact", head: true });
+      return count ?? 0;
+    },
+    staleTime: 30_000,
+  });
+
+  const savedJobsQ = useQuery({
+    queryKey: ["sidebar", "savedJobs"],
+    queryFn: async () => {
+      const { count } = await supabase.from("saved_jobs").select("id", { count: "exact", head: true });
+      return count ?? 0;
+    },
+    staleTime: 30_000,
+  });
+
+  const visaQ = useQuery({
+    queryKey: ["sidebar", "visaSteps"],
+    queryFn: async () => {
+      const { data } = await supabase.from("visa_checklist_items").select("step_key, is_completed");
+      const m: Record<string, boolean> = {};
+      for (const r of data ?? []) m[r.step_key] = !!r.is_completed;
+      return m;
+    },
+    staleTime: 60_000,
+  });
+
+  const profileLoaded = !profileQ.isPending;
+  const showOnboarding = profileQ.data ? !profileQ.data.onboardingDone : false;
+  const fullName = profileQ.data?.fullName ?? "";
+  const photoUrl = profileQ.data?.photoUrl ?? null;
+  const isAdmin = !!adminQ.data;
+  const unreadReplies = unreadQ.data ?? null;
+  const appsCount = appsCountQ.data ?? null;
+  const savedJobsCount = savedJobsQ.data ?? null;
+  const visaSteps = visaQ.data ?? {};
 
   // Jornada H-2A: derivada de onboarding + candidaturas + checklist de visto
   const journey = computeJourney({

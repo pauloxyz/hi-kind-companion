@@ -1,12 +1,14 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Mail, Calendar, Download, RefreshCw, Loader2 } from "lucide-react";
+import { Mail, Calendar, Download, RefreshCw, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { checkApplicationReplies } from "@/lib/applications.functions";
 
 export const Route = createFileRoute("/_authenticated/app/candidaturas")({ component: Page });
@@ -58,37 +60,50 @@ function exportCsv(rows: Row[]) {
   a.click(); URL.revokeObjectURL(url);
 }
 
+const PAGE_SIZE = 20;
+
 function Page() {
-  const [rows, setRows] = useState<Row[]>([]);
-  const [loading, setLoading] = useState(true);
   const [checking, setChecking] = useState(false);
   const [filter, setFilter] = useState<"all" | "pending" | "responded" | "interview" | "offer" | "rejected">("all");
+  const [page, setPage] = useState(1);
   const checkReplies = useServerFn(checkApplicationReplies);
+  const qc = useQueryClient();
+
+  const query = useQuery({
+    queryKey: ["applications", "list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("applications")
+        .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,reply_snippet,reply_from,reply_received_at,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
+        .order("sent_at", { ascending: false });
+      if (error) throw new Error(error.message);
+      return (data as Row[]) ?? [];
+    },
+    staleTime: 30_000,
+  });
+
+  const rows = query.data ?? [];
+  const loading = query.isPending;
+  const errorMsg = query.error ? (query.error as Error).message : null;
 
   async function loadRows() {
-    const { data, error } = await supabase
-      .from("applications")
-      .select("id,status,sent_at,follow_up_due_at,follow_up_sent_at,responded_at,cover_letter_en,reply_snippet,reply_from,reply_received_at,jobs(job_title,employer_name,worksite_state,worksite_city,recruitment_email,external_case_number)")
-      .order("sent_at", { ascending: false });
-    if (error) toast.error(error.message);
-    setRows((data as Row[]) ?? []);
+    await qc.invalidateQueries({ queryKey: ["applications", "list"] });
   }
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem("lastSeenRespondedAt", String(Date.now()));
+    }
+    // Background auto-check for replies (silent). Only if it hasn't run in the last 30 min.
+    const KEY = "lastReplyCheckAt";
+    const last = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
+    const stale = !last || Date.now() - Number(last) > 30 * 60 * 1000;
+    if (!stale) return;
+    let cancelled = false;
     void (async () => {
-      await loadRows();
-      setLoading(false);
-      // Mark replies as "seen" so the sidebar badge clears on next nav
-      if (typeof window !== "undefined") {
-        window.localStorage.setItem("lastSeenRespondedAt", String(Date.now()));
-      }
-      // Background auto-check for replies (silent). Only if it hasn't run in the last 30 min.
-      const KEY = "lastReplyCheckAt";
-      const last = typeof window !== "undefined" ? window.localStorage.getItem(KEY) : null;
-      const stale = !last || Date.now() - Number(last) > 30 * 60 * 1000;
-      if (!stale) return;
       try {
         const r = await checkReplies({ data: {} });
+        if (cancelled) return;
         if (typeof window !== "undefined") window.localStorage.setItem(KEY, String(Date.now()));
         if (r && r.newReplies > 0) {
           toast.success(`${r.newReplies} nova(s) resposta(s) detectada(s) no Gmail!`);
@@ -96,12 +111,21 @@ function Page() {
         }
       } catch { /* silent */ }
     })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function updateLocal(id: string, patch: Partial<Row>) {
+    qc.setQueryData<Row[]>(["applications", "list"], (prev) =>
+      (prev ?? []).map((r) => (r.id === id ? { ...r, ...patch } : r)),
+    );
+  }
+
   async function markResponded(id: string) {
-    const { error } = await supabase.from("applications").update({ responded_at: new Date().toISOString(), status: "responded" }).eq("id", id);
+    const nowIso = new Date().toISOString();
+    const { error } = await supabase.from("applications").update({ responded_at: nowIso, status: "responded" }).eq("id", id);
     if (error) { toast.error(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, responded_at: new Date().toISOString(), status: "responded" } : r));
+    updateLocal(id, { responded_at: nowIso, status: "responded" });
   }
 
   async function setStatus(id: string, status: "interview" | "offer" | "rejected") {
@@ -111,7 +135,7 @@ function Page() {
     if (!current?.responded_at) patch.responded_at = nowIso;
     const { error } = await supabase.from("applications").update(patch as never).eq("id", id);
     if (error) { toast.error(error.message); return; }
-    setRows((rs) => rs.map((r) => r.id === id ? { ...r, ...patch } : r));
+    updateLocal(id, patch as Partial<Row>);
     toast.success("Status atualizado");
   }
 
@@ -138,13 +162,19 @@ function Page() {
   const offer = rows.filter((r) => r.status === "offer" || r.status === "hired").length;
   const rejected = rows.filter((r) => r.status === "rejected").length;
 
-  const visible = rows.filter((r) => {
+  const filtered = rows.filter((r) => {
     if (filter === "all") return true;
     if (filter === "pending") return !r.responded_at;
     if (filter === "responded") return !!r.responded_at && !["interview", "offer", "hired", "rejected"].includes(r.status ?? "");
     if (filter === "offer") return r.status === "offer" || r.status === "hired";
     return r.status === filter;
   });
+
+  // Reset page when filter changes ou quando o total filtrado encolhe.
+  useEffect(() => { setPage(1); }, [filter]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount);
+  const visible = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   const chip = (key: typeof filter, label: string, count: number, cls = "") => (
     <button
@@ -179,8 +209,39 @@ function Page() {
         {chip("rejected", "Rejeitada", rejected)}
       </div>
 
-      {loading && <p className="text-sm text-muted-foreground">Carregando…</p>}
+      {loading && (
+        <div className="grid gap-2" aria-busy="true" aria-label="Carregando candidaturas">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Card key={i}>
+              <CardContent className="pt-4 space-y-2">
+                <div className="flex items-start justify-between gap-2">
+                  <Skeleton className="h-4 w-48" />
+                  <Skeleton className="h-5 w-24" />
+                </div>
+                <Skeleton className="h-3 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
+      {!loading && errorMsg && (
+        <Card className="border-destructive/40 bg-destructive/5">
+          <CardContent className="pt-4 flex items-start gap-3 text-sm">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
+            <div className="flex-1">
+              <div className="font-medium text-destructive">Não foi possível carregar suas candidaturas.</div>
+              <div className="text-xs text-muted-foreground mt-1">{errorMsg}</div>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => query.refetch()}>
+              <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && !errorMsg && (
       <div className="grid gap-2">
         {visible.map((r) => (
           <Card key={r.id}>
@@ -223,13 +284,42 @@ function Page() {
             </CardContent>
           </Card>
         ))}
-        {!loading && rows.length === 0 && (
+        {rows.length === 0 && (
           <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura ainda. Vá para <strong>Vagas</strong> e clique em "Candidatar".</CardContent></Card>
         )}
-        {!loading && rows.length > 0 && visible.length === 0 && (
+        {rows.length > 0 && visible.length === 0 && (
           <Card><CardContent className="pt-6 text-center text-sm text-muted-foreground">Nenhuma candidatura nesse filtro.</CardContent></Card>
         )}
+
+        {pageCount > 1 && (
+          <div className="flex items-center justify-between gap-2 pt-2">
+            <div className="text-xs text-muted-foreground">
+              Página {currentPage} de {pageCount} · {filtered.length} resultado(s)
+            </div>
+            <div className="flex gap-1">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage <= 1}
+                aria-label="Página anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setPage((p) => Math.min(pageCount, p + 1))}
+                disabled={currentPage >= pageCount}
+                aria-label="Próxima página"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+        )}
       </div>
+      )}
     </div>
   );
 }
