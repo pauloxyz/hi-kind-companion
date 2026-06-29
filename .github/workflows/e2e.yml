@@ -815,16 +815,42 @@ jobs:
             const MARKER = '<!-- playwright-rerun-consolidated -->';
             const ARTIFACT_URL = `${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID}#artifacts`;
             const raw = fs.readFileSync(path, 'utf8');
-            // GitHub comment body limit is 65536 chars. Cap the embedded
-            // report well below that and link out for the rest.
-            const MAX = 50000;
+            const MAX = 45000;
             const truncated = raw.length > MAX;
+
+            // Top-buckets summary (per shard × viewport, top 5 by total).
+            const topBucketsPath = 'consolidated/top-buckets-summary.md';
+            const topBuckets = fs.existsSync(topBucketsPath)
+              ? fs.readFileSync(topBucketsPath, 'utf8')
+              : '_No per-bucket summary available._';
+
+            // Per-shard rerun artifact list — derive from the downloaded
+            // shard-artifacts/ directory so the comment links each shard's
+            // rerun bundle by exact name.
+            let shardArtifactLines = [];
+            try {
+              const dirs = fs.readdirSync('shard-artifacts', { withFileTypes: true })
+                .filter(d => d.isDirectory() && d.name.startsWith('playwright-rerun-shard-'))
+                .map(d => d.name)
+                .sort();
+              shardArtifactLines = dirs.map(n => `- [\`${n}\`](${ARTIFACT_URL})`);
+            } catch { /* directory may not exist when no shard failed */ }
+            const shardArtifactsBlock = shardArtifactLines.length
+              ? shardArtifactLines.join('\n')
+              : '_No per-shard rerun artifacts were produced._';
+
             const body = [
               MARKER,
               '### 🎭 Playwright full-suite failed — consolidated `--last-failed` report',
               '',
               `Run: [#${process.env.GITHUB_RUN_ID} (attempt ${process.env.GITHUB_RUN_ATTEMPT})](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})`,
-              `Artifact: [\`playwright-rerun-consolidated\`](${ARTIFACT_URL})`,
+              `Consolidated artifact: [\`playwright-rerun-consolidated\`](${ARTIFACT_URL})`,
+              '',
+              topBuckets.trim(),
+              '',
+              '#### Per-shard rerun artifacts',
+              '',
+              shardArtifactsBlock,
               '',
               '<details><summary>Consolidated report' + (truncated ? ' (truncated — see artifact for full)' : '') + '</summary>',
               '',
@@ -834,6 +860,7 @@ jobs:
               '',
               '</details>',
             ].join('\n');
+
 
             const { owner, repo } = context.repo;
             const issue_number = context.payload.pull_request.number;
