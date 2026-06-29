@@ -1,6 +1,7 @@
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useServerFn } from "@tanstack/react-start";
+import { toast } from "sonner";
 import { logAccountEvent } from "@/lib/security-audit.functions";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
@@ -16,6 +17,7 @@ import { FraudBanner } from "./StrategyBanner";
 import { OnboardingTour } from "./OnboardingTour";
 import logoUrl from "@/assets/vaiprala-logo.png";
 import { computeJourney } from "@/lib/h2a-journey";
+import { createShortcutMatcher } from "@/lib/sidebar-shortcuts";
 
 type NavItem = {
   to: string;
