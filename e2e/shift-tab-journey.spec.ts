@@ -49,35 +49,34 @@ test.describe("Shift+Tab reverse navigation on Jornada H-2A", () => {
     await page.waitForLoadState("domcontentloaded");
     await installLiveObserver(page);
 
-    // Anchor focus deterministically on a known sidebar link, then exercise
-    // Shift+Tab and Enter. We avoid relying on full Tab traversal because
-    // headless Chromium does not always include offscreen sidebar items in
-    // the sequential focus order — but Shift+Tab from a known anchor is a
-    // stable assertion of the reverse-tab contract.
+    // Anchor focus on a known always-visible sidebar link. The Visto link
+    // lives inside a profile group that may be collapsed on first paint, so
+    // we use the top-level Painel/Dashboard link as the stable anchor.
     const anchored = await page
-      .locator("#nav-visto")
+      .locator("#nav-dashboard")
       .first()
       .focus({ timeout: 5_000 })
       .then(() => true)
       .catch(() => false);
-    expect(anchored, "could not focus #nav-visto").toBe(true);
+    expect(anchored, "could not focus #nav-dashboard").toBe(true);
     const anchorId = await page.evaluate(() => document.activeElement?.id ?? "");
-    expect(anchorId).toBe("nav-visto");
+    expect(anchorId).toBe("nav-dashboard");
 
     // Shift+Tab moves focus to a different, real element.
     await page.keyboard.press("Shift+Tab");
     const afterShift = await page.evaluate(() => ({
       tag: document.activeElement?.tagName ?? null,
       id: (document.activeElement as HTMLElement | null)?.id ?? "",
-      same: document.activeElement?.id === "nav-visto",
+      same: document.activeElement?.id === "nav-dashboard",
     }));
-    expect(afterShift.same, "Shift+Tab did not move focus off nav-visto").toBe(false);
+    expect(afterShift.same, "Shift+Tab did not move focus off nav-dashboard").toBe(false);
     expect(afterShift.tag, `Shift+Tab landed nowhere: ${JSON.stringify(afterShift)}`).not.toBe("BODY");
 
-    // Re-focus the Jornada H-2A link and activate it with Enter.
-    await page.locator("#nav-visto").first().focus();
+    // Re-focus the Painel link and activate it with Enter — this is the
+    // Jornada H-2A surface on /app.
+    await page.locator("#nav-dashboard").first().focus();
     await page.keyboard.press("Enter");
-    await page.waitForURL(/\/app\/visto/, { timeout: 10_000 });
+    await page.waitForURL(/\/app$/, { timeout: 10_000 });
 
     // aria-live: no consecutive duplicates.
     const live = await readLive(page);
