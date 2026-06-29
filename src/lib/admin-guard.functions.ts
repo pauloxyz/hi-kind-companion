@@ -1,20 +1,22 @@
 /**
  * Shared admin-gate server function.
- * Used by route `beforeLoad` to block non-admins before page render.
- * Defense in depth: every admin server fn ALSO calls its own `assertAdmin`,
- * so disabling this gate in the client cannot bypass the actual data fns.
+ * Used by route `beforeLoad` to block non-admins before page render
+ * AND to centralize denial auditing via `assertAdminWithAudit`.
+ *
+ * Defense in depth: every admin server fn ALSO calls `assertAdminWithAudit`
+ * with its own resource label, so disabling this gate in the client cannot
+ * bypass the actual data fns.
  */
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { assertAdminWithAudit } from "@/lib/admin-guard.shared";
 
 export const requireAdminAccess = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const { data, error } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
-    if (error) throw new Error("role check failed");
-    if (!data) throw new Error("Forbidden");
+  .inputValidator((input: { route?: string } | undefined) => ({
+    route: input?.route?.slice(0, 200) ?? "admin",
+  }))
+  .handler(async ({ data, context }) => {
+    await assertAdminWithAudit(context as never, `route:${data.route}`);
     return { ok: true as const };
   });
