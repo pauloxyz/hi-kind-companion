@@ -11,10 +11,10 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "VaiPraLá — Visto H-2A para brasileiros" },
-      { name: "description", content: "Vagas H-2A oficiais do DOL, carta em inglês com IA, curso de inglês e checklist do visto. Grátis para começar." },
-      { property: "og:title", content: "VaiPraLá — Visto H-2A para brasileiros" },
-      { property: "og:description", content: "Vagas reais de fazendas americanas, cartas em inglês com IA, curso de inglês e acompanhamento do visto." },
+      { title: "Vagas H-2A e Visto Agrícola EUA para Brasileiros | VaiPraLá" },
+      { name: "description", content: "Vagas H-2A oficiais do DOL por estado, guia do visto agrícola, salário AEWR 2025, entrevista consular e curso de inglês. Sem agenciador, sem taxa." },
+      { property: "og:title", content: "VaiPraLá — Vagas H-2A e visto agrícola dos EUA para brasileiros" },
+      { property: "og:description", content: "Vagas reais de fazendas americanas, salário em dólar, guia completo do visto H-2A e curso de inglês — tudo num só lugar." },
       { property: "og:url", content: "/" },
       
     ],
