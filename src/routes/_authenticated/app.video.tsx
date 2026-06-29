@@ -50,7 +50,7 @@ function ScriptPdf({ pt, en, name }: { pt: string; en: string; name: string }) {
         <Text style={scriptStyles.footer}>
           Grave horizontal, boa iluminação, olhe para a câmera. ~45-60 segundos.
         </Text>
-      </Page>
+      </PdfPage>
     </Document>
   );
 }
