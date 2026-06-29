@@ -112,7 +112,14 @@ function Landing() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs font-bold mb-6">
                 <span className="inline-block w-2 h-2 rounded-full bg-accent-red animate-pulse" />
-                Vagas H-2A 2027 abertas agora
+                {stats.jobs > 0 ? (
+                  <>
+                    <strong className="tabular-nums">{stats.jobs.toLocaleString("pt-BR")}</strong>
+                    {" "}vagas H-2A ativas agora
+                  </>
+                ) : (
+                  <>Vagas H-2A 2027 abertas agora</>
+                )}
               </div>
               <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.02] text-balance">
                 Da <span className="text-primary">roça brasileira</span>
@@ -121,14 +128,13 @@ function Landing() {
                 <span className="text-accent-red">fazenda americana.</span>
               </h1>
               <p className="mt-6 max-w-xl text-lg text-muted-foreground leading-relaxed">
-                A primeira plataforma feita por brasileiros para encontrar vagas H-2A reais,
-                gerar cartas em inglês com IA, <strong className="text-foreground">aprender inglês de verdade</strong> e
-                acompanhar cada passo do visto — tudo num só lugar.
+                Da primeira candidatura até o visto carimbado, em <strong className="text-foreground">5 passos</strong>{" "}
+                acompanhados no app — sem agenciador, sem taxa, sem você adivinhar o que vem depois.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/auth">
                   <Button size="lg" className="h-12 px-7 text-base shadow-elevated">
-                    Criar conta grátis <ArrowRight className="ml-2 h-4 w-4" />
+                    Começar minha jornada <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
                 <a href="#prova">
@@ -159,43 +165,16 @@ function Landing() {
                     {[0,1,2,3,4].map(i => <Star key={i} className="h-3.5 w-3.5 fill-accent-gold text-accent-gold" />)}
                     <span className="ml-1.5 font-semibold text-foreground">4,9</span>
                   </div>
-                  <p className="text-muted-foreground">+612 brasileiros usando agora</p>
+                  <p className="text-muted-foreground">
+                    <strong className="tabular-nums text-foreground">{stats.profiles.toLocaleString("pt-BR")}</strong>{" "}
+                    brasileiros já trilhando a Jornada H-2A
+                  </p>
                 </div>
               </div>
             </div>
 
-            {/* Hero card / numbers preview */}
-            <div className="relative">
-              <div className="absolute -inset-4 bg-primary/5 rounded-3xl rotate-3" aria-hidden />
-              <div className="relative rounded-2xl border-2 border-primary/20 bg-card p-6 shadow-elevated">
-                <div className="flex items-center gap-2 mb-4">
-                  <div className="h-2.5 w-2.5 rounded-full bg-accent-red" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-accent-gold" />
-                  <div className="h-2.5 w-2.5 rounded-full bg-emerald-500" />
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground ml-auto font-bold">ao vivo</span>
-                </div>
-
-                <p className="text-xs uppercase tracking-wide text-muted-foreground font-bold mb-1">Sua plataforma de visto H-2A</p>
-                <p className="text-xl font-bold mb-5">Tudo num só lugar.</p>
-
-                <div className="grid grid-cols-3 gap-3 mb-5">
-                  <StatTile icon={Briefcase} value="2.4k" label="vagas DOL" />
-                  <StatTile icon={Send} value="1.2k" label="candidaturas enviadas" />
-                  <StatTile icon={GraduationCap} value="27" label="lições de inglês" />
-                </div>
-
-                <div className="space-y-2">
-                  {HERO_FEATURES.map((f) => (
-                    <div key={f} className="flex items-center gap-2 text-sm">
-                      <div className="h-5 w-5 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                        <Check className="h-3 w-3 text-primary" />
-                      </div>
-                      <span>{f}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
+            {/* Hero right: Jornada H-2A visual timeline */}
+            <JourneyTimeline jobs={stats.jobs} applications={stats.applications} />
           </div>
         </div>
       </section>
