@@ -153,6 +153,7 @@ describe("100% vs partial aria-live wording", () => {
 
   it("never claims completion when there is still work left", () => {
     const msg = formatJourneyAnnouncement({ doneCount: 4, total: 5, currentStage: "Visto emitido" });
-    expect(msg).not.toMatch(/concluída/i);
+    expect(msg).not.toMatch(/Jornada H-2A concluída/);
+    expect(msg).toMatch(/Jornada H-2A atualizada/);
   });
 });
