@@ -1,52 +1,66 @@
-Vou executar o roteiro em 4 fases, da mais crítica ao polimento. Cada fase termina em estado funcional — se quiser pausar entre fases, o app continua íntegro.
+## Objetivo
 
-## Fase 1 — Auditoria objetiva e fundações (crítico)
+Painel `/admin/seo` (restrito a `has_role('admin')`) com histórico de execuções, tendência de findings por severidade, taxa de testes SEO passando e cobertura de rotas no sitemap, alimentado por um job diário.
 
-1. **Rodar scan de segurança + linter do banco** e tratar achados (RLS, grants, policies permissivas, colunas PII expostas). Resultado fica registrado.
-2. **Endurecer Auth do Supabase**: HIBP ligado, senha mínima 12, OTP curto. Confirmar `redirect_uri` do Google.
-3. **Persistir o "tratado" dos alertas de risco** em tabela `security_alert_acks` (RLS admin-only), substituindo o `localStorage`. Inclui nota opcional do admin e auditoria de quem tratou.
-4. **Re-autenticação para ações sensíveis** (excluir conta, trocar email) — pede senha atual antes de prosseguir.
+## Arquitetura
 
-## Fase 2 — Resiliência e observabilidade
+```text
+pg_cron (diário 03:00 UTC)
+        │
+        ▼
+POST /api/public/hooks/seo-scan        ← rota TanStack pública (apikey)
+        │
+        ▼
+runSeoChecks()                          ← lógica reusada de sitemap-entries.ts
+        │
+        ▼
+INSERT public.seo_scan_runs (admin)    ← service role no handler
+        │
+        ▼
+listSeoRuns()  (server fn auth+admin)  ── /admin/seo (React + Recharts)
+```
 
-5. **MFA/TOTP opcional** nas configurações (`supabase.auth.mfa.enroll/challenge/verify`), com seção "Segurança da conta".
-6. **Sessões ativas + revogação** — listar dispositivos via `auth.admin` server fn (admin-only para o próprio user) e botão "encerrar sessão".
-7. **Notificação de alertas HIGH** via email transacional (conector Google Mail já existe) quando a view `security_risk_alerts` detectar pico — disparado por `pg_cron` horário chamando `/api/public/hooks/risk-alerts`.
-8. **Healthcheck público** em `/api/public/health` (status do banco + versão).
-9. **Retenção configurável por tipo de evento** — tabela `security_retention_policy` (event_type → dias), `purge_security_audit_log()` lê dela.
+## Passos
 
-## Fase 3 — Dados do usuário e qualidade
+1. **Migration `seo_scan_runs`**
+   - Colunas: `id uuid pk`, `created_at timestamptz default now()`, `source text check in ('cron','manual')`, `tests_total/passed/failed int`, `critical/high/medium/low int`, `routes_total/routes_in_sitemap int`, `duration_ms int`, `details jsonb`.
+   - GRANT `SELECT` para `authenticated`, `ALL` para `service_role`. RLS habilitado, política única: `SELECT` permitido apenas se `has_role(auth.uid(),'admin')`. Sem `INSERT` policy — inserções só via service role no hook.
+   - Index `idx_seo_scan_runs_created_at desc`.
 
-10. **Export LGPD/GDPR** — botão "baixar meus dados" nas Configurações gera JSON com todas as tabelas do usuário via server fn autenticada.
-11. **CI completo**: adicionar job E2E (Playwright) no `.github/workflows/ci.yml` rodando contra build de preview; vitest já roda.
-12. **Cobertura de testes** dos server functions críticos (`security-admin`, `security-audit`, account handlers) — meta 70%+ nesses arquivos.
-13. **Error boundaries por rota** + logger estruturado server-side (`console.log` em JSON com `event`, `userId`, `ts`).
+2. **`src/lib/seo-runner.ts`** (server-only)
+   - Função `runSeoChecks()` retorna `{ tests, severityCounts, routesTotal, routesInSitemap, durationMs }`.
+   - Reusa `STATIC_SITEMAP_ENTRIES` de `src/lib/sitemap-entries.ts` e importa `routeTree` de `src/routeTree.gen.ts` para extrair rotas públicas.
+   - Cada check tem `severity` (`critical` = sitemap, `high` = structured-data, `medium` = robots/canonical, `low` = meta).
 
-## Fase 4 — Polimento
+3. **`src/routes/api/public/hooks/seo-scan.ts`**
+   - `POST` valida header `apikey` contra anon key, chama `runSeoChecks()`, insere via `supabaseAdmin` (lazy import). Retorna `{ ok, runId }`.
 
-14. **i18n completo** do painel de auditoria e configurações (PT/EN/ES já existem).
-15. **Acessibilidade**: trocar `<select>` nativos por `Select` do shadcn com labels ARIA, foco visível, revisar contraste de badges.
-16. **SEO** das rotas públicas: `head()` com title/description únicos + OG image.
-17. **Documentação interna** em `/docs/security.md`: modelo de ameaças, runbook de alerta HIGH, política de retenção, como rodar testes.
+4. **`src/lib/seo-runs.functions.ts`**
+   - `listSeoRuns`: `requireSupabaseAuth` + verifica `has_role(userId,'admin')` via `context.supabase.rpc`; retorna últimas 90 execuções.
+   - `triggerManualScan`: mesma guarda admin, chama `runSeoChecks` e insere com `source='manual'`.
 
----
+5. **Rota admin `src/routes/_authenticated/admin.seo.tsx`**
+   - Layout: header com botão "Rodar scan agora", 4 KPI cards (último scan, % testes passando, findings críticos, cobertura sitemap), e 3 gráficos Recharts:
+     - LineChart: findings por severidade (críticos/altos/médios/baixos) ao longo do tempo.
+     - AreaChart: taxa de testes passando.
+     - BarChart: rotas no sitemap vs rotas totais por scan.
+   - Tabela com últimas 20 execuções (data, origem, testes, severidades, duração).
+   - Estado vazio se ainda não houver runs.
+   - Loader chama `listSeoRuns` via `ensureQueryData` + `useSuspenseQuery`.
 
-## Notas técnicas
+6. **Cron via `supabase--insert`**
+   - `cron.schedule('seo-scan-daily','0 3 * * *', net.http_post(url:='https://project--bfc1be60-9598-46b5-b328-4a163d63ef93.lovable.app/api/public/hooks/seo-scan', headers, body:='{}'))`.
+   - Habilita `pg_cron` e `pg_net` se necessário.
 
-- **Rate limiting (item #2 da lista original) — NÃO vou implementar**. A plataforma ainda não tem primitiva oficial de rate limit; uma solução ad-hoc (contador em tabela) tem race conditions e será substituída quando a primitiva chegar. Vou documentar isso em `/docs/security.md` como gap conhecido.
-- **MFA** usa as APIs nativas do Supabase Auth — não precisa de secret novo.
-- **Email de alerta** reusa o conector Google Mail já configurado, sem novos segredos.
-- **Persistência de acks** vira tabela com RLS por `has_role('admin')` e grants apenas para `authenticated`.
-- Cada migration nova segue o padrão GRANT obrigatório.
-- Sem mexer em `src/integrations/supabase/*` (auto-gerado).
+## Detalhes técnicos
 
-## Verificação ao fim de cada fase
+- Recharts já está disponível (shadcn padrão); se não estiver, `bun add recharts`.
+- `routeTree.gen.ts` é importável no servidor; usamos `Object.keys(routeTree.routesById)` filtrando `_authenticated`, `__root`, `$`, `/api/`.
+- Rota admin fica sob `_authenticated/`, então a layout gate cuida do login; a checagem de role é feita no server fn (UI mostra "Acesso restrito" se 403).
+- Hook público segue padrão `apikey` (sem novo segredo).
+- Sem alterações em arquivos auto-gerados; sem mexer em testes existentes.
 
-- Build verde (typecheck automático).
-- Playwright headless cobrindo o fluxo novo da fase.
-- `supabase--linter` sem regressões.
-- Resumo curto do que mudou + próximo passo.
+## Arquivos
 
-## Estimativa
-
-Fase 1: ~30 min · Fase 2: ~45 min · Fase 3: ~30 min · Fase 4: ~20 min. Total ~2h de execução contínua.
+- Novo: migration SQL, `src/lib/seo-runner.ts`, `src/lib/seo-runs.functions.ts`, `src/routes/api/public/hooks/seo-scan.ts`, `src/routes/_authenticated/admin.seo.tsx`.
+- Editado: nenhum arquivo existente além do routeTree (auto-gen).

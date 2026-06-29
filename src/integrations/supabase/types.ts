@@ -880,6 +880,57 @@ export type Database = {
         }
         Relationships: []
       }
+      seo_scan_runs: {
+        Row: {
+          created_at: string
+          critical_count: number
+          details: Json
+          duration_ms: number
+          high_count: number
+          id: string
+          low_count: number
+          medium_count: number
+          routes_in_sitemap: number
+          routes_total: number
+          source: string
+          tests_failed: number
+          tests_passed: number
+          tests_total: number
+        }
+        Insert: {
+          created_at?: string
+          critical_count?: number
+          details?: Json
+          duration_ms?: number
+          high_count?: number
+          id?: string
+          low_count?: number
+          medium_count?: number
+          routes_in_sitemap?: number
+          routes_total?: number
+          source?: string
+          tests_failed?: number
+          tests_passed?: number
+          tests_total?: number
+        }
+        Update: {
+          created_at?: string
+          critical_count?: number
+          details?: Json
+          duration_ms?: number
+          high_count?: number
+          id?: string
+          low_count?: number
+          medium_count?: number
+          routes_in_sitemap?: number
+          routes_total?: number
+          source?: string
+          tests_failed?: number
+          tests_passed?: number
+          tests_total?: number
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           amount_cents: number | null
