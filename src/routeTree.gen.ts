@@ -14,6 +14,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as PrecosRouteImport } from './routes/precos'
 import { Route as GuiaVistoH2bRouteImport } from './routes/guia-visto-h2b'
 import { Route as GuiaH2aVsH2bRouteImport } from './routes/guia-h2a-vs-h2b'
+import { Route as GuiaCustosVistoH2aRouteImport } from './routes/guia-custos-visto-h2a'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
@@ -67,6 +68,11 @@ const GuiaVistoH2bRoute = GuiaVistoH2bRouteImport.update({
 const GuiaH2aVsH2bRoute = GuiaH2aVsH2bRouteImport.update({
   id: '/guia-h2a-vs-h2b',
   path: '/guia-h2a-vs-h2b',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GuiaCustosVistoH2aRoute = GuiaCustosVistoH2aRouteImport.update({
+  id: '/guia-custos-visto-h2a',
+  path: '/guia-custos-visto-h2a',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -229,6 +235,7 @@ const AuthenticatedAppInglesModuleLessonRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/guia-custos-visto-h2a': typeof GuiaCustosVistoH2aRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
   '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
@@ -264,6 +271,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/guia-custos-visto-h2a': typeof GuiaCustosVistoH2aRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
   '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
@@ -299,6 +307,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/guia-custos-visto-h2a': typeof GuiaCustosVistoH2aRoute
   '/guia-h2a-vs-h2b': typeof GuiaH2aVsH2bRoute
   '/guia-visto-h2b': typeof GuiaVistoH2bRoute
   '/precos': typeof PrecosRoute
@@ -336,6 +345,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/guia-custos-visto-h2a'
     | '/guia-h2a-vs-h2b'
     | '/guia-visto-h2b'
     | '/precos'
@@ -371,6 +381,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/guia-custos-visto-h2a'
     | '/guia-h2a-vs-h2b'
     | '/guia-visto-h2b'
     | '/precos'
@@ -405,6 +416,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/guia-custos-visto-h2a'
     | '/guia-h2a-vs-h2b'
     | '/guia-visto-h2b'
     | '/precos'
@@ -442,6 +454,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
+  GuiaCustosVistoH2aRoute: typeof GuiaCustosVistoH2aRoute
   GuiaH2aVsH2bRoute: typeof GuiaH2aVsH2bRoute
   GuiaVistoH2bRoute: typeof GuiaVistoH2bRoute
   PrecosRoute: typeof PrecosRoute
@@ -492,6 +505,13 @@ declare module '@tanstack/react-router' {
       path: '/guia-h2a-vs-h2b'
       fullPath: '/guia-h2a-vs-h2b'
       preLoaderRoute: typeof GuiaH2aVsH2bRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/guia-custos-visto-h2a': {
+      id: '/guia-custos-visto-h2a'
+      path: '/guia-custos-visto-h2a'
+      fullPath: '/guia-custos-visto-h2a'
+      preLoaderRoute: typeof GuiaCustosVistoH2aRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -776,6 +796,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
+  GuiaCustosVistoH2aRoute: GuiaCustosVistoH2aRoute,
   GuiaH2aVsH2bRoute: GuiaH2aVsH2bRoute,
   GuiaVistoH2bRoute: GuiaVistoH2bRoute,
   PrecosRoute: PrecosRoute,
@@ -793,13 +814,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -186,6 +186,9 @@ function GuidePage() {
             com salário fixo e moradia paga.
           </p>
           <p>
+            Antes de aceitar qualquer proposta, confira também o guia de <Link to="/guia-custos-visto-h2a" className="font-medium text-primary hover:underline">custos do visto H-2A, taxa MRV e reciprocidade</Link> para entender o que é sua responsabilidade e o que deve ser pago pelo empregador.
+          </p>
+          <p>
             Se você já trabalhou em hotel, restaurante, parque ou construção e tem alguma conversação
             em inglês: o <strong>H-2B</strong> pode pagar mais, mas exige paciência com o sorteio
             anual.

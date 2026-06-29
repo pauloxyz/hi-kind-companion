@@ -120,7 +120,7 @@ describe("sitewide JSON-LD in __root.tsx", () => {
 // Article schema completeness on guide routes
 // ---------------------------------------------------------------------------
 
-const ARTICLE_ROUTES = ["guia-h2a-vs-h2b.tsx", "guia-visto-h2b.tsx"];
+const ARTICLE_ROUTES = ["guia-h2a-vs-h2b.tsx", "guia-custos-visto-h2a.tsx", "guia-visto-h2b.tsx"];
 const ARTICLE_REQUIRED = [
   "headline",
   "description",

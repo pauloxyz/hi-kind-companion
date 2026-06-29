@@ -64,7 +64,7 @@ describe("sitemap static entries", () => {
 describe("sitemap covers indexable public routes", () => {
   // Public routes that must always be in the sitemap.
   // Add to this list whenever a new public, indexable route ships.
-  const REQUIRED = ["/", "/precos", "/vagas-h2a", "/guia-h2a-vs-h2b", "/guia-visto-h2b"];
+  const REQUIRED = ["/", "/precos", "/vagas-h2a", "/guia-h2a-vs-h2b", "/guia-custos-visto-h2a", "/guia-visto-h2b"];
 
   it("includes every required public route", () => {
     const paths = new Set(STATIC_SITEMAP_ENTRIES.map((e) => e.path));
@@ -72,14 +72,50 @@ describe("sitemap covers indexable public routes", () => {
   });
 
   it("includes routeTree-visible noindex HTML routes so the SEO route-coverage scanner passes", () => {
-    const scannerReportedRoutes = ["/auth", "/reset-password", "/checkout/return", "/app/auditoria", "/app/candidaturas"];
+    const scannerReportedRoutes = [
+      "/auth",
+      "/reset-password",
+      "/checkout/return",
+      "/app",
+      "/app/auditoria",
+      "/app/candidaturas",
+      "/app/comecar",
+      "/app/configuracoes",
+      "/app/curriculo",
+      "/app/empregadores",
+      "/app/followups",
+      "/app/ingles",
+      "/app/midia",
+      "/app/perfil",
+      "/app/vagas",
+      "/app/video",
+      "/app/visto",
+    ];
     const paths = new Set(STATIC_SITEMAP_ENTRIES.map((e) => e.path));
     for (const r of scannerReportedRoutes) expect(paths.has(r), `missing scanner-covered route ${r}`).toBe(true);
   });
 
   it("keeps scanner-covered private/auth routes in the dedicated noindex sitemap group", () => {
     const noindexPaths = new Set(NOINDEX_STATIC_SITEMAP_ENTRIES.map((e) => e.path));
-    for (const r of ["/auth", "/reset-password", "/checkout/return", "/app/auditoria", "/app/candidaturas"]) {
+    for (const r of [
+      "/auth",
+      "/reset-password",
+      "/checkout/return",
+      "/app",
+      "/app/auditoria",
+      "/app/candidaturas",
+      "/app/comecar",
+      "/app/configuracoes",
+      "/app/curriculo",
+      "/app/empregadores",
+      "/app/followups",
+      "/app/ingles",
+      "/app/midia",
+      "/app/perfil",
+      "/app/vagas",
+      "/app/video",
+      "/app/visto",
+    ]) {
       expect(noindexPaths.has(r), `${r} must be explicitly classified as noindex`).toBe(true);
     }
   });
@@ -128,6 +164,7 @@ describe("canonical URLs on public indexable routes", () => {
     ["precos.tsx", "/precos"],
     ["vagas-h2a.index.tsx", "/vagas-h2a"],
     ["guia-h2a-vs-h2b.tsx", "/guia-h2a-vs-h2b"],
+    ["guia-custos-visto-h2a.tsx", "/guia-custos-visto-h2a"],
     ["guia-visto-h2b.tsx", "/guia-visto-h2b"],
   ];
 
