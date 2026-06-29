@@ -522,6 +522,53 @@ function Page() {
         </CardContent>
       </Card>
 
+      {/* TUTORIAL — Como subir no YouTube */}
+      <Card className="border-dashed">
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <Youtube className="h-4 w-4 text-destructive" />
+            Tutorial: como subir seu vídeo no YouTube (passo a passo)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <p className="text-muted-foreground">
+            Não precisa deixar público. O modo <strong>"Não listado"</strong> esconde o vídeo da busca — só quem tem o link consegue ver. É o que recomendamos pra mandar pros empregadores.
+          </p>
+
+          <div className="space-y-2">
+            <p className="font-semibold">No celular (app YouTube):</p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Abra o app <strong>YouTube</strong> e entre com sua conta Google (a mesma do Gmail serve).</li>
+              <li>Toque no <strong>+</strong> no centro da barra de baixo → <strong>"Enviar um vídeo"</strong>.</li>
+              <li>Escolha o vídeo da galeria. Dá pra cortar começo/fim se precisar.</li>
+              <li>Em <strong>Título</strong>, escreva algo como: <em>"My H-2A introduction — [Seu Nome]"</em>.</li>
+              <li>Em <strong>Descrição</strong>, cole seu script em inglês (opcional, ajuda o empregador).</li>
+              <li>Em <strong>Visibilidade / Privacidade</strong>, escolha <strong>"Não listado"</strong> (Unlisted). <span className="text-muted-foreground">⚠ Não escolha "Privado", senão o empregador não consegue abrir.</span></li>
+              <li>Toque em <strong>Enviar</strong> e aguarde o upload terminar.</li>
+              <li>Quando terminar, abra o vídeo, toque em <strong>Compartilhar</strong> e <strong>Copiar link</strong>.</li>
+              <li>Volte aqui e cole no campo abaixo. ✅</li>
+            </ol>
+          </div>
+
+          <div className="space-y-2">
+            <p className="font-semibold">No computador:</p>
+            <ol className="list-decimal pl-5 space-y-1">
+              <li>Acesse <a href="https://youtube.com/upload" target="_blank" rel="noopener noreferrer" className="text-primary underline">youtube.com/upload</a> logado na sua conta Google.</li>
+              <li>Arraste o arquivo do vídeo pra tela (ou clique em <strong>Selecionar arquivos</strong>).</li>
+              <li>Preencha título e descrição → <strong>Próxima</strong> até a tela <strong>Visibilidade</strong>.</li>
+              <li>Marque <strong>"Não listado"</strong> → <strong>Salvar</strong>.</li>
+              <li>Clique no ícone de compartilhar e copie o link <code className="font-mono text-xs">youtu.be/...</code>.</li>
+              <li>Cole no campo abaixo. ✅</li>
+            </ol>
+          </div>
+
+          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs space-y-1">
+            <p className="font-semibold">Não tem conta no YouTube?</p>
+            <p>Toda conta <strong>Google / Gmail</strong> já é uma conta YouTube — basta fazer login. Se não tem Gmail, crie em <a href="https://accounts.google.com/signup" target="_blank" rel="noopener noreferrer" className="text-primary underline">accounts.google.com/signup</a> (leva 2 min).</p>
+          </div>
+        </CardContent>
+      </Card>
+
       {/* PASSO 4 — Link */}
       <Card>
         <CardHeader>
