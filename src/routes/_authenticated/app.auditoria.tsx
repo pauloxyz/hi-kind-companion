@@ -737,8 +737,9 @@ function AuditPanel() {
           <RetentionTab />
         </TabsContent>
 
-        <TabsContent value="spike-config">
+        <TabsContent value="spike-config" className="space-y-4">
           <SpikeConfigTab />
+          <SpikeAlertNotificationsCard />
         </TabsContent>
       </Tabs>
 
