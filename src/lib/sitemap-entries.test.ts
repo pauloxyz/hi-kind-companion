@@ -64,7 +64,7 @@ describe("sitemap static entries", () => {
 describe("sitemap covers indexable public routes", () => {
   // Public routes that must always be in the sitemap.
   // Add to this list whenever a new public, indexable route ships.
-  const REQUIRED = ["/", "/precos", "/vagas-h2a", "/guia-h2a-vs-h2b"];
+  const REQUIRED = ["/", "/precos", "/vagas-h2a", "/guia-h2a-vs-h2b", "/guia-visto-h2b"];
 
   it("includes every required public route", () => {
     const paths = new Set(PUBLIC_STATIC_SITEMAP_ENTRIES.map((e) => e.path));
