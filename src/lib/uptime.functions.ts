@@ -21,9 +21,10 @@ export type UptimeSummary = {
 export const getUptimeSummary = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<UptimeSummary> => {
-    const { supabase, userId } = context;
-    const { data: isAdmin } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
-    if (!isAdmin) throw new Error("Forbidden");
+    await assertAdminWithAudit(context as never, "uptime.summary");
+    const { supabase } = context;
+
+
 
     const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
     const { data: rows, error } = await supabase
