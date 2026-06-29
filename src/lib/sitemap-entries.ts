@@ -12,9 +12,18 @@ export const PUBLIC_STATIC_SITEMAP_ENTRIES: SitemapEntry[] = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
   { path: "/precos", changefreq: "monthly", priority: "0.8" },
   { path: "/vagas-h2a", changefreq: "daily", priority: "0.9" },
+  { path: "/vagas-h2a/empresas", changefreq: "weekly", priority: "0.8" },
+  { path: "/vagas-h2a/colheita-maca", changefreq: "monthly", priority: "0.7" },
+  { path: "/vagas-h2a/colheita-laranja", changefreq: "monthly", priority: "0.7" },
+  { path: "/vagas-h2a/tabaco", changefreq: "monthly", priority: "0.7" },
+  { path: "/como-trabalhar-nos-eua-legalmente", changefreq: "monthly", priority: "0.9" },
   { path: "/guia-h2a-vs-h2b", changefreq: "monthly", priority: "0.7" },
   { path: "/guia-custos-visto-h2a", changefreq: "monthly", priority: "0.8" },
   { path: "/guia-visto-h2b", changefreq: "monthly", priority: "0.8" },
+  { path: "/guia-salario-h2a", changefreq: "monthly", priority: "0.9" },
+  { path: "/guia-entrevista-visto-h2a", changefreq: "monthly", priority: "0.8" },
+  { path: "/guia-ds160-visto-h2a", changefreq: "monthly", priority: "0.7" },
+  { path: "/guia-golpes-h2a", changefreq: "monthly", priority: "0.7" },
 ];
 
 /**
