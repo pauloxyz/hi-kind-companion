@@ -1,9 +1,19 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type ScriptBlock = {
+  /** Tradução em PT-BR do bloco (curta, para o candidato entender). */
+  pt: string;
+  /** Frase/bloco em inglês para gravar. Máx ~12 palavras. */
+  en: string;
+  /** Pronúncia aproximada para um falante de português do Brasil. */
+  phonetic: string;
+};
+
 /**
- * Gera um roteiro de vídeo de apresentação (PT-BR + EN) personalizado
- * com base no perfil + experiências do usuário. ~45-60 segundos falados.
+ * Gera um roteiro de vídeo de apresentação (PT-BR + EN) personalizado.
+ * Retorna também `blocks`: o roteiro EN quebrado em frases curtas com
+ * tradução PT e pronúncia "abrasileirada" para o candidato treinar bloco a bloco.
  */
 export const generateVideoScript = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -40,21 +50,37 @@ export const generateVideoScript = createServerFn({ method: "POST" })
       .filter(Boolean)
       .join(", ");
 
-    const prompt = `You are writing a 45-60 second self-introduction video script for an H-2A seasonal farm worker visa applicant. Output TWO versions: one in BRAZILIAN PORTUGUESE (pt-BR) and one in ENGLISH.
+    const prompt = `You are writing a 45-60 second self-introduction video script for an H-2A seasonal farm worker visa applicant. The candidate is a NATIVE BRAZILIAN PORTUGUESE speaker who probably does not speak English well, so they need to memorize the English script chunk by chunk, and they need a PRONUNCIATION GUIDE written the way a Brazilian would spell out the sounds (NOT IPA).
 
-Rules — VERY IMPORTANT:
-- Spoken length: ~45-60 seconds in each language (about 110-140 words).
-- Tone: humble, direct, warm, confident — NOT robotic or generic.
+You must produce THREE things:
+
+1) "pt": full ~50 second script in BRAZILIAN PORTUGUESE (110-140 words) — what the candidate practices first to understand the meaning. Natural, warm, humble, confident — not robotic.
+
+2) "en": full ENGLISH script (110-140 words) — clean continuous prose, no annotations, no slashes. This is the one they will record.
+
+3) "blocks": the SAME English script broken into 10-16 short chunks, each one easy to memorize and say in one breath (max ~10 words). For EACH block return:
+   - "en": the English chunk (verbatim — when concatenated in order they MUST reconstruct exactly the "en" field above)
+   - "pt": short Brazilian Portuguese translation of that chunk
+   - "phonetic": pronunciation written PHONETICALLY THE WAY A BRAZILIAN WOULD READ IT — use Portuguese spelling rules so the candidate can read it out loud. Examples:
+       * "Hi, my name is John" → "Rái, mái nêimi is Djón"
+       * "I worked with apples" → "Ái uórkti uífi épous"
+       * "Thank you very much" → "Tchénk-iú véri mâtch"
+     Mark the stressed syllable with an accent if it helps. Do NOT use IPA. Do NOT use English spelling.
+
+CONTENT RULES (apply to pt + en):
 - MUST mention at least one SPECIFIC crop, animal, or machine the candidate has actually worked with (pull from EXPERIENCE below). Do NOT invent.
-- MUST say years of experience based on EXPERIENCE dates.
-- Structure: 1) greeting + name + age (if known) + city/country; 2) what they have done on the farm (specific); 3) why an American employer should hire them (work ethic, physical readiness, reliability); 4) closing — ready to start, committed to finishing the full H-2A contract, thank you.
+- MUST mention years of experience based on EXPERIENCE dates.
+- Structure: greeting + name + city/country → what they did on the farm (specific) → why hire them (work ethic, physical readiness, reliability) → ready to start and finish the full H-2A contract → thank you.
 - NO clichés like "I am a hard worker passionate about agriculture". Be concrete.
-- NO emojis, NO markdown, NO stage directions.
+- NO emojis, NO markdown, NO stage directions, NO slashes inside sentences.
 
-Return EXACTLY this JSON shape and nothing else:
+Return EXACTLY this JSON and nothing else:
 {
-  "pt": "texto em português completo aqui...",
-  "en": "complete english text here..."
+  "pt": "...",
+  "en": "...",
+  "blocks": [
+    { "en": "...", "pt": "...", "phonetic": "..." }
+  ]
 }
 
 CANDIDATE:
@@ -88,10 +114,9 @@ ${expLines || "(no experience listed — use generic farm worker phrasing, but s
       throw new Error("Falha ao gerar roteiro: " + msg);
     }
 
-    // Extrai o JSON do retorno (modelo às vezes vem com ```json ... ```)
     const jsonMatch = raw.match(/\{[\s\S]*\}/);
     if (!jsonMatch) throw new Error("Resposta da IA não veio em JSON.");
-    let parsed: { pt?: string; en?: string };
+    let parsed: { pt?: string; en?: string; blocks?: ScriptBlock[] };
     try {
       parsed = JSON.parse(jsonMatch[0]);
     } catch {
@@ -99,19 +124,29 @@ ${expLines || "(no experience listed — use generic farm worker phrasing, but s
     }
     const pt = (parsed.pt ?? "").trim();
     const en = (parsed.en ?? "").trim();
+    const blocks = Array.isArray(parsed.blocks)
+      ? parsed.blocks
+          .map((b) => ({
+            en: String(b?.en ?? "").trim(),
+            pt: String(b?.pt ?? "").trim(),
+            phonetic: String(b?.phonetic ?? "").trim(),
+          }))
+          .filter((b) => b.en && b.pt && b.phonetic)
+      : [];
     if (!pt || !en) throw new Error("Roteiro veio incompleto. Tente novamente.");
+    if (blocks.length < 4) throw new Error("Os blocos de pronúncia vieram incompletos. Tente gerar de novo.");
 
-    // Persistir no perfil
     await supabase
       .from("my_profile")
       .update({
         video_script_pt: pt,
         video_script_en: en,
+        video_script_blocks: blocks as never,
         video_script_generated_at: new Date().toISOString(),
       })
       .eq("owner_id", userId);
 
-    return { pt, en };
+    return { pt, en, blocks };
   });
 
 const YT_REGEX = /(?:youtube\.com\/(?:watch\?v=|shorts\/|embed\/)|youtu\.be\/)([A-Za-z0-9_-]{6,})/;
