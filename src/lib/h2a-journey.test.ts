@@ -72,4 +72,34 @@ describe("computeJourney", () => {
     const r = computeJourney({ onboardingDone: true, appsCount: 0, visaSteps: {} });
     expect(r.stages.find((s) => s.key === "candidatura")?.done).toBe(false);
   });
+
+  it("transitions DS-160 → Entrevista → Visto emitido in sequence", () => {
+    // Baseline: onboarding + 1 application = 2/5, current stage DS-160
+    const base = { onboardingDone: true, appsCount: 1 };
+    const r0 = computeJourney({ ...base, visaSteps: {} });
+    expect(r0.doneCount).toBe(2);
+    expect(r0.currentStage).toBe("DS-160");
+
+    // Mark DS-160 done → 3/5, next stage is Entrevista
+    const r1 = computeJourney({ ...base, visaSteps: { ds160: true } });
+    expect(r1.doneCount).toBe(3);
+    expect(r1.progressPct).toBe(60);
+    expect(r1.currentStage).toBe("Entrevista");
+
+    // Add interview_done → 4/5, next stage is Visto emitido
+    const r2 = computeJourney({ ...base, visaSteps: { ds160: true, interview_done: true } });
+    expect(r2.doneCount).toBe(4);
+    expect(r2.progressPct).toBe(80);
+    expect(r2.currentStage).toBe("Visto emitido");
+
+    // Add visa_issued → 5/5, fallback "Embarque"
+    const r3 = computeJourney({
+      ...base,
+      visaSteps: { ds160: true, interview_done: true, visa_issued: true },
+    });
+    expect(r3.doneCount).toBe(5);
+    expect(r3.progressPct).toBe(100);
+    expect(r3.currentStage).toBe(JOURNEY_FALLBACK_STAGE);
+    expect(r3.stages.every((s) => s.done)).toBe(true);
+  });
 });
