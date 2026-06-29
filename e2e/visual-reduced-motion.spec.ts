@@ -25,7 +25,8 @@ const DEBOUNCE_MS = 600;
 const MAX_ANNOUNCEMENTS_PER_BURST = 4;
 
 async function bootSession(page: Page) {
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle").catch(() => {});
   await page.evaluate(
     ({ key, json }) => window.localStorage.setItem(key!, json!),
     { key: STORAGE_KEY, json: SESSION_JSON },
@@ -46,6 +47,7 @@ test.describe("prefers-reduced-motion: aria-live + visual regression", () => {
 
   test("aria-live: rapid bursts produce no duplicate consecutive messages and respect per-transition cap", async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
     await bootSession(page);
     await page.goto("/app");
     await page.waitForLoadState("networkidle");

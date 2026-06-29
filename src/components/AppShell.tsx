@@ -317,7 +317,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   };
 
   const Sidebar = (
-    <aside
+    <nav
       className="flex h-full w-72 max-w-[85vw] shrink-0 flex-col bg-sidebar text-sidebar-foreground overflow-hidden"
       aria-label="Navegação principal"
     >
@@ -500,7 +500,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <span className="flex-1 text-left">{t("logout")}</span>
         </button>
       </div>
-    </aside>
+    </nav>
   );
 
 
