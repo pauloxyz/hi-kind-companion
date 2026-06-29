@@ -62,8 +62,19 @@ export const Route = createFileRoute("/guia-visto-h2b")({
           headline: "Visto H-2B para brasileiros: o guia definitivo",
           description:
             "Guia completo do visto H-2B nos EUA para brasileiros: sorteio anual, salários, funções, inglês exigido e família.",
-          author: { "@type": "Organization", name: "VaiPraLá" },
+          author: { "@type": "Organization", name: "VaiPraLá", url: "/" },
+          publisher: {
+            "@type": "Organization",
+            name: "VaiPraLá",
+            logo: { "@type": "ImageObject", url: "/favicon.ico" },
+          },
+          datePublished: "2026-06-01",
+          dateModified: new Date().toISOString().slice(0, 10),
+          mainEntityOfPage: { "@type": "WebPage", "@id": "/guia-visto-h2b" },
+          image: ["/favicon.ico"],
           inLanguage: "pt-BR",
+          articleSection: "Vistos americanos",
+          keywords: ["visto h2b", "h2b", "h-2b", "trabalho temporário EUA", "hotelaria EUA", "paisagismo EUA", "sorteio h2b"],
         }),
       },
       {

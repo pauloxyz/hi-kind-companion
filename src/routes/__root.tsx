@@ -89,6 +89,39 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", href: "/favicon.ico" },
     ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          "@id": "/#organization",
+          name: "VaiPraLá",
+          url: "/",
+          logo: { "@type": "ImageObject", url: "/favicon.ico" },
+          sameAs: [],
+          description:
+            "Plataforma que conecta trabalhadores brasileiros a vagas H-2A oficiais nos EUA, com IA para cartas em inglês e preparação de inglês prático.",
+        }),
+      },
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "WebSite",
+          "@id": "/#website",
+          name: "VaiPraLá",
+          url: "/",
+          inLanguage: "pt-BR",
+          publisher: { "@id": "/#organization" },
+          potentialAction: {
+            "@type": "SearchAction",
+            target: "/vagas-h2a?q={search_term_string}",
+            "query-input": "required name=search_term_string",
+          },
+        }),
+      },
+    ],
   }),
 
   shellComponent: RootShell,

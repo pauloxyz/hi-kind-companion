@@ -49,8 +49,19 @@ export const Route = createFileRoute("/guia-h2a-vs-h2b")({
           headline: "Visto H-2B vs H-2A: qual escolher?",
           description:
             "Guia completo comparando os vistos H-2A (rural) e H-2B (não-agrícola) para brasileiros que querem trabalhar legalmente nos EUA.",
-          author: { "@type": "Organization", name: "VaiPraLá" },
+          author: { "@type": "Organization", name: "VaiPraLá", url: "/" },
+          publisher: {
+            "@type": "Organization",
+            name: "VaiPraLá",
+            logo: { "@type": "ImageObject", url: "/favicon.ico" },
+          },
+          datePublished: "2026-01-15",
+          dateModified: new Date().toISOString().slice(0, 10),
+          mainEntityOfPage: { "@type": "WebPage", "@id": "/guia-h2a-vs-h2b" },
+          image: ["/favicon.ico"],
           inLanguage: "pt-BR",
+          articleSection: "Vistos americanos",
+          keywords: ["visto h2a", "visto h2b", "h2a vs h2b", "trabalho EUA", "visto temporário americano"],
         }),
       },
       {
