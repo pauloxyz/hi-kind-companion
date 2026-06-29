@@ -16,6 +16,9 @@ export const Route = createFileRoute("/")({
       { name: "description", content: "Vagas H-2A oficiais do DOL por estado, guia do visto agrícola, salário AEWR 2025, entrevista consular e curso de inglês. Sem agenciador, sem taxa." },
       { property: "og:title", content: "VaiPraLá — Vagas H-2A e visto agrícola dos EUA para brasileiros" },
       { property: "og:description", content: "Vagas reais de fazendas americanas, salário em dólar, guia completo do visto H-2A e curso de inglês — tudo num só lugar." },
+      { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { property: "og:url", content: "/" },
       
     ],
