@@ -87,7 +87,7 @@ function Page() {
       qc.invalidateQueries({ queryKey: ["intro_videos"] });
       setRecordedBlob(null); setPreviewUrl(null);
       toast.success("Vídeo salvo e marcado como ativo");
-    } catch (e: any) { toast.error(e.message ?? "Erro no upload"); }
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Erro no upload"); }
     finally { setUploading(false); }
   }
 
