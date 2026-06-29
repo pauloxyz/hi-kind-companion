@@ -112,12 +112,21 @@ test.describe("journey progression → aria-live", () => {
     // route change. We only assert the upper bound and well-formedness.
     expect(announcements.length).toBeLessThanOrEqual(2);
 
-    // Every message is well-formed and unique.
+    // Every message is well-formed and globally unique.
     const unique = new Set(announcements);
     expect(unique.size).toBe(announcements.length);
     for (const m of announcements) {
       expect(m).toMatch(/Jornada H-2A (atualizada|concluída):/);
       expect(m).toMatch(/\d+ de \d+/);
+    }
+    // Dedicated guard: no two consecutive announcements may be identical,
+    // even after data refetches. This catches regressions where the debouncer
+    // is bypassed and the same message is pushed twice in a row.
+    for (let i = 1; i < announcements.length; i++) {
+      expect(
+        announcements[i],
+        `consecutive duplicate at index ${i}: ${JSON.stringify(announcements)}`,
+      ).not.toBe(announcements[i - 1]);
     }
 
     // If any announcement fired, the final one reflects the patched state:
@@ -189,6 +198,10 @@ test.describe("journey progression → aria-live", () => {
     for (const m of afterSlow) {
       expect(m).toMatch(/Jornada H-2A (atualizada|concluída):/);
     }
+    // No consecutive duplicates after slow cadence.
+    for (let i = 1; i < afterSlow.length; i++) {
+      expect(afterSlow[i], `consecutive duplicate (slow) at index ${i}`).not.toBe(afterSlow[i - 1]);
+    }
 
     // FAST: flip the last step + redundant rewrites inside one window.
     await page.evaluate(() => {
@@ -208,8 +221,10 @@ test.describe("journey progression → aria-live", () => {
     // Fast burst → at most one message per debounce window (~2 for 1.6s window).
     expect(afterFast.length).toBeLessThanOrEqual(2);
     expect(new Set(afterFast).size).toBe(afterFast.length);
-    // If any message fired during the fast burst, the last one matches the
-    // canonical Jornada format (concluída when at 100%, otherwise atualizada).
+    // No consecutive duplicates after fast burst either.
+    for (let i = 1; i < afterFast.length; i++) {
+      expect(afterFast[i], `consecutive duplicate (fast) at index ${i}`).not.toBe(afterFast[i - 1]);
+    }
     if (afterFast.length > 0) {
       expect(afterFast[afterFast.length - 1]).toMatch(/Jornada H-2A (atualizada|concluída)/);
     }
