@@ -71,7 +71,7 @@ function SalarioPage() {
   const sorted = Object.entries(STATE_INFO).sort((a, b) => b[1].aewr2025 - a[1].aewr2025);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">

@@ -54,7 +54,7 @@ function UnsubscribePage() {
   }
 
   return (
-    <main className="min-h-screen flex items-center justify-center p-6 bg-background">
+    <main className="min-h-dvh flex items-center justify-center p-6 bg-background">
       <Card className="max-w-md w-full">
         <CardContent className="pt-8 pb-8 space-y-4 text-center">
           <div className="text-xs font-bold uppercase tracking-widest text-primary">V+ USA</div>

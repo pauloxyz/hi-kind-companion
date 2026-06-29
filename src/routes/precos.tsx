@@ -131,7 +131,7 @@ function PricingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <PaymentTestModeBanner />
       <header className="border-b">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">

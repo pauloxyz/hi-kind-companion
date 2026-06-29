@@ -64,7 +64,7 @@ export const Route = createFileRoute("/guia-entrevista-visto-h2a")({
 
 function EntrevistaPage() {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-dvh bg-background">
       <header className="border-b">
         <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
