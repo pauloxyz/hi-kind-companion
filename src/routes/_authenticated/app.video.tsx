@@ -163,7 +163,7 @@ function Page() {
             <p className="text-sm text-muted-foreground">Nenhum vídeo ainda.</p>
           ) : (
             <div className="grid sm:grid-cols-2 gap-3">
-              {videos.map((v: any) => (
+              {videos.map((v: IntroVideo) => (
                 <div key={v.id} className="space-y-2">
                   <VideoPreview path={v.video_url} />
                   <div className="flex items-center justify-between text-xs">
