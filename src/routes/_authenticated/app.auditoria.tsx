@@ -44,7 +44,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { toast } from "sonner";
-import { getAuditStats, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
+import { getAuditStats, getDeniedAdminSummary, listAuditEvents, type AuditEvent } from "@/lib/security-admin.functions";
 import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
