@@ -94,6 +94,13 @@ function alertKey(a: { hour: string; ip_address: string | null }): string {
 }
 
 export const Route = createFileRoute("/_authenticated/app/auditoria")({
+  beforeLoad: async () => {
+    try {
+      await requireAdminAccess();
+    } catch {
+      throw redirect({ to: "/app" });
+    }
+  },
   component: AuditPanel,
 });
 
