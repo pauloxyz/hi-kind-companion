@@ -89,7 +89,7 @@ export const sendSpikeAlertTest = createServerFn({ method: "POST" })
           window_minutes: 0,
           source: "manual_test",
         },
-      })
+      } as never)
       .select("id")
       .single();
     if (error) throw error;

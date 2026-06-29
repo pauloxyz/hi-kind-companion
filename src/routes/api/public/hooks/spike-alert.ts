@@ -204,7 +204,7 @@ export const Route = createFileRoute("/api/public/hooks/spike-alert")({
               email: { ok: emailRes.ok, status: emailRes.status, error: emailRes.error ?? null },
               slack: { ok: slackRes.ok, status: slackRes.status, error: slackRes.error ?? null },
             },
-          });
+          } as never);
         } catch {
           /* swallow logging errors */
         }
