@@ -49,6 +49,8 @@ import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authent
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/email/queue/process'
+import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
+import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
 import { Route as ApiPublicHooksSpikeAlertRouteImport } from './routes/api/public/hooks/spike-alert'
 import { Route as ApiPublicHooksSeoScanRouteImport } from './routes/api/public/hooks/seo-scan'
@@ -267,6 +269,16 @@ const LovableEmailQueueProcessRoute =
     path: '/lovable/email/queue/process',
     getParentRoute: () => rootRouteImport,
   } as any)
+const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
+  id: '/lovable/email/auth/webhook',
+  path: '/lovable/email/auth/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
+  id: '/lovable/email/auth/preview',
+  path: '/lovable/email/auth/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksUptimeRoute = ApiPublicHooksUptimeRouteImport.update({
   id: '/api/public/hooks/uptime',
   path: '/api/public/hooks/uptime',
@@ -365,6 +377,8 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -413,6 +427,8 @@ export interface FileRoutesByTo {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/app/ingles': typeof AuthenticatedAppInglesIndexRoute
   '/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -465,6 +481,8 @@ export interface FileRoutesById {
   '/api/public/hooks/seo-scan': typeof ApiPublicHooksSeoScanRoute
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/queue/process': typeof LovableEmailQueueProcessRoute
   '/_authenticated/app/ingles/': typeof AuthenticatedAppInglesIndexRoute
   '/_authenticated/app/ingles/$module/$lesson': typeof AuthenticatedAppInglesModuleLessonRoute
@@ -517,6 +535,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/app/ingles/'
     | '/app/ingles/$module/$lesson'
@@ -565,6 +585,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/app/ingles'
     | '/app/ingles/$module/$lesson'
@@ -616,6 +638,8 @@ export interface FileRouteTypes {
     | '/api/public/hooks/seo-scan'
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
     | '/lovable/email/queue/process'
     | '/_authenticated/app/ingles/'
     | '/_authenticated/app/ingles/$module/$lesson'
@@ -651,6 +675,8 @@ export interface RootRouteChildren {
   ApiPublicHooksSeoScanRoute: typeof ApiPublicHooksSeoScanRoute
   ApiPublicHooksSpikeAlertRoute: typeof ApiPublicHooksSpikeAlertRoute
   ApiPublicHooksUptimeRoute: typeof ApiPublicHooksUptimeRoute
+  LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
+  LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailQueueProcessRoute: typeof LovableEmailQueueProcessRoute
 }
 
@@ -936,6 +962,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailQueueProcessRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/auth/webhook': {
+      id: '/lovable/email/auth/webhook'
+      path: '/lovable/email/auth/webhook'
+      fullPath: '/lovable/email/auth/webhook'
+      preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/auth/preview': {
+      id: '/lovable/email/auth/preview'
+      path: '/lovable/email/auth/preview'
+      fullPath: '/lovable/email/auth/preview'
+      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/uptime': {
       id: '/api/public/hooks/uptime'
       path: '/api/public/hooks/uptime'
@@ -1118,6 +1158,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicHooksSeoScanRoute: ApiPublicHooksSeoScanRoute,
   ApiPublicHooksSpikeAlertRoute: ApiPublicHooksSpikeAlertRoute,
   ApiPublicHooksUptimeRoute: ApiPublicHooksUptimeRoute,
+  LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
+  LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailQueueProcessRoute: LovableEmailQueueProcessRoute,
 }
 export const routeTree = rootRouteImport
