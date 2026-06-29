@@ -192,7 +192,7 @@ function LessonPage() {
             <Clock className="h-3 w-3" /> ~{lesson.estimated_minutes} min
           </span>
           {mastered && (
-            <Badge className="bg-warning hover:bg-warning text-white gap-1">
+            <Badge className="bg-warning hover:bg-warning text-warning-foreground gap-1">
               <Trophy className="h-3 w-3" /> Dominada
             </Badge>
           )}
@@ -225,7 +225,7 @@ function LessonPage() {
                   <div className={cn(
                     "h-9 w-9 rounded-full flex items-center justify-center border-2",
                     active && "border-primary bg-primary text-primary-foreground",
-                    done && !active && "border-success/40 bg-success text-white",
+                    done && !active && "border-success/40 bg-success text-success-foreground",
                     !active && !done && "border-muted-foreground/30 text-muted-foreground",
                   )}>
                     {done && !active ? <Check className="h-4 w-4" /> : <Icon className="h-4 w-4" />}

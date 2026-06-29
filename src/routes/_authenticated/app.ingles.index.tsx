@@ -91,7 +91,7 @@ function InglesIndex() {
                             <Clock className="h-3 w-3 mr-1" /> {total} lições
                           </Badge>
                           {done > 0 && (
-                            <Badge className="bg-success hover:bg-success text-white font-normal">
+                            <Badge className="bg-success hover:bg-success text-success-foreground font-normal">
                               <CheckCircle2 className="h-3 w-3 mr-1" /> {done}/{total}
                             </Badge>
                           )}

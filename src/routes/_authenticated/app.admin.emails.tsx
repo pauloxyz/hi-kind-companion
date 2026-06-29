@@ -493,10 +493,10 @@ function Page() {
               </Button>
               <div className="ml-auto flex flex-wrap gap-2 text-xs">
                 <Badge variant="outline">Total {totals.total}</Badge>
-                <Badge className="bg-success text-white">{totals.sent} enviados</Badge>
+                <Badge className="bg-success text-success-foreground">{totals.sent} enviados</Badge>
                 <Badge className="bg-slate-500 text-white">{totals.pending} pendentes</Badge>
-                <Badge className="bg-warning text-white">{totals.suppressed} suprimidos</Badge>
-                <Badge className="bg-destructive text-white">{totals.failed} falhas</Badge>
+                <Badge className="bg-warning text-warning-foreground">{totals.suppressed} suprimidos</Badge>
+                <Badge className="bg-destructive text-destructive-foreground">{totals.failed} falhas</Badge>
               </div>
             </div>
           </div>

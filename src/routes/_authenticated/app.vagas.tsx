@@ -83,7 +83,7 @@ function QualityMedal({ q }: { q: JobQuality }) {
   const cfg = {
     gold: { emoji: "🥇", label: "Top Pick", cls: "bg-warning hover:bg-warning text-black border-warning/40" },
     silver: { emoji: "🥈", label: "Recomendada", cls: "bg-slate-300 hover:bg-slate-300 text-black border-slate-400" },
-    bronze: { emoji: "🥉", label: "Boa opção", cls: "bg-warning hover:bg-warning text-white border-warning/40" },
+    bronze: { emoji: "🥉", label: "Boa opção", cls: "bg-warning hover:bg-warning text-warning-foreground border-warning/40" },
   }[q.level];
   return (
     <TooltipProvider delayDuration={150}>
@@ -438,7 +438,7 @@ function Page() {
             <Bell className="mr-2 h-4 w-4" />
             Alertas
             {totalFreshAlerts > 0 && (
-              <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-white">
+              <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-destructive px-1.5 text-[10px] font-bold text-destructive-foreground">
                 {totalFreshAlerts}
               </span>
             )}
