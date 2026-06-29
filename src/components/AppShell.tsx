@@ -80,6 +80,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const [open, setOpen] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [profileLoaded, setProfileLoaded] = useState(false);
   const [unreadReplies, setUnreadReplies] = useState<number | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
   const [fullName, setFullName] = useState<string>("");
@@ -99,6 +100,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
         setShowOnboarding(!data?.onboarding_completed_at);
         setFullName(data?.full_name ?? "");
         setPhotoUrl(data?.photo_url ?? null);
+        setProfileLoaded(true);
       });
     supabase.auth.getUser().then(({ data }) => {
       if (!data.user) return;
@@ -539,7 +541,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           <FraudBanner />
         </div>
       </main>
-      <OnboardingTour />
+      {profileLoaded && showOnboarding && <OnboardingTour />}
       {/* Anúncio acessível das mudanças de fase/progresso da Jornada H-2A */}
       <JourneyLiveRegion message={journeyAnnouncement} />
     </div>
