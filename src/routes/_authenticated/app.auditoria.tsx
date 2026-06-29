@@ -261,15 +261,32 @@ function AuditPanel() {
       toast.error("Nenhum evento para exportar");
       return;
     }
-    const csv = eventsToCsv(rows);
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `auditoria-eventos-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlob("\uFEFF" + eventsToCsv(rows), "text/csv", `auditoria-eventos-${stamp}.csv`);
     toast.success(`CSV gerado (${rows.length} eventos)`);
+  };
+
+  const handleExportJson = () => {
+    const rows = filteredEvents;
+    if (!rows.length) {
+      toast.error("Nenhum evento para exportar");
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const payload = {
+      generated_at: new Date().toISOString(),
+      filters: {
+        event_type: filter || null,
+        since_days: sinceDays,
+        route: routeFilter || null,
+        user_id: userIdFilter || null,
+        search: search || null,
+      },
+      count: rows.length,
+      events: rows,
+    };
+    downloadBlob(JSON.stringify(payload, null, 2), "application/json", `auditoria-eventos-${stamp}.json`);
+    toast.success(`JSON gerado (${rows.length} eventos)`);
   };
 
   const toggleSort = (key: SortKey) => {
