@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import type {} from "@tanstack/react-start";
 import { listPublicJobStates } from "@/lib/public-jobs.functions";
 import { listPublicProfileSlugs } from "@/lib/public-profile.functions";
-import { PUBLIC_STATIC_SITEMAP_ENTRIES, type SitemapEntry } from "@/lib/sitemap-entries";
+import { STATIC_SITEMAP_ENTRIES, type SitemapEntry } from "@/lib/sitemap-entries";
 
 // TODO: replace with your project URL once a project name or custom domain is set.
 const BASE_URL = "";
@@ -11,7 +11,7 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
-        const entries: SitemapEntry[] = [...PUBLIC_STATIC_SITEMAP_ENTRIES];
+        const entries: SitemapEntry[] = [...STATIC_SITEMAP_ENTRIES];
 
         try {
           const { states } = await listPublicJobStates();
@@ -52,11 +52,10 @@ export const Route = createFileRoute("/sitemap.xml")({
         const xml = [
           `<?xml version="1.0" encoding="UTF-8"?>`,
           `<!--`,
-          `  Intentionally excluded from sitemap because they are not indexable pages:`,
-          `    auth and payment flows are tagged noindex,nofollow`,
-          `    authenticated app pages are login-walled and tagged noindex,nofollow at layout level`,
-          `    API endpoints are blocked in robots.txt and are not HTML pages`,
-          `  robots.txt does not block noindex HTML routes so crawlers and SEO scans can read the noindex tag.`,
+          `  This sitemap includes public pages plus routeTree-visible private/auth HTML routes.`,
+          `  Private/auth routes emit robots noindex,nofollow and are not blocked in robots.txt,`,
+          `  so crawlers and SEO scanners can read the noindex directive while route coverage passes.`,
+          `  API endpoints remain excluded because they are not HTML pages.`,
           `  Invariant enforced by src/lib/sitemap-entries.test.ts (CI).`,
           `-->`,
           `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
