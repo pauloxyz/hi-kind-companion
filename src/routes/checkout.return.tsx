@@ -5,8 +5,12 @@ import { Button } from "@/components/ui/button";
 export const Route = createFileRoute("/checkout/return")({
   head: () => ({
     meta: [
-      { title: "VaiPraLá — Pagamento" },
+      { title: "Pagamento concluído — VaiPraLá" },
+      { name: "description", content: "Confirmação do seu pagamento VaiPraLá Pro. Sua assinatura é ativada em segundos e libera candidaturas ilimitadas a vagas H-2A." },
       { name: "robots", content: "noindex,nofollow" },
+      { property: "og:title", content: "Pagamento concluído — VaiPraLá" },
+      { property: "og:description", content: "Sua assinatura VaiPraLá Pro foi confirmada." },
+      { property: "og:url", content: "/checkout/return" },
     ],
   }),
   validateSearch: (search: Record<string, unknown>): { session_id?: string } => ({

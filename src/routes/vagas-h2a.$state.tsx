@@ -40,7 +40,7 @@ export const Route = createFileRoute("/vagas-h2a/$state")({
     const code = params.state.toUpperCase();
     const name = US_STATE_NAMES[code] ?? code;
     const count = loaderData?.jobs.length ?? 0;
-    const title = `Vagas H-2A em ${name} — ${count} oportunidades | VaiPraLá`;
+    const title = `Vagas H-2A em ${name} (${count}) | VaiPraLá`;
     const desc = `Veja ${count} vagas H-2A abertas em fazendas de ${name}. Salário, datas e empregadores oficiais do Departamento do Trabalho dos EUA.`;
     const path = `/vagas-h2a/${params.state.toLowerCase()}`;
     return {

@@ -15,9 +15,12 @@ import { logSecurityEvent } from "@/lib/security-audit.functions";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
-      { title: "VaiPraLá — Entrar ou criar conta" },
-      { name: "description", content: "Acesse seu painel de candidaturas H-2A." },
+      { title: "Entrar ou criar conta — VaiPraLá" },
+      { name: "description", content: "Acesse seu painel VaiPraLá para se candidatar a vagas H-2A, gerar cartas em inglês com IA e acompanhar suas inscrições nos EUA." },
       { name: "robots", content: "noindex,nofollow" },
+      { property: "og:title", content: "Entrar ou criar conta — VaiPraLá" },
+      { property: "og:description", content: "Acesse seu painel de candidaturas H-2A no VaiPraLá." },
+      { property: "og:url", content: "/auth" },
     ],
   }),
   component: () => (

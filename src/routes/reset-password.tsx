@@ -14,9 +14,12 @@ export const Route = createFileRoute("/reset-password")({
   ssr: false,
   head: () => ({
     meta: [
-      { title: "VaiPraLá — Redefinir senha" },
-      { name: "description", content: "Crie uma nova senha para sua conta VaiPraLá." },
+      { title: "Redefinir senha — VaiPraLá" },
+      { name: "description", content: "Crie uma nova senha segura para sua conta VaiPraLá e volte a acessar suas candidaturas H-2A em segundos." },
       { name: "robots", content: "noindex,nofollow" },
+      { property: "og:title", content: "Redefinir senha — VaiPraLá" },
+      { property: "og:description", content: "Defina uma nova senha para sua conta VaiPraLá." },
+      { property: "og:url", content: "/reset-password" },
     ],
   }),
   component: () => (
