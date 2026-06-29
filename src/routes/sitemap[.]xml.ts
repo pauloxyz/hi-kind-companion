@@ -51,6 +51,13 @@ export const Route = createFileRoute("/sitemap.xml")({
 
         const xml = [
           `<?xml version="1.0" encoding="UTF-8"?>`,
+          `<!--`,
+          `  Intentionally excluded from sitemap (also Disallow'd in /robots.txt and tagged noindex):`,
+          `    /auth, /reset-password, /checkout/return  — private/auth flows (noindex)`,
+          `    /app/*                                    — authenticated app (login-walled, noindex)`,
+          `    /api/public/*                             — JSON webhook/health endpoints (not pages)`,
+          `  Invariant enforced by src/lib/sitemap-entries.test.ts (CI).`,
+          `-->`,
           `<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
           ...urls,
           `</urlset>`,
