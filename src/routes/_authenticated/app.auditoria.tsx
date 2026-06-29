@@ -189,18 +189,24 @@ function AuditPanel() {
   // Reset page on filter changes
   useEffect(() => {
     setPage(1);
-  }, [filter, sinceDays, search, pageSize, sortKey, sortDir]);
+  }, [filter, sinceDays, search, routeFilter, userIdFilter, pageSize, sortKey, sortDir]);
 
   const filteredEvents = useMemo(() => {
     const all = events.data ?? [];
     const q = search.trim().toLowerCase();
-    const matched = !q
-      ? all
-      : all.filter((e) =>
-          [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
-            .filter(Boolean)
-            .some((v) => String(v).toLowerCase().includes(q)),
-        );
+    const rq = routeFilter.trim().toLowerCase();
+    const uq = userIdFilter.trim().toLowerCase();
+    const matched = all.filter((e) => {
+      if (rq && !(e.resource ?? "").toLowerCase().includes(rq)) return false;
+      if (uq && !(e.user_id ?? "").toLowerCase().includes(uq)) return false;
+      if (q) {
+        const hay = [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
+          .filter(Boolean)
+          .map((v) => String(v).toLowerCase());
+        if (!hay.some((v) => v.includes(q))) return false;
+      }
+      return true;
+    });
     const sorted = [...matched].sort((a, b) => {
       const av = (a[sortKey] ?? "") as string;
       const bv = (b[sortKey] ?? "") as string;
@@ -208,7 +214,7 @@ function AuditPanel() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [events.data, search, sortKey, sortDir]);
+  }, [events.data, search, routeFilter, userIdFilter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
   const currentPage = Math.min(page, totalPages);
