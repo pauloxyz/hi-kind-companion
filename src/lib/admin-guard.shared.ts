@@ -34,13 +34,13 @@ export async function assertAdminWithAudit(
   if (data) return;
 
   // Best-effort audit log. Never block the 403 on logging failure.
+  // Schema: event_type, user_id, resource, metadata (no `severity` column).
   try {
     await ctx.supabase.from("security_audit_log").insert({
       event_type: "admin_access_denied",
       user_id: ctx.userId,
       resource,
-      severity: "medium",
-      metadata: { reason: "missing_admin_role" },
+      metadata: { reason: "missing_admin_role", severity: "medium" },
     });
   } catch {
     /* swallow */
