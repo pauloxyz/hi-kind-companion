@@ -374,7 +374,7 @@ function Page() {
 
   function applyAlertAsFilter(a: JobAlert) {
     setStateFilter(a.state ?? "");
-    setCategoryFilter((a.category as any) ?? "all");
+    setCategoryFilter(((a.category as JobCategory | null) ?? "all"));
     setMinWage(a.min_wage != null ? String(a.min_wage) : "");
     setStartAfter("");
     setSearch("");
