@@ -153,6 +153,23 @@ export function AppShell({ children }: { children?: ReactNode }) {
     .join("")
     .toUpperCase();
 
+  // Aria-live: anuncia mudanças de fase/progresso da Jornada H-2A.
+  const [journeyAnnouncement, setJourneyAnnouncement] = useState<string>("");
+  const prevJourneyRef = useRef<{ done: number; stage: string } | null>(null);
+  useEffect(() => {
+    // Só anuncia depois que os dados carregaram pelo menos uma vez
+    // (appsCount=null indica loading).
+    if (appsCount === null) return;
+    const prev = prevJourneyRef.current;
+    const next = { done: doneCount, stage: currentStage };
+    if (prev && (prev.done !== next.done || prev.stage !== next.stage)) {
+      setJourneyAnnouncement(
+        `Jornada H-2A atualizada: ${doneCount} de ${stages.length} etapas concluídas. Próxima fase: ${currentStage}.`,
+      );
+    }
+    prevJourneyRef.current = next;
+  }, [doneCount, currentStage, stages.length, appsCount]);
+
   // Drawer mobile: trap focus, fecha com Escape e bloqueia scroll do body.
   const closeBtnRef = useRef<HTMLButtonElement | null>(null);
   const menuTriggerRef = useRef<HTMLButtonElement | null>(null);
