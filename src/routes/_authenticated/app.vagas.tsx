@@ -507,7 +507,7 @@ function Page() {
               <label className="text-xs text-muted-foreground">Começa a partir de</label>
               <Input type="date" value={startAfter} onChange={(e) => setStartAfter(e.target.value)} />
             </div>
-            <Select value={sortBy} onValueChange={(v: any) => setSortBy(v)}>
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as typeof sortBy)}>
               <SelectTrigger><SelectValue /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="quality">⭐ Melhores ofertas</SelectItem>
