@@ -559,10 +559,7 @@ jobs:
             cat "$BREAKDOWN"
           } >> "$OUT"
 
-              head -n 10 "$UNIQUE_FILE" 2>/dev/null || true
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-          fi
+
 
           echo "::group::Consolidated report"
           cat "$OUT"
