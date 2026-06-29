@@ -163,18 +163,23 @@ export function AppShell({ children }: { children?: ReactNode }) {
         to={it.to}
         onClick={() => setOpen(false)}
         className={cn(
-          "group flex items-center gap-2.5 rounded-md px-3 py-2 text-sm transition-colors",
+          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all",
           active
-            ? "bg-primary text-primary-foreground shadow-sm"
+            ? "bg-emerald-800/30 text-white border border-emerald-700/30 shadow-inner"
             : it.highlight
-              ? "bg-accent-gold/15 text-foreground font-semibold hover:bg-accent-gold/25"
-              : "text-foreground/75 hover:bg-accent hover:text-foreground",
+              ? "bg-[#b56d2d]/15 text-[#f0c08a] font-semibold hover:bg-[#b56d2d]/25"
+              : "text-emerald-100/60 hover:text-white hover:bg-emerald-800/15",
         )}
       >
-        <Icon className={cn("size-4 shrink-0", active ? "" : "text-muted-foreground group-hover:text-foreground")} />
-        <span className="flex-1 truncate">{t(it.labelKey)}</span>
+        <Icon
+          className={cn(
+            "size-[18px] shrink-0 transition-colors",
+            active ? "text-[#b56d2d]" : "opacity-70 group-hover:opacity-100",
+          )}
+        />
+        <span className="flex-1 truncate font-medium">{t(it.labelKey)}</span>
         {badge > 0 && (
-          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-accent-red px-1.5 text-[10px] font-bold text-white">
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white border-2 border-[#1a2e24]">
             {badge}
           </span>
         )}
@@ -183,135 +188,181 @@ export function AppShell({ children }: { children?: ReactNode }) {
   };
 
   const Sidebar = (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r bg-sidebar">
-      <div className="flex items-center justify-between p-4">
-        <Link to="/app" className="flex items-center gap-2">
-          <img src={logoUrl} alt="VaiPraLá" className="h-8 w-auto" />
-        </Link>
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="lg:hidden text-muted-foreground hover:text-foreground rounded-md p-1 min-h-11 min-w-11 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          aria-label="Fechar menu"
-        >
-          <X className="size-5" aria-hidden />
-        </button>
+    <aside className="flex h-full w-72 shrink-0 flex-col bg-[#1a2e24] text-stone-200 overflow-hidden">
+      {/* Header */}
+      <div className="p-5 pb-2">
+        <div className="flex items-center justify-between mb-6">
+          <Link to="/app" className="flex items-center gap-3" onClick={() => setOpen(false)}>
+            <div className="w-10 h-10 bg-[#b56d2d] rounded-xl flex items-center justify-center shadow-lg shadow-black/30">
+              <Sparkles className="size-5 text-white" aria-hidden />
+            </div>
+            <div>
+              <h1 className="font-bold text-base leading-tight tracking-tight text-white uppercase italic">
+                Jornada <span className="text-[#b56d2d] not-italic">H-2A</span>
+              </h1>
+              <p className="text-[10px] text-emerald-500 font-bold tracking-widest leading-none mt-0.5">
+                TRABALHO RURAL
+              </p>
+            </div>
+          </Link>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="lg:hidden text-emerald-300/60 hover:text-white rounded-md p-1 min-h-11 min-w-11 inline-flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]"
+            aria-label="Fechar menu"
+          >
+            <X className="size-5" aria-hidden />
+          </button>
+        </div>
+
+        {/* Journey Progress Card */}
+        <div className="bg-emerald-900/30 border border-emerald-800/40 rounded-2xl p-4 mb-2">
+          <div className="flex items-center gap-3 mb-3">
+            <div className="relative shrink-0">
+              {photoUrl ? (
+                <img
+                  src={photoUrl}
+                  alt=""
+                  className="w-10 h-10 rounded-full border-2 border-[#b56d2d] object-cover"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full border-2 border-[#b56d2d] bg-emerald-950 flex items-center justify-center text-[#b56d2d] text-xs font-bold">
+                  {initials}
+                </div>
+              )}
+              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-green-500 border-2 border-[#1a2e24] rounded-full" aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-semibold text-white truncate">
+                {fullName || "Olá!"}
+              </div>
+              <div className="text-[10px] text-emerald-400/80 font-bold truncate uppercase tracking-tighter">
+                Fase: {currentStage}
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-[11px] font-bold">
+              <span className="text-emerald-500/90 uppercase tracking-tighter">Progresso</span>
+              <span className="text-[#b56d2d]">{progressPct}%</span>
+            </div>
+            <div
+              className="h-1.5 w-full bg-emerald-950 rounded-full overflow-hidden"
+              role="progressbar"
+              aria-valuenow={progressPct}
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-label="Progresso da jornada H-2A"
+            >
+              <div
+                className="h-full bg-[#b56d2d] shadow-[0_0_10px_rgba(181,109,45,0.4)] transition-all duration-500"
+                style={{ width: `${progressPct}%` }}
+              />
+            </div>
+          </div>
+        </div>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto px-3 pb-4 pt-2 space-y-5">
         <div className="space-y-0.5">
           {topItemsFinal.map(renderItem)}
         </div>
 
         {groups.map((g) => (
-          <div key={g.label} className="mt-5">
-            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <section key={g.label}>
+            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/70">
               {g.label}
-            </p>
+            </h3>
             <div className="space-y-0.5">{g.items.map(renderItem)}</div>
-          </div>
+          </section>
         ))}
 
         {isAdmin && (
-          <div className="mt-5">
-            <p className="px-3 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+          <section>
+            <h3 className="px-4 mb-2 text-[10px] font-bold uppercase tracking-[0.15em] text-emerald-600/70">
               Admin
-            </p>
+            </h3>
             <div className="space-y-0.5">
               {renderItem({ to: "/app/auditoria", labelKey: "Auditoria", icon: Shield })}
               {renderItem({ to: "/admin/seo", labelKey: "SEO scans", icon: Search })}
             </div>
-          </div>
+          </section>
         )}
       </nav>
 
-      <div className="border-t bg-card/40 p-3 space-y-3">
-        <div>
-          <p id="a11y-section-label" className="px-2 mb-1.5 text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
-            Acessibilidade
-          </p>
-          <div
-            role="radiogroup"
-            aria-label="Idioma"
-            className="grid grid-cols-3 gap-1 px-1"
-          >
-            {LANG_OPTIONS.map((opt) => {
-              const selected = lang === opt.code;
-              return (
-                <button
-                  key={opt.code}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={`Idioma ${opt.label}`}
-                  onClick={() => {
-                    if (lang !== opt.code) {
-                      setLang(opt.code);
-                      logAccount({ data: { event_type: "language_changed", metadata: { to: opt.code, from: lang, source: "appshell" } } }).catch(() => {});
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 rounded-md border py-1.5 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    selected
-                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                      : "border-border bg-background text-foreground/70 hover:bg-accent hover:text-foreground",
-                  )}
-                >
-                  <span className="text-base leading-none" aria-hidden>{opt.flag}</span>
-                  <span>{opt.label}</span>
-                </button>
-              );
-            })}
-          </div>
-          <div
-            role="radiogroup"
-            aria-label="Tema visual"
-            className="mt-2 grid grid-cols-3 gap-1 px-1"
-          >
-            {(
-              [
-                { code: "light", label: "Claro", Icon: Sun },
-                { code: "dark", label: "Escuro", Icon: Moon },
-                { code: "system", label: "Auto", Icon: Monitor },
-              ] as { code: Theme; label: string; Icon: typeof Sun }[]
-            ).map(({ code, label, Icon }) => {
-              const selected = theme === code;
-              return (
-                <button
-                  key={code}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected}
-                  aria-label={`Tema ${label}`}
-                  onClick={() => {
-                    if (theme !== code) {
-                      setTheme(code);
-                      logAccount({ data: { event_type: "theme_changed", metadata: { to: code, from: theme, source: "appshell" } } }).catch(() => {});
-                    }
-                  }}
-                  className={cn(
-                    "flex flex-col items-center justify-center gap-0.5 rounded-md border py-1.5 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    selected
-                      ? "border-primary bg-primary text-primary-foreground shadow-sm"
-                      : "border-border bg-background text-foreground/70 hover:bg-accent hover:text-foreground",
-                  )}
-                >
-                  <Icon className="size-4" aria-hidden />
-                  <span>{label}</span>
-                </button>
-              );
-            })}
-          </div>
+      {/* Footer */}
+      <div className="mt-auto p-4 bg-black/20 border-t border-emerald-900/50 space-y-2">
+        <div role="radiogroup" aria-label="Idioma" className="flex items-center gap-1 bg-emerald-950/40 rounded-lg p-1">
+          {LANG_OPTIONS.map((opt) => {
+            const selected = lang === opt.code;
+            return (
+              <button
+                key={opt.code}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={`Idioma ${opt.label}`}
+                onClick={() => {
+                  if (lang !== opt.code) {
+                    setLang(opt.code);
+                    logAccount({ data: { event_type: "language_changed", metadata: { to: opt.code, from: lang, source: "appshell" } } }).catch(() => {});
+                  }
+                }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]",
+                  selected ? "bg-[#b56d2d] text-white shadow" : "text-emerald-200/60 hover:text-white",
+                )}
+              >
+                <span aria-hidden className="text-sm leading-none">{opt.flag}</span>
+                <span>{opt.label}</span>
+              </button>
+            );
+          })}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          className="w-full justify-start text-foreground/75 hover:text-foreground"
+
+        <div role="radiogroup" aria-label="Tema visual" className="flex items-center gap-1 bg-emerald-950/40 rounded-lg p-1">
+          {(
+            [
+              { code: "light", label: "Claro", Icon: Sun },
+              { code: "dark", label: "Escuro", Icon: Moon },
+              { code: "system", label: "Auto", Icon: Monitor },
+            ] as { code: Theme; label: string; Icon: typeof Sun }[]
+          ).map(({ code, label, Icon }) => {
+            const selected = theme === code;
+            return (
+              <button
+                key={code}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                aria-label={`Tema ${label}`}
+                onClick={() => {
+                  if (theme !== code) {
+                    setTheme(code);
+                    logAccount({ data: { event_type: "theme_changed", metadata: { to: code, from: theme, source: "appshell" } } }).catch(() => {});
+                  }
+                }}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1 rounded-md py-1.5 text-[11px] font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#b56d2d]",
+                  selected ? "bg-[#b56d2d] text-white shadow" : "text-emerald-200/60 hover:text-white",
+                )}
+              >
+                <Icon className="size-3.5" aria-hidden />
+                <span>{label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
           onClick={onLogout}
+          className="w-full flex items-center gap-3 px-3 py-2 mt-1 rounded-lg text-red-400/70 hover:text-red-300 hover:bg-red-500/10 transition-colors text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
         >
-          <LogOut className="size-4 text-muted-foreground" aria-hidden />
+          <LogOut className="size-4" aria-hidden />
           <span className="flex-1 text-left">{t("logout")}</span>
-        </Button>
+        </button>
       </div>
     </aside>
   );
