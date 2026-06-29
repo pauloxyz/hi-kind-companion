@@ -89,6 +89,16 @@ function eventsToCsv(rows: AuditEvent[]): string {
   return lines.join("\n");
 }
 
+function downloadBlob(content: string, mime: string, filename: string) {
+  const blob = new Blob([content], { type: `${mime};charset=utf-8;` });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function alertKey(a: { hour: string; ip_address: string | null }): string {
   return `${a.hour}|${a.ip_address ?? ""}`;
 }
@@ -121,6 +131,8 @@ function AuditPanel() {
   const [filter, setFilter] = useState<string>("");
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [search, setSearch] = useState<string>("");
+  const [routeFilter, setRouteFilter] = useState<string>("");
+  const [userIdFilter, setUserIdFilter] = useState<string>("");
   const [exporting, setExporting] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -177,18 +189,24 @@ function AuditPanel() {
   // Reset page on filter changes
   useEffect(() => {
     setPage(1);
-  }, [filter, sinceDays, search, pageSize, sortKey, sortDir]);
+  }, [filter, sinceDays, search, routeFilter, userIdFilter, pageSize, sortKey, sortDir]);
 
   const filteredEvents = useMemo(() => {
     const all = events.data ?? [];
     const q = search.trim().toLowerCase();
-    const matched = !q
-      ? all
-      : all.filter((e) =>
-          [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
-            .filter(Boolean)
-            .some((v) => String(v).toLowerCase().includes(q)),
-        );
+    const rq = routeFilter.trim().toLowerCase();
+    const uq = userIdFilter.trim().toLowerCase();
+    const matched = all.filter((e) => {
+      if (rq && !(e.resource ?? "").toLowerCase().includes(rq)) return false;
+      if (uq && !(e.user_id ?? "").toLowerCase().includes(uq)) return false;
+      if (q) {
+        const hay = [e.event_type, e.ip_address, e.resource, e.email_hash, e.user_id, JSON.stringify(e.metadata)]
+          .filter(Boolean)
+          .map((v) => String(v).toLowerCase());
+        if (!hay.some((v) => v.includes(q))) return false;
+      }
+      return true;
+    });
     const sorted = [...matched].sort((a, b) => {
       const av = (a[sortKey] ?? "") as string;
       const bv = (b[sortKey] ?? "") as string;
@@ -196,7 +214,7 @@ function AuditPanel() {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [events.data, search, sortKey, sortDir]);
+  }, [events.data, search, routeFilter, userIdFilter, sortKey, sortDir]);
 
   const totalPages = Math.max(1, Math.ceil(filteredEvents.length / pageSize));
   const currentPage = Math.min(page, totalPages);
@@ -243,15 +261,32 @@ function AuditPanel() {
       toast.error("Nenhum evento para exportar");
       return;
     }
-    const csv = eventsToCsv(rows);
-    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `auditoria-eventos-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    const stamp = new Date().toISOString().slice(0, 10);
+    downloadBlob("\uFEFF" + eventsToCsv(rows), "text/csv", `auditoria-eventos-${stamp}.csv`);
     toast.success(`CSV gerado (${rows.length} eventos)`);
+  };
+
+  const handleExportJson = () => {
+    const rows = filteredEvents;
+    if (!rows.length) {
+      toast.error("Nenhum evento para exportar");
+      return;
+    }
+    const stamp = new Date().toISOString().slice(0, 10);
+    const payload = {
+      generated_at: new Date().toISOString(),
+      filters: {
+        event_type: filter || null,
+        since_days: sinceDays,
+        route: routeFilter || null,
+        user_id: userIdFilter || null,
+        search: search || null,
+      },
+      count: rows.length,
+      events: rows,
+    };
+    downloadBlob(JSON.stringify(payload, null, 2), "application/json", `auditoria-eventos-${stamp}.json`);
+    toast.success(`JSON gerado (${rows.length} eventos)`);
   };
 
   const toggleSort = (key: SortKey) => {
@@ -297,7 +332,7 @@ function AuditPanel() {
             {tr("audit_window")}: {sinceDays} {tr("audit_days")} · {tr("audit_retention")}: 180 {tr("audit_days")}
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           <Button
             variant="outline"
             onClick={handleExportCsv}
@@ -305,6 +340,14 @@ function AuditPanel() {
             aria-label={tr("audit_export_csv")}
           >
             <FileSpreadsheet className="size-4" aria-hidden="true" /> {tr("audit_export_csv")}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportJson}
+            disabled={!filteredEvents.length}
+            aria-label="Exportar JSON"
+          >
+            <Download className="size-4" aria-hidden="true" /> JSON
           </Button>
           <Button
             onClick={handleExport}
@@ -505,16 +548,32 @@ function AuditPanel() {
                   </select>
                 </div>
               </div>
-              <div className="relative">
-                <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-                <label htmlFor="audit-search" className="sr-only">{tr("audit_search_placeholder")}</label>
+              <div className="grid gap-2 sm:grid-cols-[1fr_220px_220px]">
+                <div className="relative">
+                  <Search className="size-4 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
+                  <label htmlFor="audit-search" className="sr-only">{tr("audit_search_placeholder")}</label>
+                  <Input
+                    id="audit-search"
+                    type="search"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    placeholder={tr("audit_search_placeholder")}
+                    className="pl-8"
+                  />
+                </div>
                 <Input
-                  id="audit-search"
                   type="search"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  placeholder={tr("audit_search_placeholder")}
-                  className="pl-8"
+                  value={routeFilter}
+                  onChange={(e) => setRouteFilter(e.target.value)}
+                  placeholder="Filtrar rota / recurso…"
+                  aria-label="Filtrar por rota"
+                />
+                <Input
+                  type="search"
+                  value={userIdFilter}
+                  onChange={(e) => setUserIdFilter(e.target.value)}
+                  placeholder="Filtrar user id…"
+                  aria-label="Filtrar por user id"
                 />
               </div>
             </CardHeader>
