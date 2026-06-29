@@ -25,7 +25,8 @@ const DEBOUNCE_MS = 600;
 const MAX_ANNOUNCEMENTS_PER_BURST = 4;
 
 async function bootSession(page: Page) {
-  await page.goto("/");
+  await page.goto("/", { waitUntil: "domcontentloaded" });
+  await page.waitForLoadState("networkidle").catch(() => {});
   await page.evaluate(
     ({ key, json }) => window.localStorage.setItem(key!, json!),
     { key: STORAGE_KEY, json: SESSION_JSON },
