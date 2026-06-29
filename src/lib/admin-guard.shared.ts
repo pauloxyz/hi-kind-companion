@@ -2,12 +2,14 @@
  * Shared admin-gate used by every privileged server fn.
  *
  * Calls `has_role(uid, 'admin')` via Supabase RPC. On denial:
- *   1. Inserts a `admin_access_denied` row in `security_audit_log`
- *      (user_id + resource label) so denied attempts are auditable.
+ *   1. Invokes `record_admin_denial(resource)` (SECURITY DEFINER) which
+ *      writes a row to `security_audit_log` with event_type='admin_access_denied'
+ *      and user_id=auth.uid(), bypassing user-scope RLS while still pinning
+ *      the user identity. Logging never widens user privileges.
  *   2. Throws `Error("Forbidden")` so the caller surfaces a 403.
  *
  * Used from `.functions.ts` files (call site is the resource label, e.g.
- * `seo_runs.list` or `route:/admin/seo`).
+ * `seo_runs.fn` or `route:/admin/seo`).
  */
 export type AdminGuardCtx = {
   supabase: {
@@ -15,9 +17,6 @@ export type AdminGuardCtx = {
       name: string,
       params: Record<string, unknown>,
     ) => Promise<{ data: unknown; error: { message: string } | null }>;
-    from: (table: string) => {
-      insert: (row: Record<string, unknown>) => Promise<{ error: unknown }>;
-    };
   };
   userId: string;
 };
@@ -34,14 +33,8 @@ export async function assertAdminWithAudit(
   if (data) return;
 
   // Best-effort audit log. Never block the 403 on logging failure.
-  // Schema: event_type, user_id, resource, metadata (no `severity` column).
   try {
-    await ctx.supabase.from("security_audit_log").insert({
-      event_type: "admin_access_denied",
-      user_id: ctx.userId,
-      resource,
-      metadata: { reason: "missing_admin_role", severity: "medium" },
-    });
+    await ctx.supabase.rpc("record_admin_denial", { _resource: resource });
   } catch {
     /* swallow */
   }
