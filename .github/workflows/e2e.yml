@@ -356,14 +356,15 @@ jobs:
 
       # Upload artifacts produced exclusively by the rerun — these are the
       # ones that matter when triaging "did the flake clear or is it real?".
-      # Distinct name so they don't collide with the first-run upload above.
-      # The rerun-report/ directory carries the human-readable list of
-      # specs that --last-failed selected for this shard.
-      - name: Upload rerun artifacts (shard ${{ matrix.shard }})
+      # Distinct name so they don't collide with the first-run upload above:
+      # `-attempt-N-rerun` makes first-run vs rerun obvious at a glance in
+      # the Actions UI. The `playwright-rerun-shard-*` prefix is preserved
+      # so the consolidated job's download pattern still matches.
+      - name: Upload rerun artifacts (shard ${{ matrix.shard }} rerun)
         if: ${{ !cancelled() && steps.full_rerun.conclusion != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-rerun-shard-${{ matrix.shard }}
+          name: playwright-rerun-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-rerun
           path: |
             rerun-report/**
             test-results/**/*.png
@@ -373,6 +374,7 @@ jobs:
             playwright-report/**
           retention-days: 14
           if-no-files-found: ignore
+
 
   # Consolidated rerun report: downloads the per-shard --last-failed
   # reports produced by every `full` shard, concatenates them into one
