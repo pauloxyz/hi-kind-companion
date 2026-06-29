@@ -50,6 +50,14 @@ test.describe("shortcut visual feedback", () => {
 
   for (const c of cases) {
     test(`G ${c.keys[1].toUpperCase()} shows toast "${c.label}", keeps focus visible, leaves aria-live untouched`, async ({ page }) => {
+      // If we're already at the target URL (G+J → /app, and beforeEach landed
+      // on /app), pre-navigate elsewhere so the shortcut actually fires and
+      // the toast can be observed.
+      if (c.urlRe.test(page.url())) {
+        await fireShortcut(page, "v", /\/app\/vagas/);
+        await waitForLiveRegionQuiet(page);
+      }
+
       // Snapshot the live region after the initial-mount announcement settled.
       const before = await page.getByTestId("journey-live-region").innerText();
 
