@@ -24,6 +24,10 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as VagasH2aIndexRouteImport } from './routes/vagas-h2a.index'
+import { Route as VagasH2aTabacoRouteImport } from './routes/vagas-h2a.tabaco'
+import { Route as VagasH2aEmpresasRouteImport } from './routes/vagas-h2a.empresas'
+import { Route as VagasH2aColheitaMacaRouteImport } from './routes/vagas-h2a.colheita-maca'
+import { Route as VagasH2aColheitaLaranjaRouteImport } from './routes/vagas-h2a.colheita-laranja'
 import { Route as VagasH2aStateRouteImport } from './routes/vagas-h2a.$state'
 import { Route as VSlugRouteImport } from './routes/v.$slug'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
@@ -125,6 +129,26 @@ const IndexRoute = IndexRouteImport.update({
 const VagasH2aIndexRoute = VagasH2aIndexRouteImport.update({
   id: '/vagas-h2a/',
   path: '/vagas-h2a/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VagasH2aTabacoRoute = VagasH2aTabacoRouteImport.update({
+  id: '/vagas-h2a/tabaco',
+  path: '/vagas-h2a/tabaco',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VagasH2aEmpresasRoute = VagasH2aEmpresasRouteImport.update({
+  id: '/vagas-h2a/empresas',
+  path: '/vagas-h2a/empresas',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VagasH2aColheitaMacaRoute = VagasH2aColheitaMacaRouteImport.update({
+  id: '/vagas-h2a/colheita-maca',
+  path: '/vagas-h2a/colheita-maca',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const VagasH2aColheitaLaranjaRoute = VagasH2aColheitaLaranjaRouteImport.update({
+  id: '/vagas-h2a/colheita-laranja',
+  path: '/vagas-h2a/colheita-laranja',
   getParentRoute: () => rootRouteImport,
 } as any)
 const VagasH2aStateRoute = VagasH2aStateRouteImport.update({
@@ -292,6 +316,10 @@ export interface FileRoutesByFullPath {
   '/checkout/return': typeof CheckoutReturnRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
+  '/vagas-h2a/colheita-laranja': typeof VagasH2aColheitaLaranjaRoute
+  '/vagas-h2a/colheita-maca': typeof VagasH2aColheitaMacaRoute
+  '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
+  '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -335,6 +363,10 @@ export interface FileRoutesByTo {
   '/checkout/return': typeof CheckoutReturnRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
+  '/vagas-h2a/colheita-laranja': typeof VagasH2aColheitaLaranjaRoute
+  '/vagas-h2a/colheita-maca': typeof VagasH2aColheitaMacaRoute
+  '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
+  '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -378,6 +410,10 @@ export interface FileRoutesById {
   '/checkout/return': typeof CheckoutReturnRoute
   '/v/$slug': typeof VSlugRoute
   '/vagas-h2a/$state': typeof VagasH2aStateRoute
+  '/vagas-h2a/colheita-laranja': typeof VagasH2aColheitaLaranjaRoute
+  '/vagas-h2a/colheita-maca': typeof VagasH2aColheitaMacaRoute
+  '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
+  '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/_authenticated/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -423,6 +459,10 @@ export interface FileRouteTypes {
     | '/checkout/return'
     | '/v/$slug'
     | '/vagas-h2a/$state'
+    | '/vagas-h2a/colheita-laranja'
+    | '/vagas-h2a/colheita-maca'
+    | '/vagas-h2a/empresas'
+    | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
     | '/admin/seo'
     | '/app/auditoria'
@@ -466,6 +506,10 @@ export interface FileRouteTypes {
     | '/checkout/return'
     | '/v/$slug'
     | '/vagas-h2a/$state'
+    | '/vagas-h2a/colheita-laranja'
+    | '/vagas-h2a/colheita-maca'
+    | '/vagas-h2a/empresas'
+    | '/vagas-h2a/tabaco'
     | '/vagas-h2a'
     | '/admin/seo'
     | '/app/auditoria'
@@ -508,6 +552,10 @@ export interface FileRouteTypes {
     | '/checkout/return'
     | '/v/$slug'
     | '/vagas-h2a/$state'
+    | '/vagas-h2a/colheita-laranja'
+    | '/vagas-h2a/colheita-maca'
+    | '/vagas-h2a/empresas'
+    | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
     | '/_authenticated/admin/seo'
     | '/_authenticated/app/auditoria'
@@ -553,6 +601,10 @@ export interface RootRouteChildren {
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   VSlugRoute: typeof VSlugRoute
   VagasH2aStateRoute: typeof VagasH2aStateRoute
+  VagasH2aColheitaLaranjaRoute: typeof VagasH2aColheitaLaranjaRoute
+  VagasH2aColheitaMacaRoute: typeof VagasH2aColheitaMacaRoute
+  VagasH2aEmpresasRoute: typeof VagasH2aEmpresasRoute
+  VagasH2aTabacoRoute: typeof VagasH2aTabacoRoute
   VagasH2aIndexRoute: typeof VagasH2aIndexRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
@@ -666,6 +718,34 @@ declare module '@tanstack/react-router' {
       path: '/vagas-h2a'
       fullPath: '/vagas-h2a/'
       preLoaderRoute: typeof VagasH2aIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vagas-h2a/tabaco': {
+      id: '/vagas-h2a/tabaco'
+      path: '/vagas-h2a/tabaco'
+      fullPath: '/vagas-h2a/tabaco'
+      preLoaderRoute: typeof VagasH2aTabacoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vagas-h2a/empresas': {
+      id: '/vagas-h2a/empresas'
+      path: '/vagas-h2a/empresas'
+      fullPath: '/vagas-h2a/empresas'
+      preLoaderRoute: typeof VagasH2aEmpresasRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vagas-h2a/colheita-maca': {
+      id: '/vagas-h2a/colheita-maca'
+      path: '/vagas-h2a/colheita-maca'
+      fullPath: '/vagas-h2a/colheita-maca'
+      preLoaderRoute: typeof VagasH2aColheitaMacaRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/vagas-h2a/colheita-laranja': {
+      id: '/vagas-h2a/colheita-laranja'
+      path: '/vagas-h2a/colheita-laranja'
+      fullPath: '/vagas-h2a/colheita-laranja'
+      preLoaderRoute: typeof VagasH2aColheitaLaranjaRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/vagas-h2a/$state': {
@@ -952,6 +1032,10 @@ const rootRouteChildren: RootRouteChildren = {
   CheckoutReturnRoute: CheckoutReturnRoute,
   VSlugRoute: VSlugRoute,
   VagasH2aStateRoute: VagasH2aStateRoute,
+  VagasH2aColheitaLaranjaRoute: VagasH2aColheitaLaranjaRoute,
+  VagasH2aColheitaMacaRoute: VagasH2aColheitaMacaRoute,
+  VagasH2aEmpresasRoute: VagasH2aEmpresasRoute,
+  VagasH2aTabacoRoute: VagasH2aTabacoRoute,
   VagasH2aIndexRoute: VagasH2aIndexRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,

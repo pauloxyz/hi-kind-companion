@@ -2,6 +2,9 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { listPublicTopEmployers } from "@/lib/public-jobs.functions";
 import logo from "@/assets/vaiprala-logo.png";
 
+type Employer = { name: string; jobs: number; openings: number; states: string[]; cities: string[]; avgWage: number };
+
+
 const PATH = "/vagas-h2a/empresas";
 
 export const Route = createFileRoute("/vagas-h2a/empresas")({
