@@ -18,14 +18,14 @@ export const listPublicJobsByState = createServerFn({ method: "GET" })
   .handler(async ({ data }) => {
     const supabase = publicClient();
     const { data: rows } = await supabase
-      .from("public_jobs" as never)
+      .from("public_jobs" as unknown as "jobs")
       .select(
         "id, job_title, employer_name, worksite_city, worksite_state, wage_offered, wage_unit, start_date, end_date, total_openings",
       )
       .eq("worksite_state", data.state)
       .order("start_date", { ascending: true })
       .limit(100);
-    return { jobs: (rows ?? []) as Array<Record<string, unknown>> };
+    return { jobs: rows ?? [] };
   });
 
 export const listPublicJobStates = createServerFn({ method: "GET" }).handler(async () => {
