@@ -61,7 +61,7 @@ test.describe("mobile drawer focus trap across viewports", () => {
       await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
       await page.waitForLoadState("networkidle").catch(() => {});
 
-      const trigger = page.getByRole("button", { name: "Abrir menu" });
+      const trigger = page.getByTestId("drawer-trigger");
       await expect(trigger, `trigger must be visible at ${vp.width}px`).toBeVisible();
       await trigger.focus();
       await page.keyboard.press("Enter");
@@ -123,7 +123,7 @@ test.describe("mobile drawer focus trap across viewports", () => {
     await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
     await page.waitForLoadState("networkidle").catch(() => {});
 
-    const trigger = page.getByRole("button", { name: "Abrir menu" });
+    const trigger = page.getByTestId("drawer-trigger");
     await trigger.focus();
     await page.keyboard.press("Enter");
 
@@ -198,7 +198,7 @@ test.describe("desktop layout at lg boundary (1024px) — no mobile trap", () =>
     await page.waitForLoadState("networkidle").catch(() => {});
 
     // 1) The mobile trigger is `lg:hidden` and must NOT render at 1024px.
-    const trigger = page.getByRole("button", { name: "Abrir menu" });
+    const trigger = page.getByTestId("drawer-trigger");
     await expect(trigger, "mobile drawer trigger must be hidden at 1024px").toBeHidden();
 
     // 2) No aria-modal dialog should be present — the mobile drawer trap
@@ -274,7 +274,7 @@ test.describe("Escape closes drawer and restores focus to the correct layout ele
       if (vp.hasDrawer) {
         // Mobile/tablet path: open drawer, then Escape, then focus must
         // be back exactly on the trigger that opened it.
-        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        const trigger = page.getByTestId("drawer-trigger");
         await expect(trigger).toBeVisible();
         await trigger.focus();
         await page.keyboard.press("Enter");
@@ -360,7 +360,7 @@ test.describe("Outside-click closes drawer and restores focus to layout element"
       await page.waitForLoadState("networkidle").catch(() => {});
 
       if (vp.hasDrawer) {
-        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        const trigger = page.getByTestId("drawer-trigger");
         await expect(trigger).toBeVisible();
         await trigger.focus();
         await page.keyboard.press("Enter");
@@ -452,7 +452,7 @@ test.describe("Inside-panel click keeps drawer open and focus trapped", () => {
       await page.waitForLoadState("networkidle").catch(() => {});
 
       if (vp.hasDrawer) {
-        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        const trigger = page.getByTestId("drawer-trigger");
         await expect(trigger).toBeVisible();
         await trigger.focus();
         await page.keyboard.press("Enter");
@@ -533,7 +533,7 @@ test.describe("Keyboard-only navigation through drawer (Tab/Shift+Tab + Enter/Es
       await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
       await page.waitForLoadState("networkidle").catch(() => {});
 
-      const trigger = page.getByRole("button", { name: "Abrir menu" });
+      const trigger = page.getByTestId("drawer-trigger");
       await expect(trigger).toBeVisible();
 
       // 1) Open drawer via keyboard.
@@ -626,7 +626,7 @@ test.describe("Outside-click closes drawer and restores focus to trigger (strict
       await page.waitForLoadState("networkidle").catch(() => {});
 
       if (vp.hasDrawer) {
-        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        const trigger = page.getByTestId("drawer-trigger");
         await expect(trigger).toBeVisible();
         // Tag the exact trigger DOM node so we can later assert focus
         // lands on the same instance (not a re-rendered clone).
@@ -695,7 +695,7 @@ test.describe("Escape restores focus to a visible, reachable trigger (no hidden/
       await page.getByTestId("journey-live-region").waitFor({ state: "attached" });
       await page.waitForLoadState("networkidle").catch(() => {});
 
-      const trigger = page.getByRole("button", { name: "Abrir menu" });
+      const trigger = page.getByTestId("drawer-trigger");
       await expect(trigger).toBeVisible();
       await trigger.focus();
       await page.keyboard.press("Enter");
@@ -857,7 +857,7 @@ test.describe("Outside-click then Enter reopens drawer and refocuses same trigge
       const keyHistory: string[] = [];
 
       if (vp.hasDrawer) {
-        const trigger = page.getByRole("button", { name: "Abrir menu" });
+        const trigger = page.getByTestId("drawer-trigger");
         await expect(trigger).toBeVisible();
         await trigger.evaluate((el) => el.setAttribute("data-test-original-trigger", "1"));
 
