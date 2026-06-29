@@ -72,7 +72,7 @@ describe("sitemap covers indexable public routes", () => {
   });
 
   it("private/auth routes that are marked noindex are NOT in the sitemap", () => {
-    const noindexRoutes = ["/auth", "/reset-password", "/checkout/return"];
+    const noindexRoutes = ["/auth", "/reset-password", "/checkout/return", "/app/auditoria", "/app/candidaturas"];
     const paths = new Set(PUBLIC_STATIC_SITEMAP_ENTRIES.map((e) => e.path));
     for (const r of noindexRoutes) expect(paths.has(r), `${r} must not be indexed`).toBe(false);
   });
@@ -87,6 +87,11 @@ describe("sitemap covers indexable public routes", () => {
       expect(content).toMatch(/name:\s*["']robots["'].*noindex/s);
     }
   });
+
+  it("authenticated app layout declares robots noindex for every /app child route", () => {
+    const content = readFileSync(join(process.cwd(), "src/routes/_authenticated/route.tsx"), "utf8");
+    expect(content).toMatch(/name:\s*["']robots["'].*noindex/s);
+  });
 });
 
 describe("robots.txt", () => {
@@ -97,10 +102,14 @@ describe("robots.txt", () => {
     expect(wildcardBlock).toMatch(/Allow:\s*\//i);
   });
 
-  it("disallows private/auth routes", () => {
+  it("does not block noindex HTML routes, so crawlers can read their noindex meta", () => {
     for (const r of ["/app/", "/auth", "/reset-password", "/checkout/"]) {
-      expect(disallow, `robots.txt should Disallow ${r}`).toContain(r);
+      expect(disallow, `robots.txt should not hide ${r}; noindex meta must remain crawlable`).not.toContain(r);
     }
+  });
+
+  it("blocks API endpoints, which are not indexable HTML pages", () => {
+    expect(disallow, "robots.txt should Disallow /api/").toContain("/api/");
   });
 });
 
