@@ -244,8 +244,20 @@ async def test_route_redirects(session: dict) -> set[str]:
             )
             expected_resources.add(resource)
 
+        # Dump capture for triage if audit fails downstream.
+        if page_errors:
+            print("Captured page errors:")
+            for line in page_errors[-15:]:
+                print(f"  {line}")
+        server_fn_responses = [(s, u) for s, u in responses if "_serverFn" in u or "serverFn" in u or "/api/" in u]
+        if server_fn_responses:
+            print("Server-fn responses:")
+            for status, url in server_fn_responses[-10:]:
+                print(f"  {status} {url}")
+
         await browser.close()
     return expected_resources
+
 
 
 
