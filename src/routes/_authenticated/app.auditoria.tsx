@@ -740,7 +740,19 @@ function AuditPanel() {
         </TabsContent>
       </Tabs>
 
-      <EventDetailsDialog event={selected} onClose={() => setSelected(null)} />
+      <EventDetailsDialog
+        event={selected}
+        onClose={() => setSelected(null)}
+        onFilterRoute={(r) => {
+          setRouteFilter(r);
+          setSelected(null);
+        }}
+        onFilterUser={(u) => {
+          setUserIdFilter(u);
+          setSelected(null);
+        }}
+      />
+
 
       <Dialog open={!!ackTarget} onOpenChange={(o) => !o && setAckTarget(null)}>
         <DialogContent>
