@@ -122,11 +122,6 @@ export function VisaChecklistPdf({ data }: { data: VisaPdfData }) {
           </View>
         ))}
 
-        <Text
-          style={s.footer}
-          render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`}
-          fixed
-        />
         <PdfBrandedFooter />
       </Page>
     </Document>
