@@ -55,6 +55,12 @@ import {
 } from "@/lib/seo-runs.functions";
 
 export const Route = createFileRoute("/_authenticated/admin/seo")({
+  head: () => ({
+    meta: [
+      { title: "SEO scans — VaiPraLá Admin" },
+      { name: "robots", content: "noindex, nofollow" },
+    ],
+  }),
   component: AdminSeoDashboard,
   errorComponent: ({ error }) => (
     <div className="container mx-auto max-w-3xl py-12">
