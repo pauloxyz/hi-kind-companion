@@ -70,8 +70,18 @@ function Page() {
       toast.error("Informe um e-mail destinatário");
       return;
     }
+    if (env === "production" && !dryRun) {
+      const ok = window.confirm(
+        "Você está em PRODUÇÃO e o modo de teste está DESLIGADO. Enviar e-mail real para " + email + "?",
+      );
+      if (!ok) return;
+    }
     setSending(true);
     try {
+      if (dryRun) {
+        toast.success("Modo teste ligado — nada foi enviado. Desligue o switch para enviar de verdade.");
+        return;
+      }
       const payload =
         tpl === "visa-reminder"
           ? {
@@ -98,10 +108,20 @@ function Page() {
   }
 
   async function handleDispatch() {
+    if (env === "production" && !dryRun) {
+      const ok = window.confirm(
+        "Você está em PRODUÇÃO e o modo de teste está DESLIGADO. Rodar o dispatcher real agora?",
+      );
+      if (!ok) return;
+    }
     setDispatching(true);
     try {
-      const res = await dispatchFn({ data: undefined });
-      toast.success("Dispatcher executado. Veja os logs.");
+      const res = await dispatchFn({ data: { dryRun } });
+      toast.success(
+        dryRun
+          ? "Dry-run executado — nada foi enfileirado. Veja o resumo no console."
+          : "Dispatcher executado. Veja os logs.",
+      );
       console.log("visa-reminders dispatch", res);
       setTimeout(() => void refresh(), 1500);
     } catch (e) {
