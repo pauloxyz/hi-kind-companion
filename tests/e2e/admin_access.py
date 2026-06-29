@@ -41,22 +41,11 @@ STORAGE_KEY = f"sb-{PROJECT_REF}-auth-token"
 SCREENSHOTS = Path("/tmp/browser/admin-access/screenshots")
 SCREENSHOTS.mkdir(parents=True, exist_ok=True)
 
-# Resource labels the server-side guards write to security_audit_log on deny.
-# Mirrors the labels used in src/lib/*.functions.ts handlers.
-PROTECTED_SERVER_FNS = [
-    # path component (server fn id)        # resource label written on deny
-    ("listSeoRuns",            "seo_runs.fn"),
-    ("triggerManualSeoScan",   "seo_runs.fn"),
-    ("listAuditEvents",        "security_admin.fn"),
-    ("getAuditStats",          "security_admin.fn"),
-    ("getDeniedAdminSummary",  "security_admin.denied_summary"),
-    ("listAlertAcks",          "security_alerts.fn"),
-    ("ackAlert",               "security_alerts.fn"),
-    ("unackAlert",             "security_alerts.fn"),
-    ("listRetentionPolicies",  "security_retention.fn"),
-    ("upsertRetentionPolicy",  "security_retention.fn"),
-    ("getUptimeSummary",       "uptime.summary"),
-    ("requireAdminAccess",     "route:admin"),
+# Protected routes whose beforeLoad calls requireAdminAccess()
+# → expected `resource` label written by the server-side guard on deny.
+PROTECTED_ROUTES = [
+    ("/admin/seo",     "route:/admin/seo"),
+    ("/app/auditoria", "route:/app/auditoria"),
 ]
 
 ADMIN_TABLES = [
