@@ -131,6 +131,8 @@ function AuditPanel() {
   const [filter, setFilter] = useState<string>("");
   const [sinceDays, setSinceDays] = useState<number>(30);
   const [search, setSearch] = useState<string>("");
+  const [routeFilter, setRouteFilter] = useState<string>("");
+  const [userIdFilter, setUserIdFilter] = useState<string>("");
   const [exporting, setExporting] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>("created_at");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
