@@ -455,6 +455,115 @@ jobs:
             } >> "$GITHUB_OUTPUT"
           fi
 
+          # ------------------------------------------------------------------
+          # Per-attempt × per-viewport breakdown of failed assertions.
+          #
+          # Source data: `error-context.md` files that Playwright drops next
+          # to each failing test, bundled in every `playwright-rerun-shard-*`
+          # artifact. The artifact directory name encodes the workflow
+          # attempt (`...-attempt-<N>-rerun`), and the per-test result
+          # directory name embeds the test title — which for the drawer
+          # specs always includes the viewport label (e.g. "360 phone
+          # (360x780)"). We grep the error context for the key-press
+          # vocabulary the drawer specs use in their `expect()` messages
+          # (Tab / Shift+Tab / Enter / Escape) so the report shows the
+          # interaction that triggered the failure, not just the spec file.
+          # ------------------------------------------------------------------
+          BREAKDOWN="consolidated/per-attempt-viewport-breakdown.txt"
+          {
+            echo "Per-attempt × per-viewport breakdown of failed asserts"
+            echo "======================================================"
+            echo "Source: error-context.md files inside each playwright-rerun-shard-* artifact."
+            echo "Viewport extracted from test result dir names; key context (Tab/Shift+Tab/"
+            echo "Enter/Escape) extracted from the assertion messages embedded in those files."
+            echo
+          } > "$BREAKDOWN"
+
+          shopt -s nullglob
+          rerun_dirs=(shard-artifacts/playwright-rerun-shard-*)
+          if [ "${#rerun_dirs[@]}" -eq 0 ]; then
+            echo "(no rerun artifacts were downloaded — nothing to break down)" >> "$BREAKDOWN"
+          else
+            for dir in $(printf '%s\n' "${rerun_dirs[@]}" | sort); do
+              base="$(basename "$dir")"
+              # Parse `playwright-rerun-shard-<S>-attempt-<A>-rerun` →
+              # capture shard + attempt. Anything older without that
+              # suffix falls back to "attempt-?".
+              shard_id="$(echo "$base" | sed -nE 's/^playwright-rerun-shard-([^-]+).*/\1/p')"
+              attempt_id="$(echo "$base" | sed -nE 's/.*-attempt-([0-9]+)-.*$/\1/p')"
+              [ -z "$attempt_id" ] && attempt_id="?"
+              echo "----- shard=${shard_id:-?} attempt=${attempt_id} -----" >> "$BREAKDOWN"
+
+              # Collect error-context.md files Playwright produced for
+              # this shard's rerun. Each lives at:
+              #   <dir>/test-results/<test-title-slug>/error-context.md
+              mapfile -t ctx_files < <(find "$dir" -type f -name 'error-context.md' 2>/dev/null | sort)
+              if [ "${#ctx_files[@]}" -eq 0 ]; then
+                echo "  (no error-context.md found — shard may have passed on rerun)" >> "$BREAKDOWN"
+                echo >> "$BREAKDOWN"
+                continue
+              fi
+
+              # Group by viewport. Test dir names embed the title which
+              # for drawer specs include "360x780" / "1023x900" / etc.
+              # We bucket each context file under its detected viewport
+              # width (or "other" when nothing matches).
+              declare -A by_vp=()
+              for f in "${ctx_files[@]}"; do
+                dirn="$(dirname "$f")"
+                vp_key="other"
+                case "$dirn" in
+                  *360x780*|*"360px"*) vp_key="360px" ;;
+                  *1023x900*|*"1023px"*) vp_key="1023px" ;;
+                  *1024x900*|*"1024px"*) vp_key="1024px" ;;
+                  *640x900*|*"640px"*) vp_key="640px" ;;
+                  *768x1024*|*"768px"*) vp_key="768px" ;;
+                esac
+                by_vp["$vp_key"]+="$f"$'\n'
+              done
+
+              for vp in 360px 640px 768px 1023px 1024px other; do
+                files="${by_vp[$vp]:-}"
+                [ -z "$files" ] && continue
+                echo "  viewport=${vp}" >> "$BREAKDOWN"
+                while IFS= read -r f; do
+                  [ -z "$f" ] && continue
+                  spec_dir="$(basename "$(dirname "$f")")"
+                  echo "    - test: ${spec_dir}" >> "$BREAKDOWN"
+                  # Extract the lines that name the actual interaction.
+                  # We look for any of the verbs the drawer specs use in
+                  # their assertion messages: Tab, Shift+Tab, Enter,
+                  # Escape, outside click, inside click. Cap at 6 lines
+                  # per test so a single noisy failure can't drown the
+                  # report.
+                  grep -hEi 'Shift\+Tab|\bTab\b|\bEnter\b|\bEscape\b|outside[- ]click|inside[- ]click|aria-hidden|hidden-attr|detached|inside-dialog|zero-size' "$f" 2>/dev/null \
+                    | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+                    | awk 'NF' \
+                    | sort -u \
+                    | head -n 6 \
+                    | sed 's/^/        · /' \
+                    >> "$BREAKDOWN" || true
+                done <<< "$files"
+              done
+              unset by_vp
+              echo >> "$BREAKDOWN"
+            done
+          fi
+
+          # Append the breakdown to the main consolidated report too so
+          # one file carries everything (existing artifact consumers keep
+          # working unchanged).
+          {
+            echo
+            echo "================================================================"
+            cat "$BREAKDOWN"
+          } >> "$OUT"
+
+              head -n 10 "$UNIQUE_FILE" 2>/dev/null || true
+              echo "EOF"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
           echo "::group::Consolidated report"
           cat "$OUT"
           echo "::endgroup::"
