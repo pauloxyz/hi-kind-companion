@@ -507,6 +507,46 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # PR check annotations: emit a workflow `::error file=<spec>` line
+      # per failed spec so each one shows up as an inline annotation on
+      # the PR's Checks tab (and at the top of the run summary). Every
+      # annotation links back to the consolidated artifact and to the
+      # per-shard rerun artifacts so triage starts one click away from
+      # the screenshots / traces / videos.
+      #
+      # `::error file=...` requires a real path so GitHub renders the
+      # annotation against the source file; the message body carries the
+      # links. We emit annotations only when the full job actually failed
+      # — on success there's nothing to annotate.
+      - name: Emit PR check annotations for failed specs
+        if: ${{ !cancelled() && needs.full.result == 'failure' }}
+        env:
+          FULL_RESULT: ${{ needs.full.result }}
+        run: |
+          set -euo pipefail
+          UNIQUE_FILE="consolidated/unique-specs.txt"
+          ARTIFACT_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}#artifacts"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          if [ ! -s "$UNIQUE_FILE" ]; then
+            # Fall back to a single run-level annotation so the PR still
+            # shows something actionable when no per-spec list parsed.
+            echo "::error title=Playwright full-suite failed::No parseable failed-spec list. See consolidated artifact: ${ARTIFACT_URL} | Run: ${RUN_URL}"
+            exit 0
+          fi
+          count=0
+          while IFS= read -r spec; do
+            [ -z "$spec" ] && continue
+            count=$((count + 1))
+            # Title shows the spec; message body carries the links. The
+            # rerun artifact name pattern includes the workflow attempt,
+            # so we link to the run's #artifacts panel where the user
+            # can pick the matching `playwright-rerun-shard-N-attempt-${{ github.run_attempt }}-rerun` bundle.
+            echo "::error file=${spec},title=Playwright failed: ${spec}::Spec failed in full suite. Consolidated report: ${ARTIFACT_URL} (artifact 'playwright-rerun-consolidated'). Per-shard rerun artifacts: playwright-rerun-shard-<N>-attempt-${GITHUB_RUN_ATTEMPT}-rerun on the same run page. Run: ${RUN_URL}"
+          done < "$UNIQUE_FILE"
+          # Cap visible annotation noise but always leave a summary one.
+          echo "::warning title=Playwright full-suite failed::${count} spec(s) failed. Full list + traces: ${ARTIFACT_URL}"
+
+
       # Post the consolidated report as a PR comment when any shard
       # failed. Uses the github-script action to upsert a single comment
       # keyed by a hidden marker so reruns of the same PR replace the
