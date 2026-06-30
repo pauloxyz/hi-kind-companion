@@ -18,6 +18,7 @@ import {
 import { Loader2, Mail, Bell, RefreshCw, Eye, ShieldAlert, Target, Filter, X, BarChart3 } from "lucide-react";
 import { toast } from "sonner";
 import { sendTransactionalEmail } from "@/lib/email/send";
+import { PageHeader } from "@/components/page-header";
 import {
   listEmailLog,
   listEmailLogTemplates,
@@ -230,21 +231,18 @@ function Page() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">E-mails (admin)</h1>
-          <p className="text-sm text-muted-foreground">
-            Teste templates e dispare manualmente o lembrete do checklist antes
-            de confiar no cron de produção.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge className={envBadgeClass[env]}>Ambiente: {envLabel[env]}</Badge>
-          <Link to="/app/admin/emails/preview">
-            <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" /> Preview dos lembretes</Button>
-          </Link>
-        </div>
-      </header>
+      <PageHeader
+        title="E-mails (admin)"
+        description="Teste templates e dispare manualmente o lembrete do checklist antes de confiar no cron de produção."
+        actions={
+          <>
+            <Badge className={envBadgeClass[env]}>Ambiente: {envLabel[env]}</Badge>
+            <Link to="/app/admin/emails/preview">
+              <Button variant="outline" size="sm"><Eye className="mr-2 h-4 w-4" /> Preview dos lembretes</Button>
+            </Link>
+          </>
+        }
+      />
 
       <Card className={env === "production" && !dryRun ? "border-destructive" : "border-warning/50"}>
         <CardContent className="flex flex-wrap items-center justify-between gap-3 py-4">
