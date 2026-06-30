@@ -14,6 +14,8 @@
     "pretest:e2e": "playwright install chromium",
     "test:e2e": "playwright test",
     "e2e": "playwright install chromium && playwright test",
+    "e2e:ci": "playwright install --with-deps chromium && playwright test --retries=2 --reporter=html,line",
+    "e2e:redirect": "playwright install chromium && playwright test e2e/google-login-redirect.spec.ts --retries=2",
     "e2e:smoke": "playwright install chromium && playwright test --retries=2 e2e/shortcuts.spec.ts e2e/shortcuts-feedback.spec.ts e2e/journey-live-region.spec.ts e2e/journey-progression.spec.ts e2e/shift-tab-journey.spec.ts",
     "e2e:debug": "playwright install chromium && playwright test --headed --workers=1 e2e/shift-tab-journey.spec.ts e2e/keyboard-only-journey.spec.ts e2e/journey-progression.spec.ts e2e/shortcuts-feedback.spec.ts",
     "e2e:update-snapshots": "playwright install chromium && playwright test e2e/visual-sidebar-drawer.spec.ts e2e/visual-reduced-motion.spec.ts --update-snapshots"
