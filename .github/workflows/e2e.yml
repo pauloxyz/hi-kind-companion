@@ -483,6 +483,11 @@ jobs:
           SPEC_COUNT: ${{ steps.spec_titles_full_run1.outputs.count }}
           SHARD: ${{ matrix.shard }}
           ATTEMPT: ${{ github.run_attempt }}
+          RUN_LABEL: full-shard-${{ matrix.shard }}
+          RUN_PHASE: run1
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGGREGATE_OUT_JSON: /tmp/aggregate-full-${{ matrix.shard }}-run1.json
+          AGGREGATE_OUT_CSV: /tmp/aggregate-full-${{ matrix.shard }}-run1.csv
         run: |
           {
             echo "### 🔎 Playwright — full shard ${SHARD}/4 (run 1, attempt ${ATTEMPT})"
@@ -496,6 +501,17 @@ jobs:
               echo "⚠️ No Playwright artifacts were produced (shard ${SHARD}/4 failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate stats (full shard ${{ matrix.shard }} run1)
+        if: ${{ !cancelled() && hashFiles(format('/tmp/aggregate-full-{0}-run1.json', matrix.shard)) != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-aggregate-stats-full-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-run1
+          path: |
+            /tmp/aggregate-full-${{ matrix.shard }}-run1.json
+            /tmp/aggregate-full-${{ matrix.shard }}-run1.csv
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: ignore
 
 
       # Snapshot the first-run artifacts so the rerun step below can start
