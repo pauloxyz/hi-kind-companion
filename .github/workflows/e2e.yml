@@ -423,6 +423,7 @@ jobs:
       # the Actions UI. The `playwright-rerun-shard-*` prefix is preserved
       # so the consolidated job's download pattern still matches.
       - name: Upload rerun artifacts (shard ${{ matrix.shard }} rerun)
+        id: upload_full_rerun
         if: ${{ !cancelled() && steps.full_rerun.conclusion != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
@@ -434,8 +435,21 @@ jobs:
             test-results/**/*.zip
             test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link shard ${{ matrix.shard }} rerun artifact in job summary
+        if: ${{ !cancelled() && steps.upload_full_rerun.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔁 Playwright — full shard ${{ matrix.shard }}/4 (\`--last-failed\` rerun)"
+            echo
+            echo "Trace, video and HTML report produced exclusively by the rerun (the most recent artifact for this shard):"
+            echo
+            echo "- [Download \`playwright-rerun-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-rerun\`](${{ steps.upload_full_rerun.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the rerun."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
   # Consolidated rerun report: downloads the per-shard --last-failed
