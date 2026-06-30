@@ -239,6 +239,7 @@ JSON
 fi
 
 if [ -n "${AGGREGATE_OUT_CSV:-}" ]; then
+  mkdir -p "$(dirname "$AGGREGATE_OUT_CSV")"
   if [ ! -f "$AGGREGATE_OUT_CSV" ]; then
     echo "label,phase,attempt,total_specs,trace_ok,trace_below_min,trace_empty,trace_absent,video_ok,video_below_min,video_empty,video_absent,reports_found,screenshots,min_trace_bytes,min_video_bytes" > "$AGGREGATE_OUT_CSV"
   fi
