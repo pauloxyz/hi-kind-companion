@@ -97,7 +97,7 @@ function Landing() {
             ) : (
               <>
                 <Link to="/auth" className="text-sm font-medium hover:underline hidden sm:inline">Entrar</Link>
-                <Link to="/auth"><Button size="sm">Criar perfil grátis</Button></Link>
+                <Link to="/auth" search={{ mode: "signup" } as never}><Button size="sm">Criar perfil grátis</Button></Link>
               </>
             )}
           </div>
