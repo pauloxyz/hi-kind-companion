@@ -550,4 +550,179 @@ describe("runAiAttempt — retry-click-suppressed breadcrumb", () => {
   });
 });
 
+describe("runAiAttempt — retryAfter & waitedPastUnlockMs limits", () => {
+  it("retryAfter=0 (immediate) — readyAt=0 means waitedPastUnlockMs stays 0", async () => {
+    // 429 with no wait: server told us to retry right away. The page
+    // typically passes readyAt=0 since there's no countdown — waited time
+    // is "not applicable" and MUST be reported as 0, never as clickAt.
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    const stream = [50_000, 50_000, 50_080];
+    const now = vi.fn(() => stream.shift() ?? 50_080);
+    await runAiAttempt({
+      action: "script", isRetry: true, correlationId: CID,
+      readyAt: 0, previousCode: "rate_limited", bannerReady: true,
+      generator: () => Promise.resolve({}),
+      sinks: { track, breadcrumb, capture, now },
+    });
+    expect(track).toHaveBeenCalledWith("ai_retry_click", expect.objectContaining({
+      waitedPastUnlockMs: 0, correlationId: CID,
+    }));
+  });
+
+  it("very large retryAfter (e.g. 600s) — waited time reported as raw delta", async () => {
+    // retryAfter is a server hint; the wait metric is whatever the user
+    // actually waited. A 10-minute wait must NOT be capped or rounded.
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    const readyAt = 1_000_000;
+    const clickAt = readyAt + 10 * 60 * 1_000; // 600_000 ms past unlock
+    const stream = [clickAt, clickAt, clickAt + 200];
+    const now = vi.fn(() => stream.shift() ?? clickAt + 200);
+    await runAiAttempt({
+      action: "script", isRetry: true, correlationId: CID,
+      readyAt, previousCode: "rate_limited", bannerReady: true,
+      generator: () => Promise.resolve({}),
+      sinks: { track, breadcrumb, capture, now },
+    });
+    expect(track).toHaveBeenCalledWith("ai_retry_click", expect.objectContaining({
+      waitedPastUnlockMs: 600_000,
+    }));
+  });
+
+  it("fractional now() values are passed through without rounding (sub-ms precision)", async () => {
+    // `performance.now()` returns floats. The orchestrator should not
+    // coerce to int — Math.max(0, diff) preserves the float so dashboards
+    // get the real latency.
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    const readyAt = 2_000;
+    const clickAt = 2_500.75;
+    const stream = [clickAt, clickAt, clickAt + 12.5];
+    const now = vi.fn(() => stream.shift() ?? clickAt + 12.5);
+    await runAiAttempt({
+      action: "script", isRetry: true, correlationId: CID,
+      readyAt, previousCode: "rate_limited", bannerReady: true,
+      generator: () => Promise.resolve({}),
+      sinks: { track, breadcrumb, capture, now },
+    });
+    expect(track).toHaveBeenCalledWith("ai_retry_click", expect.objectContaining({
+      waitedPastUnlockMs: 500.75,
+    }));
+  });
+
+  it("parseAiError falls back to 'other' for malformed (fractional) retryAfter strings", async () => {
+    // The structured error grammar is `\d+` — a server bug that sent
+    // `5.5` would NOT be parsed as 5 seconds; it falls through to "other"
+    // with retryAfter=0. This is what the page expects.
+    const parsed = parseAiError(new Error("AI_ERR|rate_limited|5.5|slow"));
+    expect(parsed).toEqual({
+      code: "other", retryAfter: 0,
+      msg: "AI_ERR|rate_limited|5.5|slow",
+    });
+  });
+});
+
+describe("runAiAttempt — reconnection / re-enqueue after unlock", () => {
+  it("two successive successful retries for the same correlationId never duplicate retry-click", async () => {
+    // Models a flaky network: after unlock the client retries; the request
+    // fails transiently, the user clicks again. Each invocation must
+    // produce exactly one ai_retry_click and one retry-click breadcrumb —
+    // never accumulate state from the previous call.
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    // Two retry attempts with the same readyAt (banner unlocked once,
+    // page kept readyAt around). Clicks at +500ms and +2_500ms.
+    const readyAt = 10_000;
+    const stream = [
+      10_500, 10_500, 10_600,
+      12_500, 12_500, 12_700,
+    ];
+    const now = vi.fn(() => stream.shift() ?? 12_700);
+    const sinks: AiSinks = { track, breadcrumb, capture, now };
+
+    for (const expected of [500, 2_500] as const) {
+      await runAiAttempt({
+        action: "script", isRetry: true, correlationId: CID,
+        readyAt, previousCode: "rate_limited", bannerReady: true,
+        generator: () => Promise.resolve({}),
+        sinks,
+      });
+      // After each call, the LAST retry-click event must match this attempt.
+      const clicks = track.mock.calls.filter((c) => c[0] === "ai_retry_click");
+      expect(clicks.at(-1)?.[1]).toMatchObject({
+        waitedPastUnlockMs: expected, correlationId: CID,
+      });
+    }
+
+    // Final tallies: one retry-click + one retry-success per attempt.
+    // Critically, NO retry-click-suppressed breadcrumbs anywhere.
+    const events = track.mock.calls.map((c) => c[0]);
+    expect(events.filter((e) => e === "ai_retry_click")).toHaveLength(2);
+    expect(events.filter((e) => e === "ai_retry_success")).toHaveLength(2);
+    const crumbs = breadcrumb.mock.calls.map((c) => c[0]);
+    expect(crumbs.filter((c) => c === "retry-click")).toHaveLength(2);
+    expect(crumbs.filter((c) => c === "retry-success")).toHaveLength(2);
+    expect(crumbs).not.toContain("retry-click-suppressed");
+  });
+
+  it("rapid reconnects during the lock window emit only suppressed breadcrumbs (one per call, no ai_retry_click)", async () => {
+    // Client reconnects 3 times while bannerReady is still false (e.g.
+    // websocket flapping). The orchestrator must never let any of those
+    // produce an ai_retry_click — only one suppression breadcrumb per call.
+    const { sinks, track, breadcrumb } = makeSinks();
+    const generator = vi.fn(() => Promise.resolve({}));
+    for (let i = 0; i < 3; i++) {
+      await runAiAttempt({
+        action: "script", isRetry: true, correlationId: CID,
+        readyAt: 0, previousCode: "rate_limited", bannerReady: false,
+        generator, sinks,
+      });
+    }
+    expect(track.mock.calls.map((c) => c[0])).not.toContain("ai_retry_click");
+    const suppressed = breadcrumb.mock.calls.filter((c) => c[0] === "retry-click-suppressed");
+    expect(suppressed).toHaveLength(3);
+    // All carry the same correlationId — joinable across the reconnect storm.
+    for (const call of suppressed) expect(call[1]).toMatchObject({ correlationId: CID });
+    expect(generator).not.toHaveBeenCalled();
+  });
+
+  it("interleaved attempts in parallel keep their telemetry sinks isolated by correlationId", async () => {
+    // Simulates two concurrent client reconnect retries (e.g. user opened
+    // two tabs and both rehydrated). Each runs against its own sinks +
+    // correlationId; neither should bleed into the other's trail.
+    const mk = () => {
+      const track = vi.fn(); const breadcrumb = vi.fn(); const capture = vi.fn();
+      const t = [1, 1, 2]; const now = vi.fn(() => t.shift() ?? 2);
+      return { sinks: { track, breadcrumb, capture, now } as AiSinks, track, breadcrumb };
+    };
+    const a = mk(); const b = mk();
+    const cidA = "cid-tab-a"; const cidB = "cid-tab-b";
+
+    await Promise.all([
+      runAiAttempt({
+        action: "script", isRetry: true, correlationId: cidA,
+        readyAt: 0, previousCode: "rate_limited", bannerReady: true,
+        generator: () => Promise.resolve({}), sinks: a.sinks,
+      }),
+      runAiAttempt({
+        action: "meta", isRetry: true, correlationId: cidB,
+        readyAt: 0, previousCode: "rate_limited", bannerReady: true,
+        generator: () => Promise.resolve({}), sinks: b.sinks,
+      }),
+    ]);
+
+    for (const call of a.track.mock.calls) expect(call[1]).toMatchObject({ correlationId: cidA });
+    for (const call of b.track.mock.calls) expect(call[1]).toMatchObject({ correlationId: cidB });
+    // Sinks never see the other tab's id.
+    for (const call of a.track.mock.calls) expect(call[1]).not.toMatchObject({ correlationId: cidB });
+    for (const call of b.track.mock.calls) expect(call[1]).not.toMatchObject({ correlationId: cidA });
+  });
+});
+
+
 
