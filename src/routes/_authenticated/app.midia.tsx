@@ -119,11 +119,12 @@ function Page() {
   const featuredCount = items.filter((i: MediaRow) => i.is_featured).length;
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h1 className="text-2xl font-bold">Mídia de Trabalho</h1>
-        <Badge variant="secondary">{featuredCount} em destaque</Badge>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Mídia de Trabalho"
+        description="Mostre o que você faz: fotos e vídeos curtos do seu trabalho aumentam a confiança dos empregadores."
+        actions={<Badge variant="secondary">{featuredCount} em destaque</Badge>}
+      />
 
       <Card>
         <CardHeader><CardTitle>Enviar foto ou vídeo</CardTitle></CardHeader>
