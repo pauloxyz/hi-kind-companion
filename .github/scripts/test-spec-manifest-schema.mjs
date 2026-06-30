@@ -128,7 +128,10 @@ function mkSpec(dir, slug, { trace, video, png } = {}) {
 {
   const work = mkdtempSync(path.join(tmpdir(), "manifest-2-"));
   mkdirSync(path.join(work, "playwright-report"), { recursive: true });
-  writeFileSync(path.join(work, "playwright-report", "index.html"), "<html/>");
+  // Healthy report = index.html ≥ MIN_REPORT_INDEX_BYTES (default 1024) AND
+  // at least one supporting asset file.
+  writeFileSync(path.join(work, "playwright-report", "index.html"), "<html>" + "x".repeat(2000) + "</html>");
+  writeFileSync(path.join(work, "playwright-report", "app.js"), "console.log('pw')");
   mkSpec(work, "spec-happy", { trace: 4096, video: 16384, png: 256 });
   const { data } = runCollect(work, { GITHUB_RUN_ATTEMPT: "7" });
   console.log("scenario 2: one healthy spec + report present");
