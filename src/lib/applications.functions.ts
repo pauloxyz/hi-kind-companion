@@ -130,31 +130,44 @@ ${expLines || "(no prior experience listed)"}
       });
     }
 
-    // Build attachment footer. PDF do currículo já carrega as 6 fotos dentro,
-    // então o footer só destaca: (a) link público do perfil OU (b) link do YouTube.
+    // Footer da mensagem para o empregador.
+    //
+    // Estratégia:
+    //  - Currículo PDF (ATS-clean, texto puro) é citado como anexo —
+    //    o candidato anexa no Gmail antes de enviar.
+    //  - Página pública /v/:slug é mencionada UMA vez, com frase curta
+    //    e convidativa. Ela já mostra o vídeo do YouTube embutido, fotos
+    //    e experiência — não duplicamos o link do YT aqui.
+    //  - Se não tem página pública (slug desativado), aí sim incluímos o
+    //    link cru do YouTube como fallback isolado.
     const footer: string[] = [];
     const attachedMediaIds: string[] = [];
     const attachedVideoId: string | null = null;
 
-    if (profile?.public_slug && profile?.public_page_enabled) {
+    footer.push("My résumé (PDF) is attached to this email.");
+
+    const hasPublicPage = profile?.public_slug && profile?.public_page_enabled;
+    if (hasPublicPage) {
       const { getRequestHost } = await import("@tanstack/react-start/server");
       let host = "";
       try { host = getRequestHost(); } catch { host = ""; }
       const origin = host ? `https://${host}` : "";
-      footer.push(`Full candidate profile (video, photos, experience): ${origin}/v/${profile.public_slug}`);
-    }
-
-    const ytUrl = (profile as { youtube_video_url?: string | null } | null)?.youtube_video_url;
-    if (ytUrl) {
       footer.push("");
-      footer.push(`Watch my short introduction video (in English):`);
-      footer.push(ytUrl);
-      footer.push(`A 60-second video where I introduce myself and talk about my farm experience.`);
+      footer.push(
+        `I also put together a short page with my background and a 1-minute video — feel free to take a look: ${origin}/v/${profile!.public_slug}`,
+      );
+    } else {
+      const ytUrl = (profile as { youtube_video_url?: string | null } | null)?.youtube_video_url;
+      if (ytUrl) {
+        footer.push("");
+        footer.push(`Short introduction video (1 minute, in English): ${ytUrl}`);
+      }
     }
 
-    const finalText = footer.length ? `${letter}\n\n---\nReferences:\n${footer.join("\n")}` : letter;
+    const finalText = `${letter}\n\n---\n${footer.join("\n")}`;
     return { text: finalText, job, attachedMediaIds, attachedVideoId };
   }));
+
 
 export const recordApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
