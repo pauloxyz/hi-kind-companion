@@ -111,6 +111,12 @@ if [ "$((trace_below + video_below + trace_empty + video_empty))" -gt 0 ]; then
 fi
 
 # --- Top problem specs ranking --------------------------------------
+# Sort by deficit DESC then slug ASC, then take the top N.
+# We pipe through `awk` instead of `sort | head | while read` because
+# `head` closes its stdin early, which makes `sort` exit with SIGPIPE
+# (141) and, under `set -euo pipefail`, aborts the whole renderer just
+# as we're about to emit the per-spec block. `awk 'NR<=N'` reads the
+# whole stream, so no upstream writer ever sees a broken pipe.
 if [ -n "$ranking_lines" ]; then
   echo
   echo "**Top problem specs** (most missing / truncated artifacts)"
@@ -119,10 +125,7 @@ if [ -n "$ranking_lines" ]; then
   echo "|---|---|---|---:|"
   printf '%s' "$ranking_lines" \
     | sort -t$'\t' -k1,1nr -k2,2 \
-    | head -n "$TOP_PROBLEM_LIMIT" \
-    | while IFS=$'\t' read -r d slug tr vr; do
-        echo "| \`${slug}\` | ${tr} | ${vr} | ${d} |"
-      done
+    | awk -F'\t' -v n="$TOP_PROBLEM_LIMIT" 'NR<=n { printf "| `%s` | %s | %s | %s |\n", $2, $3, $4, $1 }'
 fi
 
 echo
