@@ -50,6 +50,7 @@ import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.funct
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 // SecurityAuditPdf is dynamic-imported alongside @react-pdf/renderer below.
 import { UptimePanel } from "@/components/UptimePanel";
+import { PageHeader } from "@/components/page-header";
 
 const EVENT_TYPES = [
   { v: "", label: "Todos os tipos" },

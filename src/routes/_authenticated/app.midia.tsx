@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader } from "@/components/page-header";
 import { supabase } from "@/integrations/supabase/client";
 import { listMedia, createMedia, updateMedia, deleteMedia, getSignedMediaUrl } from "@/lib/media.functions";
 import { Star, Trash2, Upload, Loader2 } from "lucide-react";

@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 // `@react-pdf/renderer` + VideoScriptPdf are dynamic-imported in the export handler.
 import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
+import { PageHeader } from "@/components/page-header";
 import { track, newCorrelationId } from "@/lib/telemetry";
 import { captureAiError, initSentry, setCorrelationId, addAiBreadcrumb } from "@/lib/sentry";
 import { runAiAttempt, type AiSinks } from "@/lib/ai-retry";
