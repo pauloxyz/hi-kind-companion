@@ -148,11 +148,13 @@ if [ -n "$out_json" ]; then
   # reasons are constrained to the classify() enum above).
   {
     printf '{\n'
-    printf '  "schema_version": 2,\n'
+    printf '  "schema_version": 3,\n'
     printf '  "attempt": %s,\n' "$ATTEMPT"
     printf '  "has_report": %s,\n' "$has_report"
+    printf '  "report_reason": "%s",\n' "$report_reason"
     printf '  "min_trace_bytes": %s,\n' "$MIN_TRACE_BYTES"
     printf '  "min_video_bytes": %s,\n' "$MIN_VIDEO_BYTES"
+    printf '  "min_report_index_bytes": %s,\n' "$MIN_REPORT_INDEX_BYTES"
     printf '  "count": %s,\n' "$count"
     printf '  "specs": [\n'
     n=${#rows[@]}
