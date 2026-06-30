@@ -391,6 +391,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           altura dos slots (text-sm 14px, text-[10px] 12px, h-1.5 6px).
         */}
         <div
+          data-testid="journey-card"
           className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-3 mb-2 space-y-2.5"
           aria-busy={!journeyDataReady}
         >
