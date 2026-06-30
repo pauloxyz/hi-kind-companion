@@ -179,3 +179,31 @@ e por gate server-side dentro da própria server fn (nunca confiar só no client
   Perfil e Configurações ficam sempre acessíveis (precisa terminar o cadastro).
 - E2E spec `e2e/onboarding.spec.ts` cobrindo validação, geração do link do
   WhatsApp e tela de confirmação.
+
+---
+
+# Onda 2 — Entregue nesta rodada
+
+- Tabela `pro_features` (catálogo) + `pro_feature_overrides` (libera/bloqueia
+  por usuário). Função `is_pro_feature_enabled(user, key)` combina override +
+  `is_pro()` + flag global. Seed do catálogo: english_full, multiple_resumes,
+  auto_translate, priority_visibility, visa_advanced, verified_badge,
+  priority_support, profile_stats.
+- Server fns admin (`listProFeatures`, `updateProFeature`,
+  `upsertProOverride`, `deleteProOverride`, `listProOverrides`) e
+  `getMyProFlags` para o client.
+- Hook `usePro()` + componente `<ProGate feature=...>`.
+- Página admin `/admin/pro-features` com toggle por feature e CRUD de
+  overrides.
+- Tabela `profile_variants` (Pro): variantes do perfil + upload de PDF
+  (storage `resumes/<userId>/variants/...`). Política `one active per owner`
+  via índice parcial. Gate Pro enforced no server fn `upsertVariant`.
+- Página `/app/curriculos` com lista, criação, edição, upload de PDF e
+  "tornar ativo" — toda gateada por `<ProGate feature="multiple_resumes">`.
+- Onboarding `/app/comecar`: novo `<Stepper>` clicável com validação dura —
+  pra trás sempre passa; pra frente exige todas as etapas anteriores
+  completas, senão toast vermelho e foca na primeira pendente. Visual: dots
+  numerados, check verde quando concluída, cadeado implícito (cor apagada)
+  quando bloqueada.
+- E2E spec `e2e/admin-onboarding.spec.ts` cobrindo KPIs, funil por etapa,
+  snapshot "onde estão parados agora" e tabela de eventos recentes.
