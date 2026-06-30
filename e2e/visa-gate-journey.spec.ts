@@ -756,7 +756,6 @@ for (const vp of VIEWPORTS) {
       if (vp.name === "mobile") {
         await page.getByTestId("drawer-trigger").click();
         await expect(page.locator('[role="dialog"]')).toBeVisible();
-        await page.keyboard.press("Escape");
       }
       const phaseBefore = await readPhaseLabel(page);
       expect(phaseBefore).toMatch(/Contrato/i);
