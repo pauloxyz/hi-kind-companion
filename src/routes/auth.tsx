@@ -13,6 +13,12 @@ import { PasswordStrength, isPasswordAcceptable } from "@/components/PasswordStr
 import { logSecurityEvent } from "@/lib/security-audit.functions";
 
 export const Route = createFileRoute("/auth")({
+  validateSearch: (search: Record<string, unknown>) => ({
+    mode: (search.mode === "signup" || search.mode === "forgot" ? search.mode : undefined) as
+      | "signup"
+      | "forgot"
+      | undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Entrar ou criar conta — VaiPraLá" },
