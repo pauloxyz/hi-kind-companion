@@ -1088,6 +1088,8 @@ jobs:
             const { owner, repo } = context.repo;
             const run_id = context.runId;
             const attempt = context.runAttempt;
+            const jobName = context.job;
+            const workflow = context.workflow;
             const retention = process.env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS || '14';
             const jobResults = {
               smoke: `${{ needs.smoke.result }}`,
@@ -1095,17 +1097,26 @@ jobs:
               full: `${{ needs.full.result }}`,
             };
             const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${run_id}/attempts/${attempt}`;
+            // Deep link straight to the Artifacts tab so triage can grab
+            // a bundle even when the consolidated table can't render.
+            const artifactsTabUrl = `https://github.com/${owner}/${repo}/actions/runs/${run_id}#artifacts`;
 
-            const writeFallback = async (reason, detail) => {
+            const writeFallback = async (reason, detail, counts) => {
               const out = [
                 `## 🧭 Playwright debug links — consolidated (attempt ${attempt})`,
                 '',
                 `⚠️ Could not build the consolidated artifact table: **${reason}**.`,
                 '',
-                `- Workflow status: smoke=\`${jobResults.smoke}\` · targeted=\`${jobResults.targeted}\` · full=\`${jobResults.full}\``,
-                `- Open the [run page](${runUrl}) and scroll to **Artifacts** to download trace/video bundles manually.`,
-                `- Artifact retention: **${retention} days** (auto-cleaned by GitHub).`,
+                `- **Workflow:** \`${workflow}\` · job \`${jobName}\` · run [#${run_id}](${runUrl}) · attempt **${attempt}**`,
+                `- **Upstream job results:** smoke=\`${jobResults.smoke}\` · targeted=\`${jobResults.targeted}\` · full=\`${jobResults.full}\``,
+                `- **Artifacts:** open the [Artifacts tab for this run](${artifactsTabUrl}) to download trace/video bundles manually.`,
+                `- **Artifact retention:** ${retention} days (auto-cleaned by GitHub).`,
               ];
+              if (counts) {
+                out.push(
+                  `- **Counts seen:** ${counts.total} total artifact(s); ${counts.matched} matched the Playwright naming convention (\`playwright-smoke-artifacts-*\`, \`playwright-artifacts-shard-*\`, \`playwright-rerun-shard-*\`).`,
+                );
+              }
               if (detail) {
                 out.push('', '<details><summary>Diagnostic</summary>', '', '```', String(detail).slice(0, 4000), '```', '', '</details>');
               }
@@ -1114,10 +1125,6 @@ jobs:
 
             let artifacts;
             try {
-              // List ALL artifacts produced by this workflow run, then keep
-              // only the Playwright ones. `paginate` retries on transient
-              // 5xx itself, but we still guard against hard failures (rate
-              // limit, network blip, permissions drift).
               artifacts = await github.paginate(
                 github.rest.actions.listWorkflowRunArtifacts,
                 { owner, repo, run_id, per_page: 100 },
@@ -1140,7 +1147,8 @@ jobs:
             if (matched.length === 0) {
               await writeFallback(
                 'no Playwright artifacts were uploaded by this run',
-                `Total artifacts seen: ${(artifacts || []).length}. The failing job(s) likely crashed before tests executed — check the per-job logs.`,
+                'The failing job(s) likely crashed before tests executed — check the per-job logs.',
+                { total: (artifacts || []).length, matched: 0 },
               );
               return;
             }
