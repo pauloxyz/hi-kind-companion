@@ -168,10 +168,17 @@ export function AppShell({ children }: { children?: ReactNode }) {
   const savedJobsCount = savedJobsQ.data ?? null;
   const visaSteps = visaQ.data ?? {};
 
-  // Jornada H-2A: derivada de onboarding + candidaturas + checklist de visto
+  // Jornada H-2A: derivada de onboarding + contrato assinado + checklist de
+  // visto. Enviar candidatura NÃO conta — o usuário só avança para "DS-160"
+  // depois de marcar `hired_by_employer` (oferta aceita + contrato em mãos)
+  // no checklist. Antes dessa correção mostrávamos "Fase · DS-160" para
+  // qualquer pessoa que tivesse clicado em Candidatar em uma vaga, o que
+  // causava confusão (o DS-160 só faz sentido após I-797).
+  const journeyDataReady =
+    !profileQ.isPending && !visaQ.isPending;
   const journey = computeJourney({
-    onboardingDone: !showOnboarding,
-    appsCount: appsCount ?? 0,
+    onboardingDone: !!profileQ.data?.onboardingDone,
+    contractSigned: !!visaSteps.hired_by_employer,
     visaSteps,
   });
   const { stages, doneCount, progressPct, currentStage } = journey;
@@ -193,13 +200,13 @@ export function AppShell({ children }: { children?: ReactNode }) {
     debouncerRef.current = createAnnouncementDebouncer((msg) => setJourneyAnnouncement(msg), 600);
   }
   useEffect(() => {
-    if (appsCount === null) return; // dados ainda carregando
+    if (!journeyDataReady) return; // dados ainda carregando
     const next = { doneCount, total: stages.length, currentStage };
     const prev = prevJourneyRef.current;
     prevJourneyRef.current = next;
     if (!shouldAnnounceJourney(prev, next)) return;
     debouncerRef.current?.schedule(next);
-  }, [doneCount, currentStage, stages.length, appsCount]);
+  }, [doneCount, currentStage, stages.length, journeyDataReady]);
   useEffect(() => () => debouncerRef.current?.cancel(), []);
 
   // Drawer mobile: trap focus, fecha com Escape e bloqueia scroll do body.
@@ -398,11 +405,15 @@ export function AppShell({ children }: { children?: ReactNode }) {
                 {fullName || "Olá!"}
               </div>
               <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-wider leading-tight mt-0.5">
-                Fase · {currentStage}
+                {journeyDataReady ? (
+                  <>Fase · {currentStage}</>
+                ) : (
+                  <span className="inline-block h-3 w-20 rounded bg-sidebar-foreground/10 animate-pulse align-middle" aria-label="Carregando fase" />
+                )}
               </div>
             </div>
             <span className="text-[11px] font-bold tabular-nums text-sidebar-primary shrink-0">
-              {progressPct}%
+              {journeyDataReady ? `${progressPct}%` : "—"}
             </span>
           </div>
           <div

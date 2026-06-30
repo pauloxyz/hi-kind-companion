@@ -82,7 +82,7 @@ function nextActionFor(
       icon: FileText,
     };
   }
-  if (stageKey === "candidatura") {
+  if (stageKey === "contrato") {
     if (!ob.firstApply) {
       return {
         title: "Hoje: envie sua primeira candidatura",
@@ -93,13 +93,14 @@ function nextActionFor(
       };
     }
     return {
-      title: "Hoje: candidate em mais 3 vagas",
-      why: "Quem aplica em 10+ vagas tem 4× mais chance de fechar. Diversifique estado e cultura.",
-      cta: "Buscar mais vagas",
-      to: "/app/vagas",
+      title: "Hoje: feche o contrato e marque ‘Oferta aceita’",
+      why: "Candidatar não avança a jornada — só conta quando o empregador confirma e o contrato é assinado. Diversifique aplicações enquanto isso.",
+      cta: "Abrir checklist do visto",
+      to: "/app/visto",
       icon: Send,
     };
   }
+
   if (stageKey === "ds160") {
     return {
       title: "Hoje: abra o DS-160 no checklist",
@@ -198,7 +199,7 @@ function Dashboard() {
       for (const r of visa.data ?? []) visaSteps[r.step_key] = !!r.is_completed;
       const journey = computeJourney({
         onboardingDone: onboarding.completed,
-        appsCount: total,
+        contractSigned: !!visaSteps.hired_by_employer,
         visaSteps,
       });
       return {
