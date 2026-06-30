@@ -18,7 +18,7 @@ const RecordApplicationInput = z.object({
 export const generateCoverLetter = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CoverLetterInput.parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(withServerErrors("applications.generate_cover_letter", async ({ data, context }) => {
     const { supabase, userId } = context;
 
     const [{ data: job }, { data: profile }, { data: resume }, { data: experiences }] =
