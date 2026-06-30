@@ -1115,3 +1115,100 @@ jobs:
             }
 
 
+
+  # Aggregates trace/video artifact links from every Playwright job
+  # (smoke, targeted, full shards run1+rerun) into a single section in
+  # the workflow's run summary. Runs only when at least one of those
+  # jobs failed, so green runs don't accrete summary noise. Uses the
+  # GitHub REST API (instead of inter-job `outputs`) because the `full`
+  # job is a matrix — its `artifact-url` outputs don't aggregate across
+  # the 4 shards in a way other jobs can consume directly.
+  debug-links-consolidated:
+    name: Consolidated debug links
+    needs: [smoke, targeted, full]
+    # `always()` so this runs even when a needed job failed; the body
+    # itself decides whether there's anything to show.
+    if: ${{ always() && (needs.smoke.result == 'failure' || needs.targeted.result == 'failure' || needs.full.result == 'failure') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: List Playwright artifacts and write consolidated summary
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const run_id = context.runId;
+            const attempt = context.runAttempt;
+            const retention = process.env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS || '14';
+
+            // List ALL artifacts produced by this workflow run, then keep
+            // only the Playwright ones (smoke / targeted / full shards /
+            // reruns). Filtering on the name prefix keeps the consolidated
+            // rerun report and unrelated artifacts out of this section.
+            const artifacts = await github.paginate(
+              github.rest.actions.listWorkflowRunArtifacts,
+              { owner, repo, run_id, per_page: 100 },
+            );
+            const pwPrefixes = [
+              'playwright-smoke-artifacts-',
+              'playwright-artifacts-shard-',
+              'playwright-rerun-shard-',
+            ];
+            const matched = artifacts
+              .filter(a => pwPrefixes.some(p => a.name.startsWith(p)))
+              .sort((a, b) => a.name.localeCompare(b.name));
+
+            const fmtBytes = n => {
+              if (!n) return '–';
+              const mb = n / (1024 * 1024);
+              return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(n / 1024).toFixed(0)} KB`;
+            };
+            const artifactUrl = id =>
+              `https://github.com/${owner}/${repo}/actions/runs/${run_id}/artifacts/${id}`;
+
+            const lines = [];
+            lines.push(`## 🧭 Playwright debug links — consolidated (attempt ${attempt})`);
+            lines.push('');
+            lines.push('All Playwright artifacts produced by this workflow run, in one place. Each link opens the artifact download page; the `.zip` inside is a Playwright trace bundle that you can drop into <https://trace.playwright.dev>.');
+            lines.push('');
+            lines.push(`- **Workflow status:** smoke=\`${{ needs.smoke.result }}\` · targeted=\`${{ needs.targeted.result }}\` · full=\`${{ needs.full.result }}\``);
+            lines.push(`- **Artifact retention:** ${retention} days (auto-cleaned by GitHub)`);
+            lines.push('');
+
+            if (matched.length === 0) {
+              lines.push('⚠️ No Playwright artifacts were uploaded by this run — the failing job(s) likely crashed before tests executed. Check the per-job logs.');
+            } else {
+              lines.push('| Job / shard | Phase | Artifact | Size | Expires |');
+              lines.push('|---|---|---|---:|---|');
+              for (const a of matched) {
+                // Derive a human label from the artifact name. Examples:
+                //   playwright-smoke-artifacts-attempt-1               → smoke / run1
+                //   playwright-artifacts-shard-targeted-attempt-1-run1 → targeted / run1
+                //   playwright-artifacts-shard-3-attempt-2-run1        → full shard 3/4 / run1
+                //   playwright-rerun-shard-3-attempt-2-rerun           → full shard 3/4 / rerun
+                let label = a.name;
+                let phase = 'run1';
+                if (a.name.startsWith('playwright-smoke-artifacts-')) {
+                  label = 'smoke';
+                } else if (a.name.startsWith('playwright-artifacts-shard-targeted-')) {
+                  label = 'targeted';
+                } else if (a.name.startsWith('playwright-artifacts-shard-')) {
+                  const m = a.name.match(/^playwright-artifacts-shard-(\d+)-/);
+                  label = m ? `full shard ${m[1]}/4` : a.name;
+                } else if (a.name.startsWith('playwright-rerun-shard-')) {
+                  const m = a.name.match(/^playwright-rerun-shard-(\d+)-/);
+                  label = m ? `full shard ${m[1]}/4` : a.name;
+                  phase = 'rerun';
+                }
+                lines.push(
+                  `| ${label} | ${phase} | [\`${a.name}\`](${artifactUrl(a.id)}) | ${fmtBytes(a.size_in_bytes)} | ${a.expires_at ? a.expires_at.slice(0, 10) : '–'} |`,
+                );
+              }
+              lines.push('');
+              lines.push('> 💡 Per-shard summaries above each job already list the failed spec titles. Open the matching artifact here to grab the trace/video for that spec.');
+            }
+
+            await core.summary.addRaw(lines.join('\n')).write();
