@@ -196,7 +196,7 @@ function OnboardingPage() {
         setStep(Math.min(Math.max(saved, 0), TOTAL_STEPS - 1));
       }
       setLoading(false);
-      track("onboarding_started");
+      mirror("onboarding_started", 0, STEP_LABELS[0]);
     })();
   }, [navigate]);
 
