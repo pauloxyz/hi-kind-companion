@@ -378,8 +378,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-targeted.tsv /tmp/spec-titles-targeted.json
 
+      - name: Preflight Playwright bundle layout (targeted)
+        id: preflight_targeted
+        if: ${{ !cancelled() }}
+        run: bash .github/scripts/preflight-bundle.sh
+
       - name: Upload Playwright artifacts (shard targeted)
         id: upload_targeted
+
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
