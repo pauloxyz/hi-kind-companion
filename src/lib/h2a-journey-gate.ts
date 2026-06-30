@@ -50,3 +50,27 @@ export function canCompleteStep(params: {
 
 export const CONTRACT_GATE_BLOCKED_MESSAGE =
   "Marque primeiro \u201COferta de trabalho aceita\u201D no checklist \u2014 as etapas consulares (DS-160, MRV, entrevista) s\u00f3 fazem sentido ap\u00f3s o contrato assinado.";
+
+/**
+ * Decide se uma linha do checklist deve aparecer bloqueada (banner +
+ * checkbox `disabled`) na UI do `/app/visto`.
+ *
+ * Diferente de {@link canCompleteStep}, este predicado vale também quando a
+ * etapa está marcada como concluída — para cobrir o cenário de drift de
+ * dados (ex.: DS-160 = true sem `hired_by_employer`). Nesses casos a UI
+ * precisa orientar o usuário a corrigir marcando o contrato primeiro, em
+ * vez de esconder a inconsistência.
+ *
+ * Regras:
+ *  - somente passos consulares (gated) podem ficar bloqueados;
+ *  - se o contrato estiver assinado, nenhum passo gated é bloqueado;
+ *  - sem contrato, qualquer passo gated é bloqueado, esteja completo ou
+ *    não — o estado-alvo `is_completed` não importa para a UI.
+ */
+export function computeStepGateBlocked(params: {
+  stepKey: string;
+  contractSigned: boolean;
+}): boolean {
+  if (params.contractSigned) return false;
+  return isContractGatedStep(params.stepKey);
+}
