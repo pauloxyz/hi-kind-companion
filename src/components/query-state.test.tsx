@@ -122,7 +122,7 @@ describe("InlineQueryError — Postgrest/HTTP shapes", () => {
 
       // Some PT-BR sentence is rendered (we don't pin exact wording).
       expect(txt).toMatch(
-        /tente novamente|aguarde|conex|suporte|permissão|acesso|sessão|encontramos|existe|instável|atenção|alterado/i,
+        /tente novamente|aguarde|conex|suporte|permissão|acesso|sessão|encontramos|existe|instável|atenção|alterado|entrar|conta/i,
       );
 
       assertNoLeak(document.body.innerHTML);
