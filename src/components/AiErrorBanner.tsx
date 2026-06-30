@@ -1,6 +1,7 @@
-import { memo } from "react";
+import { memo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { AlertCircle, CheckCircle2, Loader2, RotateCcw } from "lucide-react";
+import { track } from "@/lib/telemetry";
 
 export type AiErrorInfo = {
   /** Logical action that failed — used by parent to route retry. */
@@ -35,10 +36,28 @@ export const AiErrorBanner = memo(function AiErrorBanner({
   onDismiss,
   busy,
 }: AiErrorBannerProps) {
+  const retryRef = useRef<HTMLButtonElement | null>(null);
+  const wasWaitingRef = useRef(false);
+
+  const blocked = error?.code === "no_credits";
+  const waiting = !!error && error.code === "rate_limited" && secondsLeft > 0;
+  const readyAfterWait = !!error && error.code === "rate_limited" && secondsLeft === 0;
+
+  // When the countdown transitions from waiting → ready, move focus to the
+  // retry button so keyboard / screen-reader users know they can act now.
+  // The dedicated assertive status region below carries the announcement.
+  useEffect(() => {
+    if (!error) { wasWaitingRef.current = false; return; }
+    if (waiting) { wasWaitingRef.current = true; return; }
+    if (wasWaitingRef.current && readyAfterWait) {
+      wasWaitingRef.current = false;
+      track("ai_retry_ready", { action: error.action, code: error.code });
+      // Defer to next frame so the button is enabled before focusing.
+      requestAnimationFrame(() => retryRef.current?.focus());
+    }
+  }, [waiting, readyAfterWait, error]);
+
   if (!error) return null;
-  const blocked = error.code === "no_credits";
-  const waiting = error.code === "rate_limited" && secondsLeft > 0;
-  const readyAfterWait = error.code === "rate_limited" && secondsLeft === 0;
   const palette = blocked
     ? "border-destructive/40 bg-destructive/10 text-destructive"
     : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200";
@@ -60,6 +79,17 @@ export const AiErrorBanner = memo(function AiErrorBanner({
           <div className="text-[11px] opacity-80 mt-1">
             Nada do que você já fez foi perdido — o roteiro, áudios e link continuam salvos.
           </div>
+          {/* Dedicated assertive live region: announces only the transition
+              to "ready" so AT users don't hear every countdown tick. */}
+          <div
+            role="status"
+            aria-live="assertive"
+            aria-atomic="true"
+            className="sr-only"
+            data-testid="ai-error-live"
+          >
+            {readyAfterWait ? "Pronto. Você já pode tentar de novo." : ""}
+          </div>
           {readyAfterWait && (
             <div
               data-testid="ai-error-ready"
@@ -72,6 +102,7 @@ export const AiErrorBanner = memo(function AiErrorBanner({
         {!blocked && (
           <div className="flex items-center gap-2">
             <Button
+              ref={retryRef}
               size="sm"
               variant="outline"
               onClick={onRetry}
