@@ -591,6 +591,13 @@ function Page() {
       </div>
 
       <div className="grid gap-3">
+        {!loading && bundle.error && (
+          <InlineQueryError
+            error={bundle.error}
+            title="Não foi possível carregar as vagas."
+            onRetry={() => bundle.refetch()}
+          />
+        )}
         {loading && (
           <>
             {[0, 1, 2].map((i) => (
