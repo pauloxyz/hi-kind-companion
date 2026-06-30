@@ -124,6 +124,31 @@ jobs:
         run: bash .github/scripts/test-spec-summary-parser.sh
       - name: Run spec-manifest JSON schema regression tests
         run: node .github/scripts/test-spec-manifest-schema.mjs
+      - name: E2E aggregate JSON+CSV round-trip (edge-case labels)
+        run: node .github/scripts/test-aggregate-roundtrip.mjs
+      - name: Assert renderer rejects mismatched manifest schema
+        # Build a manifest with a deliberately-wrong schema_version and
+        # confirm the renderer exits non-zero with the expected error
+        # message. Guards against silent acceptance of stale collectors.
+        run: |
+          set -eo pipefail
+          tmp="$(mktemp -d)"
+          printf 'specA\t1\t1\t0\t1\t1\t4096\t16384\tok\tok\n' > "$tmp/in.tsv"
+          printf '{"schema_version": 99}\n' > "$tmp/bad.json"
+          if EXPECTED_MANIFEST_SCHEMA=3 MANIFEST_JSON="$tmp/bad.json" \
+               bash .github/scripts/render-spec-summary.sh "$tmp/in.tsv" "" "L" \
+               > "$tmp/out.md" 2> "$tmp/err.log"; then
+            echo "::error::renderer accepted a mismatched manifest schema"; exit 1
+          fi
+          if ! grep -q 'manifest schema mismatch' "$tmp/err.log"; then
+            echo "::error::expected 'manifest schema mismatch' in stderr; got:"
+            cat "$tmp/err.log"; exit 1
+          fi
+          printf '{"schema_version": 3}\n' > "$tmp/good.json"
+          EXPECTED_MANIFEST_SCHEMA=3 MANIFEST_JSON="$tmp/good.json" \
+            bash .github/scripts/render-spec-summary.sh "$tmp/in.tsv" "" "L" > /dev/null
+          echo "OK — schema enforcement passes on match, fails on mismatch."
+
 
 
 
