@@ -157,3 +157,63 @@ describe("Jornada H-2A · transições antes/depois de hired_by_employer", () =>
     expect(noContract.stages.find((s) => s.key === "contrato")?.done).toBe(false);
   });
 });
+
+/**
+ * Predicado puro que espelha o cálculo de `gateBlocked` usado por
+ * `/app/visto`. Cobre todos os estados relevantes que apareceram em
+ * regressões: passo completo, passo limpo, drift de dados e contrato
+ * assinado.
+ */
+describe("computeStepGateBlocked — UI gate em /app/visto", () => {
+  it("não bloqueia nada quando o contrato está assinado", () => {
+    for (const k of CONTRACT_GATED_STEP_KEYS) {
+      expect(
+        computeStepGateBlocked({ stepKey: k, contractSigned: true }),
+      ).toBe(false);
+    }
+  });
+
+  it("bloqueia DS-160 sem contrato (estado fresco)", () => {
+    expect(
+      computeStepGateBlocked({ stepKey: "ds160", contractSigned: false }),
+    ).toBe(true);
+  });
+
+  it("bloqueia DS-160 também quando o passo está completo sem contrato (drift)", () => {
+    // Cenário inconsistente: DS-160 já marcado no DB, mas o contrato foi
+    // desfeito. A UI precisa mostrar o banner e desabilitar o checkbox
+    // para forçar a correção via "Oferta aceita".
+    expect(
+      computeStepGateBlocked({ stepKey: "ds160", contractSigned: false }),
+    ).toBe(true);
+  });
+
+  it("NÃO bloqueia passos preparatórios (passaporte/foto/hired) sem contrato", () => {
+    for (const k of ["passport_valid_6mo", "photo_5x5_white", "hired_by_employer"] as const) {
+      expect(
+        computeStepGateBlocked({ stepKey: k, contractSigned: false }),
+      ).toBe(false);
+    }
+  });
+
+  it("NÃO bloqueia chaves desconhecidas (defensivo)", () => {
+    expect(
+      computeStepGateBlocked({ stepKey: "step_inexistente", contractSigned: false }),
+    ).toBe(false);
+  });
+
+  it("é idempotente para todas as combinações dos consulares", () => {
+    for (const k of CONTRACT_GATED_STEP_KEYS) {
+      expect(computeStepGateBlocked({ stepKey: k, contractSigned: false })).toBe(true);
+      expect(computeStepGateBlocked({ stepKey: k, contractSigned: true })).toBe(false);
+    }
+  });
+
+  it("acompanha `isContractGatedStep` para cada step gated", () => {
+    for (const k of CONTRACT_GATED_STEP_KEYS) {
+      expect(isContractGatedStep(k)).toBe(true);
+      expect(computeStepGateBlocked({ stepKey: k, contractSigned: false })).toBe(true);
+    }
+  });
+});
+
