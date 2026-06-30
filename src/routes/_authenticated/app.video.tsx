@@ -202,15 +202,20 @@ function Page() {
       const code = m[1] as AiErrorInfo["code"];
       const retryAfter = parseInt(m[2], 10) || 0;
       const msg = m[3];
+      // Structured client log — easy to grep in console / Sentry
+      console.warn("[ai-error]", { action, code, retryAfter, msg, at: new Date().toISOString() });
       setAiError({ action, code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
       toast.error(msg);
     } else {
+      console.warn("[ai-error]", { action, code: "other", msg: raw, at: new Date().toISOString() });
       setAiError({ action, code: "other", msg: raw || "Erro inesperado.", retryAt: 0 });
       toast.error(raw || "Erro");
     }
   }
 
   async function handleGenerate() {
+    const isRetry = aiError?.action === "script";
+    if (isRetry) console.info("[ai-retry]", { action: "script", code: aiError?.code });
     setGenerating(true);
     setAiError((e) => (e?.action === "script" ? null : e));
     try {
