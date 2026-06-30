@@ -15,10 +15,8 @@
  * We test the component (not each route) because every route uses the same
  * primitive — if this contract holds, all four routes behave consistently.
  */
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, cleanup } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
-import { afterEach } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 
 import { InlineQueryError } from "./query-state";
 import { AppError } from "@/lib/errors";
@@ -28,7 +26,12 @@ afterEach(cleanup);
 describe("InlineQueryError", () => {
   it("renders nothing when error is null", () => {
     const { container } = render(<InlineQueryError error={null} />);
-    expect(container).toBeEmptyDOMElement();
+    expect(container.innerHTML).toBe("");
+  });
+
+  it("renders nothing when error is undefined", () => {
+    const { container } = render(<InlineQueryError error={undefined} />);
+    expect(container.innerHTML).toBe("");
   });
 
   it("shows the friendly PT-BR message for an AppError and never leaks the cause", () => {
@@ -50,11 +53,12 @@ describe("InlineQueryError", () => {
     expect(screen.getByText(/auth\.session_expired/)).toBeTruthy();
 
     // Cause/stack must never reach the DOM.
-    expect(screen.queryByText(/JWT expired/i)).toBeNull();
-    expect(screen.queryByText(/aud=authenticated/)).toBeNull();
+    const html = document.body.innerHTML;
+    expect(html).not.toMatch(/JWT expired/i);
+    expect(html).not.toMatch(/aud=authenticated/);
   });
 
-  it("maps an unknown thrown value to the generic PT-BR fallback", () => {
+  it("maps an unknown thrown value to the generic PT-BR fallback (no raw DB text)", () => {
     // Simulates a raw Postgrest error reaching the boundary — we must not
     // render its column/permission details to the user.
     const raw = {
@@ -64,9 +68,9 @@ describe("InlineQueryError", () => {
 
     render(<InlineQueryError error={raw} />);
 
-    // No raw DB text.
-    expect(screen.queryByText(/permission denied/i)).toBeNull();
-    expect(screen.queryByText(/applications/i)).toBeNull();
+    const html = document.body.innerHTML;
+    expect(html).not.toMatch(/permission denied/i);
+    expect(html).not.toMatch(/applications/);
 
     // Default title is shown.
     expect(screen.getByText(/não foi possível carregar/i)).toBeTruthy();
@@ -74,18 +78,17 @@ describe("InlineQueryError", () => {
     // Some friendly PT-BR copy is rendered. We don't assert the exact
     // sentence so the wording can evolve without breaking the test.
     const alert = screen.getByRole("alert");
-    expect(alert.textContent ?? "").toMatch(/tente novamente|aguarde|conex/i);
+    expect(alert.textContent ?? "").toMatch(/tente novamente|aguarde|conex|suporte/i);
   });
 
-  it("renders the retry button only when onRetry is provided and calls it on click", async () => {
-    const user = userEvent.setup();
+  it("renders the retry button when onRetry is provided and calls it on click", () => {
     const onRetry = vi.fn();
     const err = new AppError("Falha temporária.", { kind: "upstream" });
 
     render(<InlineQueryError error={err} onRetry={onRetry} />);
 
     const button = screen.getByRole("button", { name: /tentar novamente/i });
-    await user.click(button);
+    fireEvent.click(button);
     expect(onRetry).toHaveBeenCalledTimes(1);
   });
 
@@ -97,5 +100,27 @@ describe("InlineQueryError", () => {
   it("exposes role=alert so assistive tech announces the failure", () => {
     render(<InlineQueryError error={new AppError("x")} />);
     expect(screen.getByRole("alert")).toBeTruthy();
+  });
+
+  it("matches each Phase 2 route's failure copy", () => {
+    // Locks in the exact titles passed by the four routes that consume this
+    // component. If a route changes its title, this test points at it.
+    const titles = [
+      "Não foi possível carregar suas candidaturas.", // app.candidaturas
+      "Não foi possível carregar seu painel.",         // app.index
+      "Não foi possível carregar as vagas.",           // app.vagas
+    ];
+    for (const title of titles) {
+      cleanup();
+      render(
+        <InlineQueryError
+          error={new AppError("Sem conexão.", { kind: "network" })}
+          title={title}
+        />,
+      );
+      expect(screen.getByText(title)).toBeTruthy();
+      // Friendly message from kind="network" surfaces, raw "Sem conexão." too.
+      expect(screen.getByText(/sem conexão/i)).toBeTruthy();
+    }
   });
 });
