@@ -92,7 +92,12 @@ ${expLines || "(no prior experience listed)"}
 `;
 
     const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY ausente");
+    if (!key) {
+      throw new AppError("O serviço de IA não está configurado. Tente novamente em instantes.", {
+        kind: "internal",
+        code: "applications.cover_letter.missing_key",
+      });
+    }
 
     const { generateText } = await import("ai");
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
@@ -104,9 +109,25 @@ ${expLines || "(no prior experience listed)"}
       letter = text.trim();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("429")) throw new Error("Limite de IA atingido. Tente novamente em alguns minutos.");
-      if (msg.includes("402")) throw new Error("Créditos de IA esgotados. Adicione créditos no workspace.");
-      throw new Error("Falha ao gerar carta: " + msg);
+      if (msg.includes("429")) {
+        throw new AppError("Limite de IA atingido. Aguarde alguns minutos e tente novamente.", {
+          kind: "rate_limited",
+          code: "applications.cover_letter.ai_rate_limited",
+          cause: e,
+        });
+      }
+      if (msg.includes("402")) {
+        throw new AppError("Créditos de IA esgotados. Adicione créditos no workspace para continuar.", {
+          kind: "upstream",
+          code: "applications.cover_letter.ai_no_credits",
+          cause: e,
+        });
+      }
+      throw new AppError("Não conseguimos gerar a carta agora. Tente novamente em instantes.", {
+        kind: "upstream",
+        code: "applications.cover_letter.ai_failed",
+        cause: e,
+      });
     }
 
     // Build attachment footer. PDF do currículo já carrega as 6 fotos dentro,
