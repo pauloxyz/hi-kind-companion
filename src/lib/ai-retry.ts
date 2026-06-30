@@ -72,11 +72,25 @@ export type AiAttemptResult<T> =
  * doesn't touch React state or supabase.
  */
 export async function runAiAttempt<T>(input: AiAttemptInput<T>): Promise<AiAttemptResult<T>> {
-  const { action, isRetry, correlationId, readyAt, previousCode, generator, sinks } = input;
+  const { action, isRetry, correlationId, readyAt, previousCode, bannerReady = true, generator, sinks } = input;
   const clickAt = sinks.now();
 
   if (isRetry) {
-    const waitedPastUnlockMs = readyAt > 0 ? clickAt - readyAt : 0;
+    // Guard: if the previous failure was a rate limit and the banner has
+    // not transitioned to "ready" yet, suppress the click. This keeps
+    // `ai_retry_click` aligned with what the user can actually do and
+    // prevents skewed `waitedPastUnlockMs` metrics.
+    if (previousCode === "rate_limited" && !bannerReady) {
+      sinks.breadcrumb(
+        "retry-click-suppressed",
+        { correlationId, action, code: previousCode, reason: "not_ready" },
+        "info",
+      );
+      return { ok: false, skipped: "not_ready", latencyMs: 0 };
+    }
+    // When the click lands exactly at the unlock instant, clickAt === readyAt
+    // and waitedPastUnlockMs is 0 — matching the "no wait" semantics.
+    const waitedPastUnlockMs = readyAt > 0 ? Math.max(0, clickAt - readyAt) : 0;
     sinks.track("ai_retry_click", {
       action, code: previousCode, correlationId, waitedPastUnlockMs,
     });
