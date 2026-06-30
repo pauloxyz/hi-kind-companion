@@ -18,7 +18,7 @@
 // testado aqui; ele é coberto em `e2e/visa-gate-journey.spec.ts`.
 
 import { describe, it, expect, afterEach, vi } from "vitest";
-import { render, screen, cleanup, within } from "@testing-library/react";
+import { render, screen, cleanup } from "@testing-library/react";
 import { ChecklistRow } from "./app.visto";
 
 afterEach(() => cleanup());
