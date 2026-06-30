@@ -208,7 +208,7 @@ const CheckRepliesInput = z.object({}).optional();
 export const checkApplicationReplies = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CheckRepliesInput.parse(input ?? {}))
-  .handler(async ({ context }) => {
+  .handler(withServerErrors("applications.check_replies", async ({ context }) => {
     const { supabase, userId, claims } = context;
     const lovableKey = process.env.LOVABLE_API_KEY;
     const gmailKey = process.env.GOOGLE_MAIL_API_KEY;
