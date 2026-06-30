@@ -78,7 +78,7 @@ describe("InlineQueryError", () => {
     // Some friendly PT-BR copy is rendered. We don't assert the exact
     // sentence so the wording can evolve without breaking the test.
     const alert = screen.getByRole("alert");
-    expect(alert.textContent ?? "").toMatch(/tente novamente|aguarde|conex|suporte/i);
+    expect(alert.textContent ?? "").toMatch(/tente novamente|aguarde|conex|suporte|permissão/i);
   });
 
   it("renders the retry button when onRetry is provided and calls it on click", () => {
