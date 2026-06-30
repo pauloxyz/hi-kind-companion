@@ -178,3 +178,129 @@ export function deriveFallbackBlocks(en: string): ScriptBlock[] {
     intonation: "tom calmo, pausa curta",
   }));
 }
+
+// ---------------- YouTube metadata + SRT ----------------
+
+export type YoutubeMeta = {
+  title: string;
+  description: string;
+  tags: string[];
+  category: string;
+  settings: string[];
+};
+
+/** Gera título, descrição, tags, categoria e configurações recomendadas para upload no YouTube. */
+export const generateYoutubeMeta = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data: profile } = await supabase
+      .from("my_profile")
+      .select("full_name, country, video_script_pt, video_script_en")
+      .eq("owner_id", userId)
+      .maybeSingle();
+
+    const name = profile?.full_name?.trim() || "Candidato";
+    const country = profile?.country?.trim() || "Brazil";
+    const pt = (profile?.video_script_pt ?? "").trim();
+    const en = (profile?.video_script_en ?? "").trim();
+    if (!en || !pt) throw new Error("Gere o roteiro antes (Passo 1).");
+
+    const prompt = `You are preparing YouTube upload metadata for an H-2A farm worker visa candidate's self-introduction video. The video is short (about 60 seconds) and meant to be sent privately to U.S. agricultural employers via an "Unlisted" link.
+
+Candidate: ${name} (from ${country})
+
+ENGLISH SCRIPT:
+${en}
+
+PORTUGUESE SCRIPT:
+${pt}
+
+Return ONLY this JSON (no markdown, no commentary):
+{
+  "title": "concise, professional video title in ENGLISH, max 70 chars, includes candidate first name + 'H-2A' + a hint of experience",
+  "description": "5-8 line description in ENGLISH for the YouTube box. Start with one sentence intro. Then a short bullet list of experience highlights pulled from the script. End with a friendly line saying the candidate is ready to start work in the U.S. Plain text only — no markdown, no emojis.",
+  "tags": ["10-15 lowercase tags relevant to H-2A, farm work, the crops/animals/machinery mentioned in the script, and the candidate's country"],
+  "category": "People & Blogs",
+  "settings": [
+    "5-7 short Portuguese (PT-BR) instructions for the candidate to apply during upload",
+    "MUST include: marcar como 'Não listado' (Unlisted), desativar comentários, marcar 'Não, este vídeo não é feito para crianças', idioma do vídeo: Inglês (Estados Unidos)"
+  ]
+}`;
+
+    const key = process.env.LOVABLE_API_KEY;
+    if (!key) throw new Error("LOVABLE_API_KEY ausente");
+    const { generateText } = await import("ai");
+    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
+    const gateway = createLovableAiGatewayProvider(key);
+
+    let raw = "";
+    try {
+      const { text } = await generateText({
+        model: gateway("google/gemini-3-flash-preview"),
+        prompt,
+      });
+      raw = text.trim();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.includes("429")) throw new Error("Limite de IA atingido. Tente novamente em alguns minutos.");
+      if (msg.includes("402")) throw new Error("Créditos de IA esgotados.");
+      throw new Error("Falha ao gerar metadados: " + msg);
+    }
+
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) throw new Error("Resposta da IA não veio em JSON.");
+    let parsed: Partial<YoutubeMeta>;
+    try { parsed = JSON.parse(jsonMatch[0]); } catch { throw new Error("JSON inválido."); }
+
+    const title = String(parsed.title ?? "").trim().slice(0, 95) || `${name} — H-2A Introduction`;
+    const description = String(parsed.description ?? "").trim() || en;
+    const tags = Array.isArray(parsed.tags)
+      ? parsed.tags.map((t) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 15)
+      : ["h-2a", "farm worker", "brazil", "agriculture"];
+    const category = String(parsed.category ?? "People & Blogs").trim() || "People & Blogs";
+    const settings = Array.isArray(parsed.settings)
+      ? parsed.settings.map((s) => String(s).trim()).filter(Boolean)
+      : [
+          "Marcar visibilidade como 'Não listado' (Unlisted)",
+          "Marcar 'Não, este vídeo não é feito para crianças'",
+          "Desativar comentários",
+          "Idioma do vídeo: Inglês (Estados Unidos)",
+        ];
+
+    return { title, description, tags, category, settings } satisfies YoutubeMeta;
+  });
+
+// ---------- SRT helpers (client-side) ----------
+
+function srtTime(sec: number): string {
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  const s = Math.floor(sec % 60);
+  const ms = Math.round((sec - Math.floor(sec)) * 1000);
+  const pad = (n: number, w = 2) => String(n).padStart(w, "0");
+  return `${pad(h)}:${pad(m)}:${pad(s)},${pad(ms, 3)}`;
+}
+
+/**
+ * Gera um arquivo SRT a partir dos blocos.
+ * Cada bloco recebe uma duração proporcional ao nº de palavras do EN
+ * (~0.42s/palavra, mínimo 1.4s) seguida de uma pausa curta entre legendas.
+ */
+export function buildSrt(blocks: ScriptBlock[], lang: "en" | "pt", gapSec = 0.25): string {
+  let t = 0.5; // pequena margem inicial
+  const lines: string[] = [];
+  blocks.forEach((b, i) => {
+    const words = Math.max(1, (b.en || "").split(/\s+/).filter(Boolean).length);
+    const dur = Math.max(1.4, words * 0.42);
+    const start = t;
+    const end = t + dur;
+    const text = (lang === "en" ? b.en : b.pt).trim();
+    lines.push(String(i + 1));
+    lines.push(`${srtTime(start)} --> ${srtTime(end)}`);
+    lines.push(text);
+    lines.push("");
+    t = end + gapSec;
+  });
+  return lines.join("\n");
+}

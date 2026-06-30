@@ -10,15 +10,18 @@ import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
 import {
   generateVideoScript,
+  generateYoutubeMeta,
   normalizeYouTubeUrl,
   deriveFallbackBlocks,
+  buildSrt,
   type ScriptBlock,
+  type YoutubeMeta,
 } from "@/lib/video-script.functions";
 import { speakText } from "@/lib/english.functions";
 import { toast } from "sonner";
 import {
   Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle,
-  Volume2, Play, Pause, SkipForward, RotateCcw,
+  Volume2, Play, Pause, SkipForward, RotateCcw, FileText, Tag, Settings2,
 } from "lucide-react";
 import { pdf, Document, Page as PdfPage, Text, View, StyleSheet, Image as PdfImage } from "@react-pdf/renderer";
 import { PdfBrandedFooter, PdfLogo } from "@/components/PdfLogo";
@@ -142,6 +145,7 @@ function ScriptPdf({
 function Page() {
   const genFn = useServerFn(generateVideoScript);
   const ttsFn = useServerFn(speakText);
+  const ytMetaFn = useServerFn(generateYoutubeMeta);
 
   const [scriptPt, setScriptPt] = useState("");
   const [scriptEn, setScriptEn] = useState("");
@@ -152,6 +156,10 @@ function Page() {
   const [generating, setGenerating] = useState(false);
   const [savingUrl, setSavingUrl] = useState(false);
   const [exporting, setExporting] = useState(false);
+
+  // YouTube metadata + SRT
+  const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
+  const [genMeta, setGenMeta] = useState(false);
 
   // Practice mode
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
@@ -329,6 +337,38 @@ function Page() {
     } finally {
       setSavingUrl(false);
     }
+  }
+
+  async function handleGenerateMeta() {
+    if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
+    setGenMeta(true);
+    try {
+      const r = await ytMetaFn();
+      setYtMeta(r);
+      toast.success("Conteúdo do YouTube gerado ✓");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setGenMeta(false);
+    }
+  }
+
+  function downloadText(filename: string, content: string, mime = "text/plain;charset=utf-8") {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadSrt(lang: "en" | "pt") {
+    const src = hasRealBlocks ? blocks : deriveFallbackBlocks(scriptEn);
+    if (!src.length) { toast.error("Gere o roteiro primeiro."); return; }
+    const safeName = (name || "candidato").replace(/\s+/g, "_");
+    downloadText(`legenda_${lang}_${safeName}.srt`, buildSrt(src, lang), "application/x-subrip");
+    toast.success(`SRT ${lang.toUpperCase()} baixado ✓`);
   }
 
   const ytId = normalizedUrl?.split("/").pop();
@@ -566,6 +606,103 @@ function Page() {
             <p className="font-semibold">Não tem conta no YouTube?</p>
             <p>Toda conta <strong>Google / Gmail</strong> já é uma conta YouTube — basta fazer login. Se não tem Gmail, crie em <a href="https://accounts.google.com/signup" target="_blank" rel="noopener noreferrer" className="text-primary underline">accounts.google.com/signup</a> (leva 2 min).</p>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* CONTEÚDO PRO UPLOAD — Título, descrição, tags, configs + SRT */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            Conteúdo pronto pro YouTube (título, descrição, tags + legendas)
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            A IA monta título e descrição em inglês com base no seu roteiro, sugere tags, categoria e configurações recomendadas (incluindo "Não listado"). Você só copia e cola na hora do upload. Também dá pra baixar legendas SRT (EN + PT) pra subir na tela "Subtítulos".
+          </p>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button onClick={handleGenerateMeta} disabled={genMeta || !hasScript} size="sm">
+              {genMeta ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Sparkles className="h-3.5 w-3.5 mr-2" />}
+              {ytMeta ? "Gerar de novo" : "Gerar título, descrição e tags"}
+            </Button>
+            <Button onClick={() => handleDownloadSrt("en")} disabled={!hasScript} size="sm" variant="outline">
+              <Download className="h-3.5 w-3.5 mr-2" /> Baixar legenda EN (.srt)
+            </Button>
+            <Button onClick={() => handleDownloadSrt("pt")} disabled={!hasScript} size="sm" variant="outline">
+              <Download className="h-3.5 w-3.5 mr-2" /> Baixar legenda PT (.srt)
+            </Button>
+          </div>
+
+          {!hasScript && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">Gere o roteiro no Passo 1 primeiro.</p>
+          )}
+
+          {ytMeta && (
+            <div className="space-y-4 pt-2">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Título ({ytMeta.title.length} caracteres)</span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(ytMeta.title, "Título")}>
+                    <Copy className="h-3 w-3 mr-1" /> Copiar
+                  </Button>
+                </div>
+                <Input value={ytMeta.title} readOnly className="text-sm" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">Descrição</span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(ytMeta.description, "Descrição")}>
+                    <Copy className="h-3 w-3 mr-1" /> Copiar
+                  </Button>
+                </div>
+                <Textarea value={ytMeta.description} readOnly className="min-h-[140px] text-sm" />
+              </div>
+
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    <Tag className="h-3 w-3" /> Tags ({ytMeta.tags.length})
+                  </span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(ytMeta.tags.join(", "), "Tags")}>
+                    <Copy className="h-3 w-3 mr-1" /> Copiar (vírgula)
+                  </Button>
+                </div>
+                <div className="flex flex-wrap gap-1.5 rounded-md border p-2 bg-muted/30">
+                  {ytMeta.tags.map((t) => (
+                    <Badge key={t} variant="secondary" className="text-xs font-normal">{t}</Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-md border p-3 space-y-1">
+                  <div className="text-xs font-medium text-muted-foreground">Categoria sugerida</div>
+                  <div className="text-sm font-semibold">{ytMeta.category}</div>
+                </div>
+                <div className="rounded-md border p-3 space-y-2">
+                  <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
+                    <Settings2 className="h-3 w-3" /> Configurações recomendadas
+                  </div>
+                  <ul className="text-xs space-y-1 list-disc pl-4">
+                    {ytMeta.settings.map((s, i) => <li key={i}>{s}</li>)}
+                  </ul>
+                </div>
+              </div>
+
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs space-y-1">
+                <p className="font-semibold">Como subir as legendas no YouTube</p>
+                <ol className="list-decimal pl-4 space-y-0.5">
+                  <li>No YouTube Studio, abra seu vídeo → menu lateral <strong>Subtítulos</strong>.</li>
+                  <li>Clique em <strong>Adicionar idioma</strong> → escolha Inglês → <strong>Adicionar</strong> em "Legendas" → <strong>Fazer upload de arquivo</strong> → <em>Com tempo</em> → selecione o <code className="font-mono">.srt</code> EN.</li>
+                  <li>Repita pra Português (Brasil) com o arquivo PT.</li>
+                  <li>Publique. O empregador pode ligar legendas no idioma dele.</li>
+                </ol>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
