@@ -606,8 +606,192 @@ for (const vp of VIEWPORTS) {
         ds160Back.getByRole("checkbox", { name: /Marcar etapa:/i }),
       ).toBeDisabled();
     });
+
+    /* --------------------------------------------------------------------- */
+    /* 10) RE-LOCK pós-conclusão: desmarcar contrato com DS-160 já completo  */
+    /*     vira drift inconsistente → banner volta, checkbox `disabled`,    */
+    /*     Jornada cai para Contrato.                                        */
+    /* --------------------------------------------------------------------- */
+
+    test("desmarcar contrato com DS-160 já completo reativa o gate e volta a Jornada", async ({
+      page,
+    }) => {
+      await gotoVisto(page);
+
+      const ds160 = rowByStepKey(page, "ds160");
+      const ds160Checkbox = ds160.getByRole("checkbox", { name: /Marcar etapa:/i });
+      const hiredCheckbox = rowByStepKey(page, "hired_by_employer").getByRole(
+        "checkbox",
+        { name: /Marcar etapa:/i },
+      );
+
+      // 1) Libera o DS-160 marcando o contrato e o conclui.
+      await hiredCheckbox.click();
+      await expect(ds160).not.toHaveAttribute("data-gate-blocked", "true", {
+        timeout: 10_000,
+      });
+      await expect(ds160Checkbox).toBeEnabled();
+      await ds160Checkbox.click();
+      await expect(ds160Checkbox).toBeChecked();
+
+      // 2) Confirma fase atual = DS-160 antes do re-lock.
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+        await page.keyboard.press("Escape");
+      }
+      await expect
+        .poll(() => readPhaseLabel(page), { timeout: 10_000 })
+        .toMatch(/DS-?160/i);
+
+      // 3) Desmarca o contrato → drift inconsistente.
+      await hiredCheckbox.click();
+      await expect(hiredCheckbox).not.toBeChecked();
+
+      // 4) Gate volta sobre o DS-160 já completo.
+      await expect(ds160).toHaveAttribute("data-gate-blocked", "true", {
+        timeout: 10_000,
+      });
+      await expect(ds160.locator('[id^="gate-"]')).toBeVisible();
+      // Checkbox permanece marcado (espelha o DB) mas agora `disabled`.
+      await expect(ds160Checkbox).toBeChecked();
+      await expect(ds160Checkbox).toBeDisabled();
+
+      // 5) Jornada na sidebar/drawer cai de volta para Contrato.
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+      }
+      await expect
+        .poll(() => readPhaseLabel(page), { timeout: 10_000 })
+        .toMatch(/Contrato/i);
+      const phase = await readPhaseLabel(page);
+      expect(phase, `fase: ${phase}`).not.toMatch(/DS-?160/i);
+    });
+
+    /* --------------------------------------------------------------------- */
+    /* 11) CTAs avançadas: TODOS os passos consulares ficam disabled +       */
+    /*     mostram o banner ANTES de qualquer tentativa de clique.           */
+    /* --------------------------------------------------------------------- */
+
+    test("com gate ativo, todos os passos consulares aparecem disabled com banner visível", async ({
+      page,
+    }) => {
+      await gotoVisto(page);
+
+      // Conjunto de "CTAs de avanço" da Jornada — todos os passos que
+      // exigem contrato assinado. Itera por step_label estável.
+      const gated: Array<[string, RegExp]> = [
+        ["ds160", /Formul[áa]rio DS-160 preenchido e enviado/i],
+        ["mrv_paid", /Taxa MRV paga \(US\$ 190\)/i],
+        ["interview_done", /Entrevista consular realizada/i],
+      ];
+
+      for (const [stepKey, re] of gated) {
+        const row = page.locator('[id^="step-"]').filter({ hasText: re }).first();
+        await expect(row, `row ${stepKey} precisa existir`).toBeVisible();
+
+        // (a) data-attr de bloqueio.
+        await expect(row).toHaveAttribute("data-gate-blocked", "true");
+
+        // (b) banner visível com explicação ANTES de qualquer clique.
+        const banner = row.locator('[id^="gate-"]');
+        await expect(banner).toBeVisible();
+        await expect(banner).toContainText(/Oferta de trabalho aceita/i);
+
+        // (c) checkbox `disabled` (CTA bloqueada).
+        const cb = row.getByRole("checkbox", { name: /Marcar etapa:/i });
+        await expect(cb).toBeDisabled();
+
+        // (d) aria-describedby do checkbox aponta para o id do banner —
+        //     a explicação é lida no foco, sem precisar clicar.
+        const bannerId = await banner.getAttribute("id");
+        expect(bannerId).toMatch(/^gate-/);
+        await expect(cb).toHaveAttribute("aria-describedby", bannerId!);
+      }
+
+      // (e) Tentativa forçada de clique em DS-160 não progride.
+      const ds160Checkbox = rowByStepKey(page, "ds160").getByRole("checkbox", {
+        name: /Marcar etapa:/i,
+      });
+      await ds160Checkbox.click({ force: true }).catch(() => {});
+      await expect(ds160Checkbox).not.toBeChecked();
+    });
+
+    /* --------------------------------------------------------------------- */
+    /* 12) RELOAD após múltiplas mudanças: gate, fase e DS-160 disabled      */
+    /*     continuam consistentes.                                           */
+    /* --------------------------------------------------------------------- */
+
+    test("reload após múltiplas mudanças (DS-160 ↔ contrato) mantém o gate consistente", async ({
+      page,
+      request,
+    }) => {
+      const t = session.session.access_token;
+
+      // Sequência de mudanças (simula um usuário hesitante + drift de DB):
+      //   contrato:false → contrato:true → ds160:true → contrato:false
+      // Estado final esperado: DS-160 marcado, contrato NÃO assinado.
+      await patchStep(request, t, "hired_by_employer", true);
+      await patchStep(request, t, "ds160", true);
+      await patchStep(request, t, "hired_by_employer", false);
+
+      await gotoVisto(page);
+
+      const ds160 = rowByStepKey(page, "ds160");
+      const checkbox = ds160.getByRole("checkbox", { name: /Marcar etapa:/i });
+
+      // Sanidade antes do reload.
+      await expect(ds160).toHaveAttribute("data-gate-blocked", "true");
+      await expect(checkbox).toBeChecked();
+      await expect(checkbox).toBeDisabled();
+      await expect(ds160.locator('[id^="gate-"]')).toBeVisible();
+
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+        await page.keyboard.press("Escape");
+      }
+      const phaseBefore = await readPhaseLabel(page);
+      expect(phaseBefore).toMatch(/Contrato/i);
+      expect(phaseBefore).not.toMatch(/DS-?160/i);
+
+      // Reload duro.
+      await page.reload({ waitUntil: "commit" });
+      await expect(page.getByTestId("app-main")).toBeVisible({ timeout: 15_000 });
+
+      const ds160After = rowByStepKey(page, "ds160");
+      const checkboxAfter = ds160After.getByRole("checkbox", {
+        name: /Marcar etapa:/i,
+      });
+      const bannerAfter = ds160After.locator('[id^="gate-"]');
+
+      await expect(ds160After).toHaveAttribute("data-gate-blocked", "true");
+      await expect(checkboxAfter).toBeChecked();
+      await expect(checkboxAfter).toBeDisabled();
+      await expect(bannerAfter).toBeVisible();
+      await expect(bannerAfter).toContainText(/Oferta de trabalho aceita/i);
+
+      // aria-describedby continua amarrado e id é o mesmo (deriva do
+      // item.id, persistente no DB).
+      const bannerIdAfter = await bannerAfter.getAttribute("id");
+      await expect(checkboxAfter).toHaveAttribute(
+        "aria-describedby",
+        bannerIdAfter!,
+      );
+
+      // Fase exibida na sidebar/drawer continua em Contrato.
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+      }
+      const phaseAfter = await readPhaseLabel(page);
+      expect(phaseAfter, `fase após reload: ${phaseAfter}`).toMatch(/Contrato/i);
+      expect(phaseAfter).not.toMatch(/DS-?160/i);
+    });
   });
 }
+
 
 
 
