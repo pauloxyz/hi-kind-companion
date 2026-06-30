@@ -28,6 +28,11 @@ import { toast } from "sonner";
 import type { VisaPdfData } from "@/components/VisaChecklistPdf";
 import { VisaAttachmentViewer, type ViewerAttachment } from "@/components/VisaAttachmentViewer";
 import { PageHeader } from "@/components/page-header";
+import {
+  CONTRACT_GATE_BLOCKED_MESSAGE,
+  canCompleteStep,
+  isContractGatedStep,
+} from "@/lib/h2a-journey-gate";
 
 export const Route = createFileRoute("/_authenticated/app/visto")({
   component: VistoPage,
@@ -239,6 +244,13 @@ function VistoPage() {
   const total = items.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
+  // Mantém Jornada (sidebar/painel) em sync com o checklist: enquanto o
+  // contrato não estiver marcado, bloqueamos a marcação das etapas
+  // consulares para que `Fase · DS-160` nunca apareça antes da hora.
+  const contractSigned = items.some(
+    (i) => i.step_key === "hired_by_employer" && i.is_completed === true,
+  );
+
   const reminders = useMemo(() => {
     return items
       .map((i) => ({ item: i, days: daysFromToday(i.due_at) }))
@@ -259,6 +271,11 @@ function VistoPage() {
 
   const toggle = async (item: Item) => {
     const next = !item.is_completed;
+    if (!canCompleteStep({ stepKey: item.step_key, contractSigned, willComplete: next })) {
+      toast.error(CONTRACT_GATE_BLOCKED_MESSAGE);
+      announce(CONTRACT_GATE_BLOCKED_MESSAGE);
+      return;
+    }
     await supabase
       .from("visa_checklist_items")
       .update({ is_completed: next, completed_at: next ? new Date().toISOString() : null })
@@ -466,22 +483,29 @@ function VistoPage() {
 
             <Card>
               <CardContent className="p-0 divide-y">
-                {phase.items.map((it) => (
-                  <ChecklistRow
-                    key={it.id}
-                    item={it}
-                    meta={STEP_META[it.step_key]}
-                    attachments={attByItem.get(it.id) ?? []}
-                    onToggle={() => toggle(it)}
-                    onDate={(field, value) => updateDate(it, field, value)}
-                    announce={announce}
-                    refetchAttachments={() => {
-                      qc.invalidateQueries({ queryKey: ["visa-attachments"] });
-                      qc.invalidateQueries({ queryKey: ["visa-history"] });
-                    }}
-                    onOpenViewer={(idx, list) => openViewer(list, idx, it.step_label)}
-                  />
-                ))}
+                {phase.items.map((it) => {
+                  const gateBlocked =
+                    !it.is_completed &&
+                    !contractSigned &&
+                    isContractGatedStep(it.step_key);
+                  return (
+                    <ChecklistRow
+                      key={it.id}
+                      item={it}
+                      meta={STEP_META[it.step_key]}
+                      attachments={attByItem.get(it.id) ?? []}
+                      gateBlocked={gateBlocked}
+                      onToggle={() => toggle(it)}
+                      onDate={(field, value) => updateDate(it, field, value)}
+                      announce={announce}
+                      refetchAttachments={() => {
+                        qc.invalidateQueries({ queryKey: ["visa-attachments"] });
+                        qc.invalidateQueries({ queryKey: ["visa-history"] });
+                      }}
+                      onOpenViewer={(idx, list) => openViewer(list, idx, it.step_label)}
+                    />
+                  );
+                })}
               </CardContent>
             </Card>
           </section>
@@ -515,6 +539,7 @@ function ChecklistRow({
   item,
   meta,
   attachments,
+  gateBlocked,
   onToggle,
   onDate,
   announce,
@@ -524,6 +549,12 @@ function ChecklistRow({
   item: Item;
   meta?: StepMeta;
   attachments: Attachment[];
+  /**
+   * true quando esta etapa só faz sentido após o contrato assinado
+   * (`hired_by_employer`) e ele ainda não foi marcado. Visualmente
+   * a linha fica atenuada e o checkbox desabilitado.
+   */
+  gateBlocked?: boolean;
   onToggle: () => void;
   onDate: (field: "event_at" | "due_at", value: string) => void;
   announce: (msg: string) => void;
@@ -534,22 +565,28 @@ function ChecklistRow({
   const dueDays = daysFromToday(item.due_at);
   const isLate = !checked && dueDays !== null && dueDays < 0;
   const isSoon = !checked && dueDays !== null && dueDays >= 0 && dueDays <= 7;
+  const blocked = !!gateBlocked;
 
   return (
     <div
       id={`step-${item.id}`}
+      data-gate-blocked={blocked ? "true" : undefined}
       className={
         "group p-4 transition-colors scroll-mt-20 " +
-        (checked ? "bg-primary/[0.03]" : "hover:bg-muted/40")
+        (checked ? "bg-primary/[0.03]" : "hover:bg-muted/40") +
+        (blocked ? " opacity-60" : "")
       }
     >
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
         <Checkbox
           checked={checked}
           onCheckedChange={onToggle}
+          disabled={blocked}
           aria-label={`Marcar etapa: ${item.step_label}`}
+          aria-describedby={blocked ? `gate-${item.id}` : undefined}
           className="mt-1 h-5 w-5"
         />
+
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div
@@ -572,6 +609,19 @@ function ChecklistRow({
               </a>
             )}
           </div>
+
+          {blocked && (
+            <p
+              id={`gate-${item.id}`}
+              className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-xs leading-snug text-warning-foreground"
+            >
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+              <span>
+                Disponível depois que você marcar <strong>“Oferta de trabalho aceita e contrato assinado”</strong> acima.
+              </span>
+            </p>
+          )}
+
 
           {meta?.help && (
             <p className="flex items-start gap-1.5 text-sm text-muted-foreground leading-relaxed">

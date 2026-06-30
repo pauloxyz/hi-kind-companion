@@ -384,7 +384,16 @@ export function AppShell({ children }: { children?: ReactNode }) {
         </div>
 
         {/* Journey Progress Card — densificado: avatar + nome/fase + barra numa só pilha */}
-        <div className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-3 mb-2 space-y-2.5">
+        {/*
+          Estrutura idêntica em loading e ready para preservar altura/largura
+          (sem layout shift). Mobile e desktop usam o mesmo card; o skeleton
+          troca apenas o conteúdo textual e a largura da barra, mantendo
+          altura dos slots (text-sm 14px, text-[10px] 12px, h-1.5 6px).
+        */}
+        <div
+          className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-3 mb-2 space-y-2.5"
+          aria-busy={!journeyDataReady}
+        >
           <div className="flex items-center gap-2.5">
             <div className="relative shrink-0">
               {photoUrl ? (
@@ -401,38 +410,68 @@ export function AppShell({ children }: { children?: ReactNode }) {
               <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-success ring-2 ring-sidebar-accent rounded-full" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-sidebar-foreground truncate leading-tight">
-                {fullName || "Olá!"}
+              {/* Slot do nome: altura constante = leading-tight de text-sm */}
+              <div className="text-sm font-semibold text-sidebar-foreground truncate leading-tight min-h-[1.05rem]">
+                {profileLoaded ? (fullName || "Olá!") : (
+                  <span className="inline-block h-3.5 w-24 rounded bg-sidebar-foreground/10 animate-pulse align-middle" aria-hidden />
+                )}
               </div>
-              <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-wider leading-tight mt-0.5">
+              {/* Slot da fase: altura constante = leading-tight de text-[10px] */}
+              <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-wider leading-tight mt-0.5 min-h-[0.85rem]">
                 {journeyDataReady ? (
                   <>Fase · {currentStage}</>
                 ) : (
-                  <span className="inline-block h-3 w-20 rounded bg-sidebar-foreground/10 animate-pulse align-middle" aria-label="Carregando fase" />
+                  <span
+                    className="inline-block h-2.5 w-20 rounded bg-sidebar-foreground/10 animate-pulse align-middle"
+                    aria-label="Carregando fase da jornada"
+                  />
                 )}
               </div>
             </div>
-            <span className="text-[11px] font-bold tabular-nums text-sidebar-primary shrink-0">
+            {/* Slot do %: largura fixa pra não saltar quando trocar de "—" → "100%" */}
+            <span
+              className="text-[11px] font-bold tabular-nums text-sidebar-primary shrink-0 text-right min-w-[2.5rem]"
+              aria-hidden={!journeyDataReady}
+            >
               {journeyDataReady ? `${progressPct}%` : "—"}
             </span>
           </div>
+          {/* Barra: mesma altura em loading; quando pendente, fundo pulsa e
+              barra interna some (width 0). Sem flash de progresso errado. */}
           <div
-            className="h-1.5 w-full bg-sidebar rounded-full overflow-hidden"
+            className={
+              "h-1.5 w-full bg-sidebar rounded-full overflow-hidden " +
+              (journeyDataReady ? "" : "animate-pulse")
+            }
             role="progressbar"
-            aria-valuenow={progressPct}
+            aria-valuenow={journeyDataReady ? progressPct : undefined}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label={`Progresso da jornada H-2A: ${progressPct}%, fase atual ${currentStage}, ${doneCount} de ${stages.length} etapas`}
+            aria-valuetext={journeyDataReady ? undefined : "carregando"}
+            aria-label={
+              journeyDataReady
+                ? `Progresso da jornada H-2A: ${progressPct}%, fase atual ${currentStage}, ${doneCount} de ${stages.length} etapas`
+                : "Carregando progresso da jornada H-2A"
+            }
           >
             <div
               className="h-full bg-sidebar-primary shadow-[0_0_10px_color-mix(in_oklab,var(--sidebar-primary)_45%,transparent)] transition-all duration-500"
-              style={{ width: `${progressPct}%` }}
+              style={{ width: journeyDataReady ? `${progressPct}%` : "0%" }}
             />
           </div>
-          <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50 tabular-nums">
-            {doneCount}/{stages.length} etapas
+          {/* Slot do contador: min-h preserva altura quando texto vira skeleton */}
+          <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50 tabular-nums min-h-[0.85rem]">
+            {journeyDataReady ? (
+              <>{doneCount}/{stages.length} etapas</>
+            ) : (
+              <span
+                className="inline-block h-2.5 w-16 rounded bg-sidebar-foreground/10 animate-pulse align-middle"
+                aria-hidden
+              />
+            )}
           </div>
         </div>
+
       </div>
 
       {/* Navigation */}
