@@ -27,7 +27,8 @@ import { pdf } from "@react-pdf/renderer";
 import { VideoScriptPdf } from "@/components/VideoScriptPdf";
 import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
 import { track, newCorrelationId } from "@/lib/telemetry";
-import { captureAiError, initSentry, setCorrelationId } from "@/lib/sentry";
+import { captureAiError, initSentry, setCorrelationId, addAiBreadcrumb } from "@/lib/sentry";
+import { runAiAttempt, type AiSinks } from "@/lib/ai-retry";
 import QRCode from "qrcode";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
@@ -75,6 +76,9 @@ function Page() {
   const [genMeta, setGenMeta] = useState(false);
 
   const [aiError, setAiError] = useState<AiErrorInfo | null>(null);
+  // Epoch ms when the banner transitioned to "ready" — used to compute
+  // waitedPastUnlockMs (banner-ready → retry-click latency) for telemetry.
+  const readyAtRef = useRef(0);
   const [nowTs, setNowTs] = useState(() => Date.now());
   useEffect(() => {
     if (!aiError || aiError.retryAt <= Date.now()) return;
@@ -85,6 +89,16 @@ function Page() {
     }, 500);
     return () => window.clearInterval(id);
   }, [aiError]);
+
+  // Shared sinks for runAiAttempt — same instance per action so breadcrumb
+  // and telemetry callsites all converge on the same Sentry/console writers.
+  const sinks = useMemo<AiSinks>(() => ({
+    track,
+    breadcrumb: addAiBreadcrumb,
+    capture: (err, tags, extra) => captureAiError(err, tags as Record<string, string | number | boolean | undefined>, extra),
+    now: () => Date.now(),
+  }), []);
+
 
 
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
@@ -198,44 +212,24 @@ function Page() {
     setActiveIdx(null);
   }
 
-  function handleAiError(action: "script" | "meta", e: unknown, startedAt: number, correlationId: string) {
-    const latencyMs = Date.now() - startedAt;
-    const raw = e instanceof Error ? e.message : String(e);
-    const m = raw.match(/^AI_ERR\|(\w+)\|(\d+)\|(.+)$/s);
-    if (m) {
-      const code = m[1] as AiErrorInfo["code"];
-      const retryAfter = parseInt(m[2], 10) || 0;
-      const msg = m[3];
-      console.warn("[ai-error]", { action, code, retryAfter, msg, latencyMs, correlationId, at: new Date().toISOString() });
-      track("ai_error", { action, code, retryAfter, latencyMs, correlationId });
-      captureAiError(e, { ai_action: action, ai_code: code, correlation_id: correlationId }, { retryAfter, latencyMs, msg });
-      setAiError({ action, code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
-      toast.error(msg);
-    } else {
-      console.warn("[ai-error]", { action, code: "other", msg: raw, latencyMs, correlationId, at: new Date().toISOString() });
-      track("ai_error", { action, code: "other", latencyMs, correlationId });
-      captureAiError(e, { ai_action: action, ai_code: "other", correlation_id: correlationId }, { latencyMs });
-      setAiError({ action, code: "other", msg: raw || "Erro inesperado.", retryAt: 0 });
-      toast.error(raw || "Erro");
-    }
-  }
-
   async function handleGenerate() {
     const isRetry = aiError?.action === "script";
     const correlationId = newCorrelationId();
     setCorrelationId(correlationId);
-    if (isRetry) {
-      const waitedPastUnlockMs = aiError?.retryAt ? Date.now() - aiError.retryAt : 0;
-      console.info("[ai-retry]", { action: "script", code: aiError?.code, waitedPastUnlockMs, correlationId });
-      track("ai_retry_click", { action: "script", code: aiError?.code, waitedPastUnlockMs, correlationId });
-    } else {
-      track("ai_generate_click", { action: "script", correlationId });
-    }
-    const startedAt = Date.now();
     setGenerating(true);
     setAiError((e) => (e?.action === "script" ? null : e));
-    try {
-      const r = await genFn({ data: { correlationId } });
+    const result = await runAiAttempt({
+      action: "script",
+      isRetry,
+      correlationId,
+      readyAt: readyAtRef.current,
+      previousCode: aiError?.code,
+      generator: () => genFn({ data: { correlationId } }),
+      sinks,
+    });
+    setGenerating(false);
+    if (result.ok) {
+      const r = result.value;
       setScriptPt(r.pt);
       setScriptEn(r.en);
       setBlocks(r.blocks);
@@ -244,14 +238,13 @@ function Page() {
       setYtMeta(null);
       try { sessionStorage.removeItem(META_CACHE_KEY); } catch { /* ignore */ }
       setAiError(null);
-      const latencyMs = Date.now() - startedAt;
-      track(isRetry ? "ai_retry_success" : "ai_generate_success", { action: "script", latencyMs, correlationId });
+      readyAtRef.current = 0;
       toast.success("Roteiro + pronúncia gerados ✓");
-    } catch (e) {
-      if (isRetry) track("ai_retry_failure", { action: "script", correlationId });
-      handleAiError("script", e, startedAt, correlationId);
-    } finally {
-      setGenerating(false);
+    } else {
+      const { code, retryAfter, msg } = result.error;
+      setAiError({ action: "script", code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
+      readyAtRef.current = 0;
+      toast.error(msg);
     }
   }
 
@@ -320,29 +313,29 @@ function Page() {
     const isRetry = aiError?.action === "meta";
     const correlationId = newCorrelationId();
     setCorrelationId(correlationId);
-    if (isRetry) {
-      const waitedPastUnlockMs = aiError?.retryAt ? Date.now() - aiError.retryAt : 0;
-      console.info("[ai-retry]", { action: "meta", code: aiError?.code, waitedPastUnlockMs, correlationId });
-      track("ai_retry_click", { action: "meta", code: aiError?.code, waitedPastUnlockMs, correlationId });
-    } else {
-      track("ai_generate_click", { action: "meta", correlationId });
-    }
-    const startedAt = Date.now();
     setGenMeta(true);
     setAiError((e) => (e?.action === "meta" ? null : e));
-    try {
-      const r = await ytMetaFn({ data: { correlationId } });
-      setYtMeta(r);
-      try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(r)); } catch { /* ignore */ }
+    const result = await runAiAttempt({
+      action: "meta",
+      isRetry,
+      correlationId,
+      readyAt: readyAtRef.current,
+      previousCode: aiError?.code,
+      generator: () => ytMetaFn({ data: { correlationId } }),
+      sinks,
+    });
+    setGenMeta(false);
+    if (result.ok) {
+      setYtMeta(result.value);
+      try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(result.value)); } catch { /* ignore */ }
       setAiError(null);
-      const latencyMs = Date.now() - startedAt;
-      track(isRetry ? "ai_retry_success" : "ai_generate_success", { action: "meta", latencyMs, correlationId });
+      readyAtRef.current = 0;
       toast.success("Conteúdo do YouTube gerado ✓");
-    } catch (e) {
-      if (isRetry) track("ai_retry_failure", { action: "meta", correlationId });
-      handleAiError("meta", e, startedAt, correlationId);
-    } finally {
-      setGenMeta(false);
+    } else {
+      const { code, retryAfter, msg } = result.error;
+      setAiError({ action: "meta", code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
+      readyAtRef.current = 0;
+      toast.error(msg);
     }
   }
 
@@ -404,6 +397,7 @@ function Page() {
             onRetry={handleGenerate}
             onDismiss={() => setAiError(null)}
             busy={generating}
+            onReady={(readyAt) => { readyAtRef.current = readyAt; }}
           />
 
           {needsRegenForBlocks && (
@@ -585,6 +579,7 @@ function Page() {
             onRetry={handleGenerateMeta}
             onDismiss={() => setAiError(null)}
             busy={genMeta}
+            onReady={(readyAt) => { readyAtRef.current = readyAt; }}
           />
 
           {!hasScript && (

@@ -13,6 +13,9 @@ export function initSentry(): void {
   Sentry.init({
     dsn,
     environment: import.meta.env.MODE,
+    // Release name comes from the Vite plugin / CI; falls back to undefined
+    // in dev (Sentry then auto-tags as "unknown").
+    release: import.meta.env.VITE_SENTRY_RELEASE as string | undefined,
     tracesSampleRate: 0.1,
   });
   initialized = true;
@@ -41,4 +44,24 @@ export function captureAiError(
 export function setCorrelationId(id: string): void {
   if (!initialized) return;
   Sentry.getCurrentScope().setTag("correlation_id", id);
+}
+
+/**
+ * Adds a breadcrumb for an AI retry-flow step. Always includes
+ * `correlation_id` in `data` so every breadcrumb in the trail can be joined
+ * to the matching client + server logs.
+ */
+export function addAiBreadcrumb(
+  message: string,
+  data: Record<string, unknown> & { correlationId: string },
+  level: "info" | "warning" | "error" = "info",
+): void {
+  if (typeof window === "undefined") return;
+  const { correlationId, ...rest } = data;
+  Sentry.addBreadcrumb({
+    category: "ai-retry",
+    message,
+    level,
+    data: { correlation_id: correlationId, ...rest },
+  });
 }
