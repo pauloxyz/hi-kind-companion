@@ -577,7 +577,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </div>
         )}
         <main id="main-content" className="flex-1 min-w-0" data-testid="app-main">
-          <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
+          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border/60 bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/70 p-3 lg:hidden">
             <button
               ref={menuTriggerRef}
               type="button"
