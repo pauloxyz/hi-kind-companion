@@ -216,6 +216,10 @@ csv_escape() {
 }
 
 if [ -n "${AGGREGATE_OUT_JSON:-}" ]; then
+  # Ensure the parent directory exists — the workflow points these
+  # paths at workspace-relative subdirs (e.g. `aggregate-stats/...`)
+  # so that GitHub Actions' hashFiles() can resolve them.
+  mkdir -p "$(dirname "$AGGREGATE_OUT_JSON")"
   _label_json="$(json_escape "${RUN_LABEL:-${label}}")"
   _phase_json="$(json_escape "${RUN_PHASE:-run1}")"
   cat > "$AGGREGATE_OUT_JSON" <<JSON
