@@ -373,7 +373,7 @@ function Dashboard() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="text-3xl font-bold text-primary">{stats.data?.score.total ?? 0}%</div>
+            <div className="font-display text-4xl sm:text-5xl font-bold leading-none tracking-tight text-primary tabular-nums">{stats.data?.score.total ?? 0}%</div>
             <Progress
               value={stats.data?.score.total ?? 0}
               className="flex-1"
