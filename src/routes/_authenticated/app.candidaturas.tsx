@@ -84,7 +84,7 @@ function Page() {
 
   const rows = query.data ?? [];
   const loading = query.isPending;
-  const errorMsg = query.error ? (query.error as Error).message : null;
+
 
   async function loadRows() {
     await qc.invalidateQueries({ queryKey: ["applications", "list"] });
