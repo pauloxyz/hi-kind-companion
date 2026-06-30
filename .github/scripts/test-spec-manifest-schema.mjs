@@ -230,6 +230,55 @@ function mkSpec(dir, slug, { trace, video, png } = {}) {
 }
 
 console.log();
+// ============================================================
+// Scenario 7: report present but index.html is tiny → index_too_small
+// ============================================================
+{
+  const work = mkdtempSync(path.join(tmpdir(), "manifest-7-"));
+  mkdirSync(path.join(work, "playwright-report"), { recursive: true });
+  writeFileSync(path.join(work, "playwright-report", "index.html"), "<html/>"); // 7 B
+  writeFileSync(path.join(work, "playwright-report", "app.js"), "x");
+  mkSpec(work, "spec-x", { trace: 4096 });
+  const { data } = runCollect(work);
+  console.log("scenario 7: index.html below MIN_REPORT_INDEX_BYTES");
+  check(data.has_report === 0,                       "s7: has_report flipped off");
+  check(data.report_reason === "index_too_small",    "s7: report_reason === index_too_small");
+  rmSync(work, { recursive: true, force: true });
+}
+
+// ============================================================
+// Scenario 8: report index.html sane, but no asset files → no_assets
+// ============================================================
+{
+  const work = mkdtempSync(path.join(tmpdir(), "manifest-8-"));
+  mkdirSync(path.join(work, "playwright-report"), { recursive: true });
+  writeFileSync(path.join(work, "playwright-report", "index.html"), "x".repeat(2048));
+  mkSpec(work, "spec-y", { trace: 4096 });
+  const { data } = runCollect(work);
+  console.log("scenario 8: report index.html alone (no assets)");
+  check(data.has_report === 0,                       "s8: has_report flipped off");
+  check(data.report_reason === "no_assets",          "s8: report_reason === no_assets");
+  rmSync(work, { recursive: true, force: true });
+}
+
+// ============================================================
+// Scenario 9: custom MIN_REPORT_INDEX_BYTES bypasses the index check
+// ============================================================
+{
+  const work = mkdtempSync(path.join(tmpdir(), "manifest-9-"));
+  mkdirSync(path.join(work, "playwright-report"), { recursive: true });
+  writeFileSync(path.join(work, "playwright-report", "index.html"), "<html/>"); // 7 B
+  writeFileSync(path.join(work, "playwright-report", "app.js"), "x");
+  mkSpec(work, "spec-z", { trace: 4096 });
+  const { data } = runCollect(work, { MIN_REPORT_INDEX_BYTES: "4" });
+  console.log("scenario 9: relaxed MIN_REPORT_INDEX_BYTES accepts tiny index");
+  check(data.has_report === 1,                       "s9: has_report ok with relaxed threshold");
+  check(data.report_reason === "ok",                 "s9: report_reason === ok");
+  check(data.min_report_index_bytes === 4,           "s9: threshold propagated");
+  rmSync(work, { recursive: true, force: true });
+}
+
+console.log();
 if (failed > 0) {
   console.error(`FAILED: ${failed} assertion(s), ${passed} passed.`);
   process.exit(1);
