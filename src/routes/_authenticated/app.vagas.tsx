@@ -248,7 +248,7 @@ function Page() {
       const result = await importFn({ data: { daysBack } });
       toast.success(`Importadas ${result.imported} vagas`);
       await load();
-    } catch (e) { toast.error("Falha ao importar: " + (e instanceof Error ? e.message : String(e))); }
+    } catch (e) { toastError(e, { title: "Falha ao importar vagas" }); }
     finally { setImporting(null); }
   }
 
