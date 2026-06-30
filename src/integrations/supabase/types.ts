@@ -734,6 +734,36 @@ export type Database = {
         }
         Relationships: []
       }
+      onboarding_events: {
+        Row: {
+          created_at: string
+          event: string
+          id: string
+          props: Json
+          step_index: number | null
+          step_label: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event: string
+          id?: string
+          props?: Json
+          step_index?: number | null
+          step_label?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event?: string
+          id?: string
+          props?: Json
+          step_index?: number | null
+          step_label?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       private_spike_alert_config: {
         Row: {
           enabled: boolean
