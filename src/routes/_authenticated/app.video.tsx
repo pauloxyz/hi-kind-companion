@@ -192,8 +192,24 @@ function Page() {
     setActiveIdx(null);
   }
 
+  function handleAiError(action: "script" | "meta", e: unknown) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const m = raw.match(/^AI_ERR\|(\w+)\|(\d+)\|(.+)$/s);
+    if (m) {
+      const code = m[1] as AiErrorInfo["code"];
+      const retryAfter = parseInt(m[2], 10) || 0;
+      const msg = m[3];
+      setAiError({ action, code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
+      toast.error(msg);
+    } else {
+      setAiError({ action, code: "other", msg: raw || "Erro inesperado.", retryAt: 0 });
+      toast.error(raw || "Erro");
+    }
+  }
+
   async function handleGenerate() {
     setGenerating(true);
+    setAiError((e) => (e?.action === "script" ? null : e));
     try {
       const r = await genFn();
       setScriptPt(r.pt);
@@ -204,9 +220,10 @@ function Page() {
       // Invalidate cached metadata — script changed
       setYtMeta(null);
       try { sessionStorage.removeItem(META_CACHE_KEY); } catch { /* ignore */ }
+      setAiError(null);
       toast.success("Roteiro + pronúncia gerados ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro");
+      handleAiError("script", e);
     } finally {
       setGenerating(false);
     }
