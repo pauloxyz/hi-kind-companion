@@ -94,11 +94,8 @@ describe("ChecklistRow — a11y do gate de contrato", () => {
     it("marca o ícone do banner como aria-hidden (decorativo)", () => {
       renderRow({ gateBlocked: true });
       const banner = document.getElementById("gate-item-ds160")!;
-      const icon = within(banner).getAllByRole("presentation", { hidden: true });
-      // Fallback resiliente: alguns ícones lucide expõem aria-hidden via
-      // atributo, sem role explícito. Aceitamos as duas formas.
-      const hasAriaHidden = banner.querySelector("svg[aria-hidden]");
-      expect(icon.length > 0 || hasAriaHidden !== null).toBe(true);
+      const hiddenSvg = banner.querySelector("svg[aria-hidden]");
+      expect(hiddenSvg, "ícone do banner deve ter aria-hidden").not.toBeNull();
     });
 
     it("marca o container da row com data-gate-blocked='true'", () => {
