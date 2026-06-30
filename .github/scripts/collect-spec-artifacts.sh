@@ -47,12 +47,18 @@ filesize() {
 # Largest file matching a glob, or empty string if none. We use the
 # biggest match because retries may leave multiple traces/videos in the
 # same folder and the freshest/largest one is the most useful.
+# Largest file matching a glob, or empty string if none. We use the
+# biggest match because retries may leave multiple traces/videos in the
+# same folder and the freshest/largest one is the most useful. Empty
+# files (0 B) still count as "found" so the renderer can classify them
+# as `empty` instead of mislabeling them `absent` — initial sentinel
+# is -1 so the first match wins regardless of size.
 largest_match() {
   local best=""
-  local best_size=0
+  local best_size=-1
   shopt -s nullglob
   for f in "$@"; do
-    [ -f "$f" ] || continue
+    [ -e "$f" ] || continue
     local s
     s="$(filesize "$f")"
     if [ "$s" -gt "$best_size" ]; then
