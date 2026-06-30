@@ -125,7 +125,9 @@ function PerfilPage() {
           public_slug: data.public_slug ?? "",
           public_headline: data.public_headline ?? "",
           public_page_enabled: data.public_page_enabled ?? true,
+          youtube_video_url: data.youtube_video_url ?? "",
         });
+
         const { count } = await supabase.from("profile_views").select("*", { count: "exact", head: true });
         setViewCount(count ?? 0);
       } catch (err) {
