@@ -401,14 +401,7 @@ jobs:
       - name: Collect spec titles with artifacts (shard ${{ matrix.shard }} run1)
         id: spec_titles_full_run1
         if: ${{ !cancelled() }}
-        run: |
-          {
-            if [ -d test-results ]; then
-              find test-results -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-                | sort -u
-            fi
-          } > /tmp/spec-titles-full-${{ matrix.shard }}-run1.txt
-          echo "count=$(wc -l < /tmp/spec-titles-full-${{ matrix.shard }}-run1.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-full-${{ matrix.shard }}-run1.tsv
 
       - name: Upload Playwright artifacts (shard ${{ matrix.shard }} run1)
         id: upload_full_run1
@@ -425,7 +418,7 @@ jobs:
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
-      - name: Shard ${{ matrix.shard }} run1 summary (artifact link + spec titles or green fallback)
+      - name: Shard ${{ matrix.shard }} run1 summary (per-spec trace/video links or green fallback)
         if: ${{ !cancelled() }}
         env:
           ARTIFACT_URL: ${{ steps.upload_full_run1.outputs.artifact-url }}
@@ -439,19 +432,8 @@ jobs:
             if [ "${{ job.status }}" = "success" ]; then
               echo "✅ All specs in shard ${SHARD}/4 passed — no trace/video produced."
             elif [ -n "${ARTIFACT_URL}" ]; then
-              echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report:"
-              echo
-              echo "- [Download \`playwright-artifacts-shard-${SHARD}-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL})"
-              echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
-              echo "- Artifact retention: **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days** (auto-cleaned by GitHub)."
-              if [ -s /tmp/spec-titles-full-${SHARD}-run1.txt ]; then
-                echo
-                echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
-                echo
-                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle for shard ${SHARD}/4 (attempt ${ATTEMPT})"; done < /tmp/spec-titles-full-${SHARD}-run1.txt
-                echo
-                echo "</details>"
-              fi
+              echo "Bundle: [\`playwright-artifacts-shard-${SHARD}-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL}) — retention **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days**."
+              bash .github/scripts/render-spec-summary.sh "/tmp/spec-titles-full-${SHARD}-run1.tsv" "${ARTIFACT_URL}" "Failed specs (shard ${SHARD}/4)"
             else
               echo "⚠️ No Playwright artifacts were produced (shard ${SHARD}/4 failed before tests ran). Check the job logs above."
             fi
