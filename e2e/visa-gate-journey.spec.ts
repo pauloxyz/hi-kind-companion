@@ -282,8 +282,10 @@ for (const vp of VIEWPORTS) {
       await expect(card).toHaveAttribute("aria-busy", "true");
 
       // (b) Durante o loading NÃO existe "Fase · X" no card — só skeleton.
-      const phasesVisible = await card.locator("text=/^Fase\\s+·/").count();
-      expect(phasesVisible, "card não deve renderizar 'Fase · X' enquanto carrega").toBe(0);
+      const phasesVisible = await card.evaluate((el) =>
+        /Fase\s+·\s+\S+/.test((el.textContent ?? "").replace(/\s+/g, " ")),
+      );
+      expect(phasesVisible, "card não deve renderizar 'Fase · X' enquanto carrega").toBe(false);
 
       // (c) Progressbar interno expõe aria-valuetext="carregando" e
       //     aria-valuenow ausente — nunca um número falso (ex.: 0% ou 20%).
