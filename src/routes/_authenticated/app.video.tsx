@@ -292,13 +292,15 @@ function Page() {
   async function handleGenerateMeta() {
     if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
     setGenMeta(true);
+    setAiError((e) => (e?.action === "meta" ? null : e));
     try {
       const r = await ytMetaFn();
       setYtMeta(r);
       try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(r)); } catch { /* ignore */ }
+      setAiError(null);
       toast.success("Conteúdo do YouTube gerado ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro");
+      handleAiError("meta", e);
     } finally {
       setGenMeta(false);
     }
