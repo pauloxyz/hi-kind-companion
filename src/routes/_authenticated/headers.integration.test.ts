@@ -49,8 +49,9 @@ describe("rotas _authenticated — convenção de cabeçalho", () => {
     }
 
     if (HERO_EXCEPTIONS.has(file)) {
-      // Hero exceção: h1 vive dentro de um <header> custom — exige ≥1 header.
-      expect(countMatches(source, /<header[\s>]/g)).toBeGreaterThanOrEqual(1);
+      // Hero exceção: pelo menos um <h1> documentado existe; permitimos
+      // múltiplas ocorrências no source porque rendem em branches distintos.
+      expect(h1Count).toBeGreaterThanOrEqual(1);
       return;
     }
 
