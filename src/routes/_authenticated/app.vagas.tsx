@@ -239,8 +239,6 @@ function Page() {
 
 
 
-  useEffect(() => { void load(); }, []);
-
   async function runImport(daysBack: number, label: "daily" | "backfill") {
     setImporting(label);
     try {
