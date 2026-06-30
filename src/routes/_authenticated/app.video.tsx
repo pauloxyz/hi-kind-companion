@@ -157,6 +157,10 @@ function Page() {
   const [savingUrl, setSavingUrl] = useState(false);
   const [exporting, setExporting] = useState(false);
 
+  // YouTube metadata + SRT
+  const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
+  const [genMeta, setGenMeta] = useState(false);
+
   // Practice mode
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
