@@ -485,6 +485,22 @@ function PerfilPage() {
             />
             <p className="text-xs text-muted-foreground">A IA usa seu currículo (experiências, habilidades, resumo) para criar uma frase que chame atenção do empregador. Revise antes de salvar.</p>
           </div>
+          <div className="space-y-1">
+            <Label htmlFor={ids.youtube}>Vídeo de apresentação no YouTube</Label>
+            <Input
+              id={ids.youtube}
+              type="url"
+              inputMode="url"
+              value={form.youtube_video_url}
+              onChange={(e) => setForm({ ...form, youtube_video_url: e.target.value })}
+              placeholder="https://youtu.be/..."
+              aria-describedby={`${ids.youtube}-help`}
+            />
+            <p id={`${ids.youtube}-help`} className="text-xs text-muted-foreground">
+              Suba seu vídeo no YouTube como <strong>“Não listado”</strong> (só quem tem o link acessa). Cole o link aqui — ele aparece embutido na sua página pública. Recomendado: 1 a 2 minutos, direto ao ponto.
+            </p>
+
+          </div>
           <div className="rounded-md bg-muted/40 p-3 text-sm">
             <span className="font-semibold">{viewCount ?? "…"}</span> visualização(ões) registrada(s) na sua página.
           </div>
