@@ -64,6 +64,7 @@ function PublicProfilePage() {
   }, [slug]);
 
   const { profile, experiences, skills, media, video } = data;
+  const ytId = parseYouTubeId(profile.youtube_video_url);
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-background to-muted/30">
@@ -89,12 +90,25 @@ function PublicProfilePage() {
           </div>
         </header>
 
-        {/* Intro video */}
-        {video && (
+        {/* Vídeo: preferir YouTube (unlisted) ao bucket interno.
+            youtube-nocookie reduz rastreamento e cookies de terceiros. */}
+        {ytId ? (
+          <section className="rounded-xl overflow-hidden bg-black shadow-lg aspect-video">
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1`}
+              title="Candidate introduction video"
+              className="w-full h-full"
+              loading="lazy"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </section>
+        ) : video ? (
           <section className="rounded-xl overflow-hidden bg-black shadow-lg">
             <video src={video.url} controls playsInline className="w-full aspect-video" />
           </section>
-        )}
+        ) : null}
+
 
         {/* Skills */}
         {skills.length > 0 && (
