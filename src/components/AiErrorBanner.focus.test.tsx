@@ -58,7 +58,7 @@ describe("AiErrorBanner focus integration", () => {
 
     // While waiting, retry is disabled — focus must NOT auto-move.
     const retry = getByTestId("ai-error-retry") as HTMLButtonElement;
-    expect(retry).toBeDisabled();
+    expect(retry.disabled).toBe(true);
     expect(document.activeElement).toBe(outside);
 
     // Drive the countdown to 0 — banner should flip to "ready" and grab focus.
@@ -66,7 +66,7 @@ describe("AiErrorBanner focus integration", () => {
       getByTestId("tick").click();
     });
 
-    expect(retry).not.toBeDisabled();
+    expect(retry.disabled).toBe(false);
     expect(document.activeElement).toBe(retry);
 
     // The dedicated assertive live region carries the announcement text.
