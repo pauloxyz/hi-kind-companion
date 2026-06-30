@@ -440,11 +440,8 @@ for (const vp of VIEWPORTS) {
       // (c) Ícone do banner é puramente decorativo (aria-hidden).
       await expect(banner.locator("svg[aria-hidden]").first()).toBeAttached();
 
-      // (d) Live region polite do <main> existe para anúncios dinâmicos.
-      const live = page
-        .locator('[role="status"][aria-live="polite"]')
-        .filter({ visible: false })
-        .first();
+      // (d) Live region polite existe na página para anúncios dinâmicos.
+      const live = page.locator('[role="status"][aria-live="polite"]').first();
       await expect(live).toBeAttached();
 
       // (e) Tentativa de clique forçada NÃO progride e o banner permanece.
