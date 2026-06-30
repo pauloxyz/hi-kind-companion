@@ -610,6 +610,19 @@ function ChecklistRow({
             )}
           </div>
 
+          {blocked && (
+            <p
+              id={`gate-${item.id}`}
+              className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-xs leading-snug text-warning-foreground"
+            >
+              <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
+              <span>
+                Disponível depois que você marcar <strong>“Oferta de trabalho aceita e contrato assinado”</strong> acima.
+              </span>
+            </p>
+          )}
+
+
           {meta?.help && (
             <p className="flex items-start gap-1.5 text-sm text-muted-foreground leading-relaxed">
               <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-60" aria-hidden />
