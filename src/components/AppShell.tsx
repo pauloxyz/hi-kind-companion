@@ -7,7 +7,7 @@ import { logAccountEvent } from "@/lib/security-audit.functions";
 import {
   LayoutDashboard, User, FileText, Image as ImageIcon, Video, Briefcase,
   Send, Bell, Building2, Stamp, LogOut, Menu, X, Sparkles, GraduationCap,
-  Sun, Moon, Monitor, Shield, Settings, Search, Mail,
+  Sun, Moon, Monitor, Shield, Settings, Search, Mail, Lock,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useI18n } from "@/lib/i18n";
@@ -31,6 +31,8 @@ type NavItem = {
   highlight?: boolean;
   badgeKey?: "unreadReplies";
   countKey?: "savedJobs" | "applications";
+  /** When true, the item is shown disabled with a lock icon while the user hasn't finished the onboarding. Perfil/Configurações ficam sempre abertos. */
+  requiresOnboarding?: boolean;
 };
 type NavGroup = { label: string; items: NavItem[] };
 
@@ -44,20 +46,20 @@ const groups: NavGroup[] = [
     label: "Preparação",
     items: [
       { to: "/app/perfil", labelKey: "profile", icon: User },
-      { to: "/app/curriculo", labelKey: "resume", icon: FileText },
-      { to: "/app/midia", labelKey: "media", icon: ImageIcon },
-      { to: "/app/video", labelKey: "intro_video", icon: Video },
-      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap },
-      { to: "/app/visto", labelKey: "visa", icon: Stamp },
+      { to: "/app/curriculo", labelKey: "resume", icon: FileText, requiresOnboarding: true },
+      { to: "/app/midia", labelKey: "media", icon: ImageIcon, requiresOnboarding: true },
+      { to: "/app/video", labelKey: "intro_video", icon: Video, requiresOnboarding: true },
+      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap, requiresOnboarding: true },
+      { to: "/app/visto", labelKey: "visa", icon: Stamp, requiresOnboarding: true },
     ],
   },
   {
     label: "Busca de vagas",
     items: [
-      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase, countKey: "savedJobs" },
-      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies", countKey: "applications" },
-      { to: "/app/followups", labelKey: "followups", icon: Bell },
-      { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
+      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase, countKey: "savedJobs", requiresOnboarding: true },
+      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies", countKey: "applications", requiresOnboarding: true },
+      { to: "/app/followups", labelKey: "followups", icon: Bell, requiresOnboarding: true },
+      { to: "/app/empregadores", labelKey: "employers", icon: Building2, requiresOnboarding: true },
     ],
   },
   {
@@ -67,6 +69,7 @@ const groups: NavGroup[] = [
     ],
   },
 ];
+
 
 const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] = [
   { code: "pt", label: "PT", flag: "🇧🇷" },
@@ -303,6 +306,35 @@ export function AppShell({ children }: { children?: ReactNode }) {
     const badgeLoading = it.badgeKey != null && badge === null;
     const hasCount = typeof count === "number" && count > 0;
     const hasBadge = typeof badge === "number" && badge > 0;
+    const locked = !!it.requiresOnboarding && showOnboarding;
+
+    if (locked) {
+      return (
+        <button
+          key={it.to}
+          type="button"
+          onClick={() => {
+            toast.info("Complete seu perfil para destravar esta seção.", {
+              action: {
+                label: "Continuar perfil",
+                onClick: () => { navigate({ to: "/app/comecar" }); setOpen(false); },
+              },
+            });
+          }}
+          aria-disabled="true"
+          aria-describedby={`nav-${it.labelKey}-locked-hint`}
+          className="group relative flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-sidebar-foreground/35 cursor-not-allowed hover:bg-sidebar-accent/30 transition-colors text-left"
+        >
+          <Icon className="size-[18px] shrink-0 opacity-50" />
+          <span className="flex-1 truncate font-medium">{t(it.labelKey)}</span>
+          <Lock className="h-3.5 w-3.5 opacity-70" aria-hidden />
+          <span id={`nav-${it.labelKey}-locked-hint`} className="sr-only">
+            Bloqueado até concluir o onboarding
+          </span>
+        </button>
+      );
+    }
+
     return (
       <Link
         key={it.to}
@@ -348,6 +380,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </Link>
     );
   };
+
 
   const Sidebar = (
     <nav
@@ -499,6 +532,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <div className="space-y-0.5">
               {renderItem({ to: "/app/auditoria", labelKey: "Auditoria", icon: Shield })}
               {renderItem({ to: "/admin/seo", labelKey: "SEO scans", icon: Search })}
+              {renderItem({ to: "/admin/security", labelKey: "Security scans", icon: Shield })}
+              {renderItem({ to: "/admin/onboarding", labelKey: "Funil onboarding", icon: Sparkles })}
               {renderItem({ to: "/app/admin/emails", labelKey: "E-mails", icon: Mail })}
             </div>
           </section>

@@ -9,6 +9,23 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { track } from "@/lib/telemetry";
+import { logOnboardingEvent } from "@/lib/onboarding-events.functions";
+
+/** Mirror every funnel `track()` to the server (auditable, survives nav-away). */
+function mirror(event: string, step?: number, label?: string, props?: Record<string, unknown>) {
+  track(event, { step, label, ...(props ?? {}) });
+  // fire-and-forget; never block the UI on the network
+  void logOnboardingEvent({
+    data: {
+      event,
+      step_index: typeof step === "number" ? step : null,
+      step_label: label ?? null,
+      props: props ?? {},
+    },
+  }).catch(() => {
+    /* offline / nav-away: client track() still fired */
+  });
+}
 import { ProfilePreview } from "@/components/ProfilePreview";
 import {
   ArrowRight, ArrowLeft, Sparkles, Tractor, HeartPulse, Send,
@@ -179,7 +196,7 @@ function OnboardingPage() {
         setStep(Math.min(Math.max(saved, 0), TOTAL_STEPS - 1));
       }
       setLoading(false);
-      track("onboarding_started");
+      mirror("onboarding_started", 0, STEP_LABELS[0]);
     })();
   }, [navigate]);
 
@@ -217,13 +234,9 @@ function OnboardingPage() {
       if (error) throw error;
       setForm(merged);
       setStep(nextStep);
-      track("onboarding_step_advanced", {
-        from: step,
-        to: nextStep,
-        label: STEP_LABELS[nextStep],
-      });
+      mirror("onboarding_step_advanced", nextStep, STEP_LABELS[nextStep], { from: step });
       if (isCompletion) {
-        track("onboarding_completed", {
+        mirror("onboarding_completed", nextStep, STEP_LABELS[nextStep], {
           has_experience: merged.field_experience.length > 0,
           has_physical: merged.physical_conditions.length > 0,
         });
@@ -238,7 +251,7 @@ function OnboardingPage() {
   };
 
   const goStep = (next: number) => {
-    track("onboarding_step_advanced", { from: step, to: next, label: STEP_LABELS[next] });
+    mirror("onboarding_step_advanced", next, STEP_LABELS[next], { from: step, nav: "manual" });
     setStep(next);
   };
 
@@ -707,14 +720,14 @@ function Step5Done({ form }: { form: FormState }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       toast.success("Link copiado!");
-      track("onboarding_link_copied");
+      mirror("onboarding_link_copied");
     } catch {
       toast.error("Não consegui copiar — selecione e copie manualmente.");
     }
   };
 
   const handleSendWhatsApp = () => {
-    track("onboarding_whatsapp_send_clicked", { has_url: !!publicUrl });
+    mirror("onboarding_whatsapp_send_clicked", undefined, undefined, { has_url: !!publicUrl });
     setSent(true);
   };
 
@@ -759,7 +772,7 @@ function Step5Done({ form }: { form: FormState }) {
               target="_blank"
               rel="noopener noreferrer"
               className="block"
-              onClick={() => track("onboarding_whatsapp_send_again_clicked")}
+              onClick={() => mirror("onboarding_whatsapp_send_again_clicked")}
             >
               <Button className="w-full h-11 bg-[#25D366] hover:bg-[#1ebe5a] text-white">
                 <MessageCircle className="mr-2 h-4 w-4" /> Enviar para outro contato
@@ -771,7 +784,7 @@ function Step5Done({ form }: { form: FormState }) {
             </div>
 
             <div className="pt-3 border-t flex flex-wrap gap-2">
-              <Link to="/app/perfil" onClick={() => track("onboarding_edit_profile_clicked")}>
+              <Link to="/app/perfil" onClick={() => mirror("onboarding_edit_profile_clicked")}>
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar e editar meu perfil
                 </Button>

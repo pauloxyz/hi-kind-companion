@@ -107,3 +107,75 @@ RLS já cobre `profiles`. Adicionar GRANT só se coluna nova precisar.
 - Inbox interno de mensagens com recrutador.
 - Match algorítmico perfil ↔ vaga.
 - Notificações push.
+
+---
+
+# Onda 2 — Plano Free vs Pro (a implementar por feature)
+
+Decidido com o usuário: além do **Curso de inglês H-2A completo**, as features
+abaixo são exclusivas do plano Pro. Cada uma vira uma rodada própria, com
+schema + server fn + UI + gating por `public.is_pro(auth.uid())`.
+
+## Feature flag pattern
+
+Toda feature Pro deve passar por um único helper client:
+
+```ts
+// src/lib/is-pro.ts
+export function useIsPro(): { isPro: boolean; loading: boolean }
+```
+
+e por gate server-side dentro da própria server fn (nunca confiar só no client).
+
+## Roadmap Pro
+
+1. **Múltiplos currículos/perfis** — tabela `profile_variants` (id, owner_id,
+   label, role_focus, field_experience[], physical[], summary). UI: seletor no
+   `/app/perfil` e no envio do WhatsApp ("Qual currículo enviar?").
+2. **Tradução automática PT→EN** do currículo e da mensagem do WhatsApp.
+   Server fn `translateResume`/`translateMessage` via Lovable AI (já temos
+   gateway). Free vê preview com 1 frase traduzida + CTA "Liberar tradução
+   completa no Pro".
+3. **Histórico de candidaturas** — visualizações, status (enviado, visto,
+   respondido). Extender `applications` + nova `application_views`. Painel em
+   `/app/candidaturas` com timeline.
+4. **Perfil em destaque + selo Verificado PRO** — coluna `featured_until`,
+   ordenação no /v listing dos recrutadores, badge no `/v/:slug`.
+5. **Notificação prioritária** — novo dispatch que entrega para Pro X minutos
+   antes do free quando uma vaga compatível é importada.
+6. **Simulado de entrevista** — `/app/ingles/entrevista`: IA simula recrutador
+   em inglês, dá feedback de pronúncia/conteúdo via Lovable AI.
+7. **Checklist de visto interativo** (parte avançada) — prazos, lembretes por
+   e-mail; o checklist base já existe, expandimos com cronograma e alertas.
+8. **Verificação de recrutador/produtor** — fluxo de submissão de docs +
+   selo "Empresa verificada" no `/v/empresas/:id`.
+9. **Suporte prioritário** — fila separada no /app/configuracoes/suporte;
+   apenas Pro vê o canal WhatsApp/chat direto.
+10. **Estatísticas do perfil** — `profile_views` já existe; surface em
+    `/app/perfil` apenas para Pro (quantas views, de qual estado americano,
+    taxa de resposta).
+
+## Já no Free
+
+- Onboarding completo (6 telas).
+- Perfil público `/v/:slug` enviável por WhatsApp.
+- Vagas + filtros básicos, candidatura simples.
+- Módulo 1 do curso de inglês.
+- 1 currículo.
+
+---
+
+# Onda 1 — Entregue nesta rodada
+
+- Tabela `public.onboarding_events` (RLS por user, leitura admin).
+- Trigger `validate_my_profile_input` no servidor: idade 16–80, UF /^[A-Z]{2}$/,
+  WhatsApp 10–15 dígitos. Normaliza UF e telefone.
+- Server fn `logOnboardingEvent` espelhando cada `track()` do client.
+- Server fn `getOnboardingFunnel` (admin) agregando eventos + snapshot
+  `my_profile.onboarding_step`.
+- Painel admin `/admin/onboarding` com KPIs, funil por etapa, distribuição
+  atual e eventos recentes.
+- Sidebar trava itens com `requiresOnboarding` enquanto onboarding incompleto;
+  Perfil e Configurações ficam sempre acessíveis (precisa terminar o cadastro).
+- E2E spec `e2e/onboarding.spec.ts` cobrindo validação, geração do link do
+  WhatsApp e tela de confirmação.
