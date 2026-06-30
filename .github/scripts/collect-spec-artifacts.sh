@@ -33,10 +33,32 @@ out_json="${2:-}"
 
 MIN_TRACE_BYTES="${MIN_TRACE_BYTES:-1024}"
 MIN_VIDEO_BYTES="${MIN_VIDEO_BYTES:-4096}"
+MIN_REPORT_INDEX_BYTES="${MIN_REPORT_INDEX_BYTES:-1024}"
 ATTEMPT="${GITHUB_RUN_ATTEMPT:-1}"
 
+# Report consistency check — a healthy Playwright HTML report has:
+#   - playwright-report/index.html, non-trivial size (> MIN_REPORT_INDEX_BYTES)
+#   - at least one supporting asset (the JS bundle, trace/, data/, …)
+# Anything less is a broken/partial report and gets surfaced via
+# `report_reason` so the summary doesn't link to an empty page.
+report_reason="absent"
 has_report=0
-if [ -f playwright-report/index.html ]; then has_report=1; fi
+if [ -f playwright-report/index.html ]; then
+  _idx_size="$(stat -c%s playwright-report/index.html 2>/dev/null || stat -f%z playwright-report/index.html 2>/dev/null || echo 0)"
+  if [ "${_idx_size:-0}" -lt "$MIN_REPORT_INDEX_BYTES" ]; then
+    report_reason="index_too_small"
+  else
+    # `-mindepth 1 -not -name index.html` finds anything else under the
+    # report dir — bundled JS, screenshots, the trace viewer, etc.
+    _extra="$(find playwright-report -mindepth 1 -not -name index.html -print -quit 2>/dev/null || true)"
+    if [ -z "${_extra:-}" ]; then
+      report_reason="no_assets"
+    else
+      report_reason="ok"
+      has_report=1
+    fi
+  fi
+fi
 
 # Portable file-size helper (GNU stat on Linux, BSD stat on macOS).
 filesize() {
