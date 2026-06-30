@@ -397,6 +397,7 @@ function Page() {
             onRetry={handleGenerate}
             onDismiss={() => setAiError(null)}
             busy={generating}
+            onReady={(readyAt) => { readyAtRef.current = readyAt; }}
           />
 
           {needsRegenForBlocks && (
@@ -578,6 +579,7 @@ function Page() {
             onRetry={handleGenerateMeta}
             onDismiss={() => setAiError(null)}
             busy={genMeta}
+            onReady={(readyAt) => { readyAtRef.current = readyAt; }}
           />
 
           {!hasScript && (
