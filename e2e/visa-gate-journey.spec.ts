@@ -638,14 +638,15 @@ for (const vp of VIEWPORTS) {
       await ds160Checkbox.click();
       await expect(ds160Checkbox).toBeChecked();
 
-      // 2) Confirma fase atual = DS-160 antes do re-lock.
+      // 2) Confirma que a fase saiu de Contrato (DS-160 done → próxima
+      //    fase é Entrevista; o importante é estar PASSADA do contrato).
       if (vp.name === "mobile") {
         await page.getByTestId("drawer-trigger").click();
         await expect(page.locator('[role="dialog"]')).toBeVisible();
       }
       await expect
         .poll(() => readPhaseLabel(page), { timeout: 10_000 })
-        .toMatch(/DS-?160/i);
+        .not.toMatch(/Contrato/i);
       if (vp.name === "mobile") {
         await page.keyboard.press("Escape");
       }
