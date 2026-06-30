@@ -25,11 +25,11 @@ jobs:
       - name: Build
         run: bun run build
         env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_dummy
-          VITE_SUPABASE_PROJECT_ID: example
-          SUPABASE_URL: https://example.supabase.co
-          SUPABASE_PUBLISHABLE_KEY: sb_publishable_dummy
+          VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+          VITE_SUPABASE_PROJECT_ID: lkvfvriexuxlvrufbqbf
+          SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
 
   e2e:
     runs-on: ubuntu-latest
@@ -46,11 +46,11 @@ jobs:
       - name: Build
         run: bun run build
         env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_dummy
-          VITE_SUPABASE_PROJECT_ID: example
-          SUPABASE_URL: https://example.supabase.co
-          SUPABASE_PUBLISHABLE_KEY: sb_publishable_dummy
+          VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+          VITE_SUPABASE_PROJECT_ID: lkvfvriexuxlvrufbqbf
+          SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
       - name: Start preview server
         run: |
           bun run dev > /tmp/dev.log 2>&1 &
@@ -62,11 +62,18 @@ jobs:
             sleep 1
           done
         env:
-          VITE_SUPABASE_URL: https://example.supabase.co
-          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_dummy
-          VITE_SUPABASE_PROJECT_ID: example
+          VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+          VITE_SUPABASE_PROJECT_ID: lkvfvriexuxlvrufbqbf
+          SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
       - name: Run E2E smoke tests
         run: bunx playwright test --reporter=line
+        env:
+          E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+          E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+          E2E_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          E2E_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
       - name: Stop preview server
         if: always()
         run: kill $(cat /tmp/dev.pid) || true
