@@ -69,6 +69,8 @@ jobs:
           VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
           VITE_SUPABASE_PROJECT_ID: lkvfvriexuxlvrufbqbf
+          SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
       - name: Run E2E smoke tests
         run: bunx playwright test --reporter=line
         env:
