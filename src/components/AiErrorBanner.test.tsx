@@ -31,7 +31,7 @@ describe("AiErrorBanner", () => {
     expect(out).toContain("Muitas requisições.");
     expect(out).toContain("Aguarde 12s para tentar de novo");
     // Retry button is disabled while waiting.
-    expect(out).toMatch(/data-testid="ai-error-retry"[^>]*disabled/);
+    expect(out).toMatch(/disabled=""[^>]*data-testid="ai-error-retry"/);
     expect(out).toMatch(/data-waiting="1"/);
     // No "ready" badge until the countdown expires.
     expect(out).not.toContain("ai-error-ready");
@@ -45,7 +45,7 @@ describe("AiErrorBanner", () => {
     expect(out).toContain("Tentar de novo");
     expect(out).not.toContain("Aguarde");
     expect(out).toMatch(/data-waiting="0"/);
-    expect(out).not.toMatch(/data-testid="ai-error-retry"[^>]*disabled/);
+    expect(out).not.toMatch(/disabled=""[^>]*data-testid="ai-error-retry"/);
     expect(out).toContain("Pronto — pode tentar de novo");
   });
 
@@ -67,7 +67,7 @@ describe("AiErrorBanner", () => {
       0,
       true,
     );
-    expect(out).toMatch(/data-testid="ai-error-retry"[^>]*disabled/);
+    expect(out).toMatch(/disabled=""[^>]*data-testid="ai-error-retry"/);
   });
 
   it("exposes data-code and data-action so the page can target the right banner", () => {
