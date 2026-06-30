@@ -1,99 +1,93 @@
-# Currículo H-2A v2 + Vídeo via YouTube
+## Diagnóstico
 
-Baseado no modelo enviado: PDF de 2 páginas com sidebar azul-marinho, foto de perfil circular e grid 2×3 de fotos de trabalho na página 2.
+Investiguei o app de quatro ângulos. Os principais gargalos:
 
-## 1. Novo gerador de PDF (`ResumePdfDocument.tsx`)
+**Banco (medido via slow_queries — top ofensores por tempo total):**
+- `jobs WHERE imported_at >= ?` — 1.381 chamadas, **18,4s acumulados**, 13ms médios. Sem índice em `imported_at`.
+- `jobs ORDER BY posted_date DESC NULLS LAST LIMIT/OFFSET` — 412 chamadas, **5,3s**. Sem índice em `posted_date`.
+- `applications WHERE responded_at >= ?` — 3.858 chamadas, 1,2s. Sem índice em `responded_at`.
+- `applications ORDER BY` em listas do dono — sem índice composto `(owner_id, sent_at DESC)`.
 
-Reescrever o componente `@react-pdf/renderer` pra refletir o modelo:
+**Data fetching (estrutural):**
+- **Zero rotas** usam `ensureQueryData` + `useSuspenseQuery` (o padrão recomendado pelo TanStack Start).
+- 13 rotas autenticadas usam `useQuery` + `isLoading` no render, criando spinners em cascata e bloqueando o paint inicial.
+- Só 4 rotas (vagas/perfil público) têm `loader`. Em todas as outras, o componente monta vazio, faz fetch e re-renderiza.
+- `useEffect` ausente do grep — bom, mas o problema migrou pra `useQuery` puro.
 
-**Página 1** — 2 colunas
-- Sidebar esquerda (~32% largura, fundo `#1a3a6e`, texto branco):
-  - Foto de perfil circular no topo (do `profile-photos` bucket)
-  - Email, telefone
-  - SKILLS (lista com bullets)
-  - EDUCATION
-  - LANGUAGE (Portuguese / English level)
-- Coluna direita (fundo `#f5ede0`):
-  - Nome em destaque, centralizado
-  - **Profile** — summary_en
-  - **Professional Experience** — até 4 cargos (título · empresa · período · descrição EN)
+**Bundle / frontend:**
+- **Nenhum `React.lazy` ou `createLazyFileRoute`** no projeto.
+- `recharts` e `@react-pdf/renderer` (libs pesadas, ~200kb+ cada gzip) são importados estaticamente por rotas como `admin.seo`, `app.auditoria`, `app.curriculo`, `app.video`, `app.visto`. Quem entra em `/` paga por isso.
+- Arquivos enormes: `app.auditoria.tsx` (1.471 linhas), `app.ingles.$module.$lesson.tsx` (1.021), `app.vagas.tsx` (900) — chunks gordos.
 
-**Página 2** — mesma sidebar +
-- Título "Records from my professional experience:"
-- Grid 2×3 com até 6 fotos (cantos chanfrados via SVG clipping)
+**SSR / hidratação:**
+- Console mostra **hydration mismatch** em `<html style="color-scheme:light">` — algum provider/tema está injetando atributo só no cliente. Bloqueia o React de patchear a árvore e causa re-render completo.
 
-Fotos vêm assinadas via `createSignedUrl` no servidor e baixadas como bytes pro PDF embutir (não dá pra usar URL direta no react-pdf sem CORS).
-
-## 2. Aba `/app/curriculo` — novo bloco "Fotos do currículo"
-
-Card novo entre as seções existentes:
-- Texto explicativo: "Anexe até 6 fotos suas trabalhando no campo (colhendo, operando trator, lidando com gado, etc). Empregadores americanos H-2A querem ver você em ação — isso vale mais que palavras."
-- Botão "Escolher das mídias já enviadas" → modal mostra fotos do `/app/midia` (work_media) com checkbox, máx 6
-- Upload direto também (vai pro mesmo bucket `work-media`, marca como `is_resume_photo=true`)
-- Preview das 6 selecionadas em grid, com X pra remover e drag pra reordenar
-
-**Schema:** adicionar coluna `is_resume_photo BOOLEAN DEFAULT false` e `resume_photo_order SMALLINT` em `work_media`. Limite de 6 fotos com flag ativa enforced no client + check no servidor.
-
-## 3. Vídeo de apresentação → YouTube (`/app/video`)
-
-Substitui o fluxo de gravação/upload por:
-
-**Bloco A — Script personalizado (IA)**
-- Botão "Gerar meu script de vídeo" → chama server fn que usa Lovable AI (Gemini Flash) com prompt que recebe:
-  - Nome, idade, cidade, país (do `my_profile`)
-  - Experiências (do `resume_experiences`) — anos, cultivos, máquinas
-  - Skills
-- Retorna script em **PT-BR e EN lado a lado**, ~45-60s falados, com gancho pra empregador (não genérico — cita os cultivos/máquinas reais da pessoa)
-- Botões: copiar PT · copiar EN · exportar PDF (2 colunas frente a frente, fonte grande pra leitura)
-- Salva o script gerado em `my_profile.video_script_pt` / `_en` pra não regerar toda vez
-
-**Bloco B — Instruções de gravação + YouTube**
-- Card "Como gravar e subir":
-  1. Use o script acima (botão "Abrir script" abre o PDF)
-  2. Grave horizontal, boa luz, fundo neutro, 60-90s
-  3. Suba no YouTube como **"Não listado"** (passo a passo curto com print)
-  4. Cole o link abaixo
-- Input "Link do YouTube" com validação (regex `youtube.com/watch?v=` ou `youtu.be/`)
-- Preview do embed quando colado
-- Salva em `my_profile.youtube_video_url`
-
-**Schema:** adicionar `youtube_video_url TEXT`, `video_script_pt TEXT`, `video_script_en TEXT` em `my_profile`.
-
-A gravação webcam atual é removida (junto com o bucket de upload no flow). Tabela `intro_video` e bucket `intro-videos` ficam pra trás (não removo agora pra não quebrar dados antigos).
-
-## 4. Email pro empregador (`buildAttachmentFooter`)
-
-Reescrever o footer pra:
-
-```
 ---
-References:
 
-Watch my 60-second introduction video (in English):
-https://youtu.be/XXXXX
-A short video where I introduce myself and talk about my farm experience.
+## O que vou fazer
+
+### Fase 1 — Banco (maior ROI, baixíssimo risco)
+Migração com índices nos campos das queries mais lentas. Tudo `CREATE INDEX` simples (sem `CONCURRENTLY` — migrations rodam em transação).
+
+```sql
+CREATE INDEX IF NOT EXISTS idx_jobs_imported_at      ON public.jobs (imported_at DESC);
+CREATE INDEX IF NOT EXISTS idx_jobs_posted_date      ON public.jobs (posted_date DESC NULLS LAST);
+CREATE INDEX IF NOT EXISTS idx_apps_owner_sent       ON public.applications (owner_id, sent_at DESC);
+CREATE INDEX IF NOT EXISTS idx_apps_owner_responded  ON public.applications (owner_id, responded_at) WHERE responded_at IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_apps_owner_followup   ON public.applications (owner_id, follow_up_due_at) WHERE responded_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_apps_thread           ON public.applications (owner_id, gmail_thread_id) WHERE gmail_thread_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_saved_jobs_owner      ON public.saved_jobs (owner_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_visa_items_owner_sort ON public.visa_checklist_items (owner_id, sort_order);
 ```
 
-PDF do currículo continua sendo gerado e anexado normalmente — agora ele já contém as 6 fotos dentro, então não precisa mais listar fotos como links separados. O bloco de fotos é removido do footer.
+Espero ~5× a 50× nas queries acima (count em índice vs scan).
 
-Se o perfil público estiver ativo, mantém o link `/v/{slug}` como opção complementar.
+### Fase 2 — Padrão canônico de fetching (4–6 rotas mais visitadas)
+Migrar das mais visitadas primeiro: `app.index`, `app.vagas`, `app.candidaturas`, `app.curriculo`. Para cada uma:
 
-## 5. Ordem de implementação
+1. Extrair fetch para um `queryOptions` reusável.
+2. `loader: ({ context }) => context.queryClient.ensureQueryData(opts)` no route.
+3. Trocar `useQuery` por `useSuspenseQuery` no componente (some o `isLoading`, vira `<Suspense>`).
+4. `staleTime` adequado por entidade (60s para perfil, 30s para listas, 0 para feed de empregos).
 
-1. Migration: novas colunas em `work_media` e `my_profile`
-2. `ResumePdfDocument` reescrito (componente isolado, fácil testar)
-3. Server fn `getResumePdfData` agora puxa fotos marcadas + bytes
-4. UI `/app/curriculo` — bloco de fotos
-5. Server fn `generateVideoScript` (Lovable AI)
-6. UI `/app/video` — novo fluxo YouTube + script
-7. `buildAttachmentFooter` atualizado
-8. Smoke test: gerar PDF de teste, conferir layout das 2 páginas
+Deixo as rotas raras (`admin.*`, `auditoria`) no padrão atual nessa fase pra não inflar o diff.
+
+### Fase 3 — Code-splitting de libs pesadas
+- Converter imports de `@react-pdf/renderer`, `recharts` e os componentes `*Pdf.tsx` para **import dinâmico** (`await import(...)`) acionado por evento (botão "Baixar PDF" / abrir gráfico).
+- Resultado: rotas que só *podem* gerar PDF não carregam a lib até o usuário clicar.
+- Aplicar `loading="lazy"` e `decoding="async"` em `<img>` fora do viewport inicial; manter eager + `fetchpriority="high"` no LCP da home.
+- Preload do hero da `/` via `head().links` da route raiz da home.
+
+### Fase 4 — Hidratação
+- Localizar o setter de `style="color-scheme"` em `<html>` (provável `next-themes` / theme-provider rodando antes da hidratação).
+- Mover para `useEffect` no cliente OU pré-renderizar o atributo no servidor (`__root.tsx` head/html attrs) pra bater dos dois lados.
+- Remove o erro do console e elimina o re-render que invalida toda a árvore.
+
+### Fase 5 — Defaults do QueryClient
+Já está com `defaultPreloadStaleTime: 0` (correto). Vou afinar:
+- `retry: 1` com backoff só pra rede/5xx (já feito no error-handling anterior — confirmo).
+- `refetchOnWindowFocus: false` em listas que mudam pouco (perfil, vagas salvas).
+- `gcTime` maior em queries de referência (módulos de inglês).
+
+---
 
 ## Detalhes técnicos
 
-- **Cores do modelo:** sidebar `#1a3a6e`, fundo direito `#faf3e7`, texto branco na sidebar, texto `#111` na direita
-- **react-pdf** não suporta `border-radius` em `Image` — foto circular fica via `View` com `borderRadius: 9999` e overflow hidden contendo o `Image`
-- **Fotos chanfradas** da página 2: usar `View` com `clipPath` não funciona em react-pdf; vou usar uma máscara SVG via `Svg`+`ClipPath`+`Image` (suportado pelo `@react-pdf/renderer`)
-- **YouTube validation:** regex aceita `youtube.com/watch?v=ID`, `youtu.be/ID`, `youtube.com/shorts/ID`, normaliza pra `https://youtu.be/ID`
-- **AI script prompt:** instrui Gemini a NÃO usar jargão, mencionar 1 cultivo/animal/máquina específico da experiência, terminar com "I can start on [date] and I'm ready to work hard" — sem clichês
-- **PDF export do script** usa o mesmo `react-pdf` (já temos a infra), layout 2 colunas A4
+**Risco / reversibilidade**
+- Índices: zero risco, baixo custo, sempre reversíveis (`DROP INDEX`).
+- Migração de loader/Suspense: precisa de `errorComponent` + `pendingComponent` em cada rota tocada (já existem defaults no router via `defaultErrorComponent`/`defaultNotFoundComponent`, mas adiciono `pendingComponent` por rota onde fizer sentido).
+- Import dinâmico de PDF/recharts: adiciona um pequeno delay no primeiro clique do botão; visualmente compenso com um spinner inline.
+
+**Não vou fazer agora (fica em backlog se quiser depois)**
+- Quebrar `app.auditoria.tsx` (1.471 linhas) em componentes menores — refactor estético, não tem ganho de runtime relevante depois do code-split.
+- Migrar para Cloudflare Image Resizing — exige configuração de domínio e é fora do escopo.
+- Mexer no compute do Lovable Cloud — só recomendo se os índices não resolverem; me parece prematuro.
+
+**O que vou medir depois**
+- Re-rodar `slow_queries` após Fase 1 — espero ver `jobs imported_at` cair pra <1ms médio.
+- Network tab nas 4 rotas migradas — confirmar 1 request paralelo no loader (e não cascata).
+- Tamanho do chunk inicial — espero queda de >30% após Fase 3.
+
+---
+
+Posso seguir nessa ordem (banco → fetching → bundle → hidratação)? Se quiser pular alguma fase ou priorizar diferente, me diga antes de eu começar.
