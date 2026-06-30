@@ -46,7 +46,11 @@ function AuthPage() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [mode, setMode] = useState<"signin" | "signup" | "forgot">("signin");
+  const [mode, setMode] = useState<"signin" | "signup" | "forgot">(() => {
+    if (typeof window === "undefined") return "signin";
+    const m = new URLSearchParams(window.location.search).get("mode");
+    return m === "signup" || m === "forgot" ? m : "signin";
+  });
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
