@@ -10,10 +10,13 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "e2e": "playwright test",
-    "e2e:smoke": "playwright test --retries=2 e2e/shortcuts.spec.ts e2e/shortcuts-feedback.spec.ts e2e/journey-live-region.spec.ts e2e/journey-progression.spec.ts e2e/shift-tab-journey.spec.ts",
-    "e2e:debug": "playwright test --headed --workers=1 e2e/shift-tab-journey.spec.ts e2e/keyboard-only-journey.spec.ts e2e/journey-progression.spec.ts e2e/shortcuts-feedback.spec.ts",
-    "e2e:update-snapshots": "playwright test e2e/visual-sidebar-drawer.spec.ts e2e/visual-reduced-motion.spec.ts --update-snapshots"
+    "e2e:install": "playwright install --with-deps chromium",
+    "pretest:e2e": "playwright install chromium",
+    "test:e2e": "playwright test",
+    "e2e": "playwright install chromium && playwright test",
+    "e2e:smoke": "playwright install chromium && playwright test --retries=2 e2e/shortcuts.spec.ts e2e/shortcuts-feedback.spec.ts e2e/journey-live-region.spec.ts e2e/journey-progression.spec.ts e2e/shift-tab-journey.spec.ts",
+    "e2e:debug": "playwright install chromium && playwright test --headed --workers=1 e2e/shift-tab-journey.spec.ts e2e/keyboard-only-journey.spec.ts e2e/journey-progression.spec.ts e2e/shortcuts-feedback.spec.ts",
+    "e2e:update-snapshots": "playwright install chromium && playwright test e2e/visual-sidebar-drawer.spec.ts e2e/visual-reduced-motion.spec.ts --update-snapshots"
   },
   "dependencies": {
     "@ai-sdk/openai-compatible": "^3.0.0",
