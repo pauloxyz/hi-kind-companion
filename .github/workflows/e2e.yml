@@ -226,6 +226,7 @@ jobs:
       # title (e.g. `360 phone (360x780)`), so the per-test directory
       # under `test-results/` carries the viewport in its name already.
       - name: Upload Playwright artifacts (shard targeted)
+        id: upload_targeted
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
@@ -236,8 +237,21 @@ jobs:
             test-results/**/*.zip
             test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link targeted artifact in job summary
+        if: ${{ !cancelled() && failure() && steps.upload_targeted.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔎 Playwright — targeted regression"
+            echo
+            echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report for the failing targeted run:"
+            echo
+            echo "- [Download \`playwright-artifacts-shard-targeted-attempt-${{ github.run_attempt }}-run1\`](${{ steps.upload_targeted.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
   # Full e2e suite sharded across 4 parallel runners. Each shard runs a
