@@ -231,8 +231,18 @@ jobs:
         if: ${{ !cancelled() }}
         run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-smoke.tsv /tmp/spec-titles-smoke.json
 
+      # Preflight: verify the expected bundle layout exists BEFORE the
+      # upload step runs. Never fails the build — surfaces missing
+      # report HTML / empty test-results/ as warnings and emits per-piece
+      # `has_*` outputs the summary step branches on.
+      - name: Preflight Playwright bundle layout (smoke)
+        id: preflight_smoke
+        if: ${{ !cancelled() }}
+        run: bash .github/scripts/preflight-bundle.sh
+
       - name: Upload Playwright artifacts (smoke)
         id: upload_smoke
+
         # Smoke uploads on every outcome (green OR red) because it is the
         # canonical baseline run. Other jobs upload only on failure.
         if: ${{ !cancelled() }}
