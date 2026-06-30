@@ -224,8 +224,15 @@ function Dashboard() {
     : null;
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{t("dashboard")}</h1>
+    <div className="space-y-6 sm:space-y-8">
+      <header className="space-y-1">
+        <h1 className="font-display text-3xl sm:text-4xl lg:text-[2.625rem] font-bold leading-[1.05] tracking-tight text-balance">
+          {t("dashboard")}
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+          Acompanhe sua jornada H-2A em um único lugar.
+        </p>
+      </header>
 
       {stats.isPending && (
         <div className="space-y-4" aria-busy="true" aria-label="Carregando painel">
@@ -332,11 +339,11 @@ function Dashboard() {
               <div className="grid h-11 w-11 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-elevated">
                 <action.icon className="h-5 w-5" aria-hidden />
               </div>
-              <div className="min-w-0">
-                <h2 id="dashboard-focus-title" className="text-lg sm:text-xl font-bold leading-tight text-balance">
+              <div className="min-w-0 space-y-1.5">
+                <h2 id="dashboard-focus-title" className="font-display text-xl sm:text-2xl font-semibold leading-[1.15] tracking-tight text-balance">
                   {action.title}
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{action.why}</p>
+                <p className="text-sm sm:text-[0.95rem] text-muted-foreground leading-relaxed">{action.why}</p>
               </div>
             </div>
 
@@ -366,7 +373,7 @@ function Dashboard() {
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
-            <div className="text-3xl font-bold text-primary">{stats.data?.score.total ?? 0}%</div>
+            <div className="font-display text-4xl sm:text-5xl font-bold leading-none tracking-tight text-primary tabular-nums">{stats.data?.score.total ?? 0}%</div>
             <Progress
               value={stats.data?.score.total ?? 0}
               className="flex-1"
@@ -392,7 +399,7 @@ function Dashboard() {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t("total_sent")} value={stats.data?.total ?? 0} />
         <StatCard label={t("response_rate")} value={`${rate}%`} />
         <StatCard label={t("followups_sent")} value={stats.data?.followups ?? 0} />
@@ -409,9 +416,9 @@ function Dashboard() {
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <Card><CardContent className="p-4">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
+    <Card className="transition-shadow hover:shadow-soft"><CardContent className="p-4 sm:p-5">
+      <div className="text-[11px] sm:text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground">{label}</div>
+      <div className="mt-2 font-display text-2xl sm:text-3xl font-bold leading-none tracking-tight tabular-nums">{value}</div>
     </CardContent></Card>
   );
 }
