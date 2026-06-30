@@ -230,6 +230,14 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload_smoke.outputs.artifact-url }}
           SPEC_COUNT: ${{ steps.spec_titles_smoke.outputs.count }}
           ATTEMPT: ${{ github.run_attempt }}
+          # Aggregate stats sidecars — render writes them when these
+          # env vars are set, then we ship them as a small separate
+          # artifact so trends are queryable across runs/shards.
+          RUN_LABEL: smoke
+          RUN_PHASE: run1
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGGREGATE_OUT_JSON: /tmp/aggregate-smoke.json
+          AGGREGATE_OUT_CSV: /tmp/aggregate-smoke.csv
         run: |
           {
             echo "### 🔎 Playwright — smoke (attempt ${ATTEMPT})"
@@ -245,6 +253,17 @@ jobs:
               echo "⚠️ No Playwright artifacts were produced (job likely failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate stats (smoke)
+        if: ${{ !cancelled() && hashFiles('/tmp/aggregate-smoke.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-aggregate-stats-smoke-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/aggregate-smoke.json
+            /tmp/aggregate-smoke.csv
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: ignore
 
   # Targeted regression guard: the 4 specs we have historically had to
   # stabilize (shift-tab, keyboard-only, journey-progression, shortcuts
