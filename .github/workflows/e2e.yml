@@ -15,6 +15,12 @@ env:
   E2E_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
   E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
   E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+  # Single source of truth for how long Playwright artifacts (traces, videos,
+  # screenshots, HTML report) live in GitHub Actions storage. 14 days is long
+  # enough to triage a Monday failure reported the following Friday while
+  # short enough to keep the repo's artifact footprint bounded. GitHub
+  # auto-deletes artifacts past this window — no manual cleanup needed.
+  PLAYWRIGHT_ARTIFACT_RETENTION_DAYS: "14"
 
 jobs:
   # Cheap static guard that runs before any browser job: every e2e spec
@@ -124,15 +130,32 @@ jobs:
           CI: "1"
 
       - name: Upload Playwright artifacts on failure
+        id: upload_smoke
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-smoke-artifacts
+          name: playwright-smoke-artifacts-attempt-${{ github.run_attempt }}
           path: |
-            test-results/**
+            test-results/**/*.png
+            test-results/**/*.webm
+            test-results/**/*.zip
+            test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link smoke artifact in job summary
+        if: ${{ failure() && steps.upload_smoke.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔎 Playwright — smoke"
+            echo
+            echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report for the failing smoke run:"
+            echo
+            echo "- [Download \`${{ steps.upload_smoke.outputs.artifact-name || 'playwright-smoke-artifacts' }}\`](${{ steps.upload_smoke.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Targeted regression guard: the 4 specs we have historically had to
   # stabilize (shift-tab, keyboard-only, journey-progression, shortcuts
@@ -203,6 +226,7 @@ jobs:
       # title (e.g. `360 phone (360x780)`), so the per-test directory
       # under `test-results/` carries the viewport in its name already.
       - name: Upload Playwright artifacts (shard targeted)
+        id: upload_targeted
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
@@ -213,8 +237,21 @@ jobs:
             test-results/**/*.zip
             test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link targeted artifact in job summary
+        if: ${{ !cancelled() && failure() && steps.upload_targeted.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔎 Playwright — targeted regression"
+            echo
+            echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report for the failing targeted run:"
+            echo
+            echo "- [Download \`playwright-artifacts-shard-targeted-attempt-${{ github.run_attempt }}-run1\`](${{ steps.upload_targeted.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
   # Full e2e suite sharded across 4 parallel runners. Each shard runs a
@@ -282,6 +319,7 @@ jobs:
       # the first-run artifact never collides with the rerun artifact
       # below. Viewport is preserved per-test inside `test-results/<title>`.
       - name: Upload Playwright artifacts (shard ${{ matrix.shard }} run1)
+        id: upload_full_run1
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
@@ -292,8 +330,21 @@ jobs:
             test-results/**/*.zip
             test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link shard ${{ matrix.shard }} run1 artifact in job summary
+        if: ${{ !cancelled() && failure() && steps.upload_full_run1.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔎 Playwright — full shard ${{ matrix.shard }}/4 (run 1)"
+            echo
+            echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report for the failing shard:"
+            echo
+            echo "- [Download \`playwright-artifacts-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-run1\`](${{ steps.upload_full_run1.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
       # Snapshot the first-run artifacts so the rerun step below can start
@@ -372,6 +423,7 @@ jobs:
       # the Actions UI. The `playwright-rerun-shard-*` prefix is preserved
       # so the consolidated job's download pattern still matches.
       - name: Upload rerun artifacts (shard ${{ matrix.shard }} rerun)
+        id: upload_full_rerun
         if: ${{ !cancelled() && steps.full_rerun.conclusion != 'skipped' }}
         uses: actions/upload-artifact@v4
         with:
@@ -383,8 +435,21 @@ jobs:
             test-results/**/*.zip
             test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link shard ${{ matrix.shard }} rerun artifact in job summary
+        if: ${{ !cancelled() && steps.upload_full_rerun.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔁 Playwright — full shard ${{ matrix.shard }}/4 (\`--last-failed\` rerun)"
+            echo
+            echo "Trace, video and HTML report produced exclusively by the rerun (the most recent artifact for this shard):"
+            echo
+            echo "- [Download \`playwright-rerun-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-rerun\`](${{ steps.upload_full_rerun.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the rerun."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
   # Consolidated rerun report: downloads the per-shard --last-failed
