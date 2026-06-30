@@ -519,8 +519,7 @@ function Page() {
             {importing === "daily" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             🔄 Buscar agora
           </Button>
-        </div>
-      </header>
+      </div>
 
       <Card>
         <CardContent className="pt-4 space-y-3">
