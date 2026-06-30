@@ -339,6 +339,38 @@ function Page() {
     }
   }
 
+  async function handleGenerateMeta() {
+    if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
+    setGenMeta(true);
+    try {
+      const r = await ytMetaFn();
+      setYtMeta(r);
+      toast.success("Conteúdo do YouTube gerado ✓");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro");
+    } finally {
+      setGenMeta(false);
+    }
+  }
+
+  function downloadText(filename: string, content: string, mime = "text/plain;charset=utf-8") {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function handleDownloadSrt(lang: "en" | "pt") {
+    const src = hasRealBlocks ? blocks : deriveFallbackBlocks(scriptEn);
+    if (!src.length) { toast.error("Gere o roteiro primeiro."); return; }
+    const safeName = (name || "candidato").replace(/\s+/g, "_");
+    downloadText(`legenda_${lang}_${safeName}.srt`, buildSrt(src, lang), "application/x-subrip");
+    toast.success(`SRT ${lang.toUpperCase()} baixado ✓`);
+  }
+
   const ytId = normalizedUrl?.split("/").pop();
   const totalSec = Math.round(blocks.length * secondsPerBlock);
 
