@@ -224,10 +224,15 @@ function Page() {
       correlationId,
       readyAt: readyAtRef.current,
       previousCode: aiError?.code,
+      bannerReady: aiError?.code !== "rate_limited" || readyAtRef.current > 0,
       generator: () => genFn({ data: { correlationId } }),
       sinks,
     });
     setGenerating(false);
+    if (!result.ok && "skipped" in result) {
+      // Banner still counting down — UI button is disabled, this is a no-op safety net.
+      return;
+    }
     if (result.ok) {
       const r = result.value;
       setScriptPt(r.pt);
@@ -321,10 +326,12 @@ function Page() {
       correlationId,
       readyAt: readyAtRef.current,
       previousCode: aiError?.code,
+      bannerReady: aiError?.code !== "rate_limited" || readyAtRef.current > 0,
       generator: () => ytMetaFn({ data: { correlationId } }),
       sinks,
     });
     setGenMeta(false);
+    if (!result.ok && "skipped" in result) return;
     if (result.ok) {
       setYtMeta(result.value);
       try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(result.value)); } catch { /* ignore */ }

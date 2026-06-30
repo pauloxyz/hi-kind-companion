@@ -50,13 +50,21 @@ export type AiAttemptInput<T> = {
   readyAt: number;
   /** Previous error code that drove this retry (used for telemetry context). */
   previousCode?: AiErrorCode;
+  /**
+   * Whether the banner is currently in its "ready" state. Defaults to true.
+   * When `isRetry` is true after a `rate_limited` error and `bannerReady` is
+   * false, the attempt is skipped — no telemetry click event, no generator
+   * call — to prevent premature retries during the countdown window.
+   */
+  bannerReady?: boolean;
   generator: () => Promise<T>;
   sinks: AiSinks;
 };
 
 export type AiAttemptResult<T> =
   | { ok: true; value: T; latencyMs: number }
-  | { ok: false; error: ParsedAiError; latencyMs: number };
+  | { ok: false; error: ParsedAiError; latencyMs: number }
+  | { ok: false; skipped: "not_ready"; latencyMs: 0 };
 
 /**
  * Run one AI generation attempt with full telemetry + Sentry breadcrumb
@@ -64,11 +72,25 @@ export type AiAttemptResult<T> =
  * doesn't touch React state or supabase.
  */
 export async function runAiAttempt<T>(input: AiAttemptInput<T>): Promise<AiAttemptResult<T>> {
-  const { action, isRetry, correlationId, readyAt, previousCode, generator, sinks } = input;
+  const { action, isRetry, correlationId, readyAt, previousCode, bannerReady = true, generator, sinks } = input;
   const clickAt = sinks.now();
 
   if (isRetry) {
-    const waitedPastUnlockMs = readyAt > 0 ? clickAt - readyAt : 0;
+    // Guard: if the previous failure was a rate limit and the banner has
+    // not transitioned to "ready" yet, suppress the click. This keeps
+    // `ai_retry_click` aligned with what the user can actually do and
+    // prevents skewed `waitedPastUnlockMs` metrics.
+    if (previousCode === "rate_limited" && !bannerReady) {
+      sinks.breadcrumb(
+        "retry-click-suppressed",
+        { correlationId, action, code: previousCode, reason: "not_ready" },
+        "info",
+      );
+      return { ok: false, skipped: "not_ready", latencyMs: 0 };
+    }
+    // When the click lands exactly at the unlock instant, clickAt === readyAt
+    // and waitedPastUnlockMs is 0 — matching the "no wait" semantics.
+    const waitedPastUnlockMs = readyAt > 0 ? Math.max(0, clickAt - readyAt) : 0;
     sinks.track("ai_retry_click", {
       action, code: previousCode, correlationId, waitedPastUnlockMs,
     });
