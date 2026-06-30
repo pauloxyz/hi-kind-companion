@@ -351,9 +351,11 @@ export function AppShell({ children }: { children?: ReactNode }) {
       <div className="p-5 pb-2">
         <div className="flex items-center justify-between mb-6">
           <Link to="/app" className="flex items-center gap-3 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring rounded-md" onClick={() => setOpen(false)}>
-            <div className="w-10 h-10 shrink-0 bg-sidebar-primary rounded-xl flex items-center justify-center shadow-lg shadow-black/30">
-              <Sparkles className="size-5 text-sidebar-primary-foreground" aria-hidden />
-            </div>
+            <img
+              src={logoUrl}
+              alt="VaiPraLá"
+              className="h-10 w-10 shrink-0 rounded-xl object-contain bg-sidebar-primary/10 p-1 ring-1 ring-sidebar-border shadow-lg shadow-black/20"
+            />
             <div className="min-w-0">
               <h1 className="font-bold text-base leading-tight tracking-tight text-sidebar-foreground uppercase italic truncate">
                 Jornada <span className="text-sidebar-primary not-italic">H-2A</span>
@@ -590,7 +592,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
             >
               <Menu className="size-5" aria-hidden />
             </button>
-            <img src={logoUrl} alt="VaiPraLá" className="h-6 w-auto" />
+            <Link to="/app" className="inline-flex items-center gap-2 min-w-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring rounded-md">
+              <img src={logoUrl} alt="" aria-hidden className="h-7 w-7 shrink-0 object-contain" />
+              <span className="font-display font-bold text-base tracking-tight text-foreground">
+                Vai<span className="text-primary">PraLá</span>
+              </span>
+            </Link>
           </header>
           <div className="mx-auto max-w-6xl p-4 lg:p-6">
             {children ?? <Outlet />}
