@@ -68,9 +68,6 @@ filesize() {
 
 # Largest file matching a glob, or empty string if none. We use the
 # biggest match because retries may leave multiple traces/videos in the
-# same folder and the freshest/largest one is the most useful.
-# Largest file matching a glob, or empty string if none. We use the
-# biggest match because retries may leave multiple traces/videos in the
 # same folder and the freshest/largest one is the most useful. Empty
 # files (0 B) still count as "found" so the renderer can classify them
 # as `empty` instead of mislabeling them `absent` — initial sentinel
