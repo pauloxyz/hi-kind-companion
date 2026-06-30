@@ -533,7 +533,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
 
   return (
     <ActionFeedbackProvider>
-      <div className="flex min-h-dvh bg-background">
+      <div className="flex min-h-dvh bg-background" data-testid="app-shell">
         <a
           href="#main-content"
           className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-primary focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-primary-foreground"
@@ -576,7 +576,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
             </div>
           </div>
         )}
-        <main id="main-content" className="flex-1 min-w-0">
+        <main id="main-content" className="flex-1 min-w-0" data-testid="app-main">
           <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
             <button
               ref={menuTriggerRef}

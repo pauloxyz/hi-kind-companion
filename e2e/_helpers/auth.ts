@@ -9,11 +9,11 @@ import type { BrowserContext, Page } from "@playwright/test";
  *
  * Resolution order:
  *
- *   1. If E2E_TEST_EMAIL / E2E_TEST_PASSWORD are set → use them
+ *   1. If E2E_TEST_EMAIL / E2E_TEST_PASSWORD are both set → use them
  *      (pre-existing, fully confirmed user).
  *
  *   2. Otherwise → use a deterministic test account
- *      (`playwright+e2e@vplusa.test` / `Playwright!E2E#2025`) and try:
+ *      (`playwright+e2e-auto-confirm@vplusa.test` / `Playwright!E2E#2025`) and try:
  *        a. signInWithPassword  → success means the user already exists.
  *        b. signUp              → success WITH session means signups are
  *           auto-confirmed and the user is logged in immediately.
@@ -36,8 +36,32 @@ const SUPABASE_PUBLISHABLE_KEY =
 
 // Defaults used when E2E_TEST_EMAIL is not set. The `.test` TLD is reserved
 // (RFC 2606) so it cannot collide with a real inbox.
-const DEFAULT_EMAIL = "playwright+e2e@vplusa.test";
+const DEFAULT_EMAIL = "playwright+e2e-auto-confirm@vplusa.test";
 const DEFAULT_PASSWORD = "Playwright!E2E#2025";
+let cachedSession: Promise<E2ESession> | null = null;
+let cachedSessionKey: string | null = null;
+
+function getEnv(name: string): string | undefined {
+  const value = process.env[name]?.trim();
+  return value ? value : undefined;
+}
+
+function resolveTestCredentials(): { email: string; password: string; usedDefaults: boolean } {
+  const email = getEnv("E2E_TEST_EMAIL");
+  const password = getEnv("E2E_TEST_PASSWORD");
+
+  if (!email && !password) {
+    return { email: DEFAULT_EMAIL, password: DEFAULT_PASSWORD, usedDefaults: true };
+  }
+
+  if (!email || !password) {
+    throw new Error(
+      "Set both E2E_TEST_EMAIL and E2E_TEST_PASSWORD, or omit both to use the deterministic E2E account.",
+    );
+  }
+
+  return { email, password, usedDefaults: false };
+}
 
 // supabase-js v2 derives the storage key from the project ref:
 // `sb-<ref>-auth-token`.
@@ -65,9 +89,27 @@ export interface E2ESession {
  * Returns the pieces needed to seed the browser's localStorage.
  */
 export async function signInTestUser(): Promise<E2ESession> {
-  const email = process.env.E2E_TEST_EMAIL || DEFAULT_EMAIL;
-  const password = process.env.E2E_TEST_PASSWORD || DEFAULT_PASSWORD;
-  const usedDefaults = !process.env.E2E_TEST_EMAIL;
+  const { email, password, usedDefaults } = resolveTestCredentials();
+  const cacheKey = [SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, email, password].join("\0");
+
+  if (cachedSession && cachedSessionKey === cacheKey) {
+    return cachedSession;
+  }
+
+  cachedSessionKey = cacheKey;
+  cachedSession = provisionTestUserSession({ email, password, usedDefaults });
+  return cachedSession;
+}
+
+async function provisionTestUserSession({
+  email,
+  password,
+  usedDefaults,
+}: {
+  email: string;
+  password: string;
+  usedDefaults: boolean;
+}): Promise<E2ESession> {
 
   const client = makeClient();
 
@@ -108,12 +150,12 @@ export async function signInTestUser(): Promise<E2ESession> {
     // exact remediation, do NOT skip.
     throw new Error(
       [
-        `Created ${email} but Supabase did not return a session — email confirmation is required.`,
+        `Created ${email} but the auth service did not return a session — email confirmation is required.`,
         "",
         "Pick ONE of the following to unblock the E2E test:",
         "",
         "  A) Enable email auto-confirm for this project (recommended for non-prod):",
-        "     Cloud → Users → Auth Settings → Email → toggle \"Auto-confirm\" ON.",
+        "     Backend → Users → Auth Settings → Email → toggle \"Auto-confirm\" ON.",
         "     Re-run `npx playwright test` — the helper will provision and sign in",
         "     automatically from then on.",
         "",

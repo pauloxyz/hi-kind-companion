@@ -39,26 +39,28 @@ npm run e2e:install   # playwright install --with-deps chromium
 
 Os specs que precisam de usuário logado (ex.:
 `e2e/google-login-redirect.spec.ts`) usam o helper
-`e2e/_helpers/auth.ts`, que faz `signIn` direto na Auth REST API do Supabase
+`e2e/_helpers/auth.ts`, que faz `signIn` direto na Auth REST API do backend
 e injeta a sessão no `localStorage` — o mesmo formato que o
 `@supabase/supabase-js` persiste após um login normal ou retorno de OAuth.
 
 **Ordem de resolução das credenciais:**
 
-1. Se `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` estiverem definidas, o helper
+1. Se `E2E_TEST_EMAIL` / `E2E_TEST_PASSWORD` estiverem ambas definidas, o helper
    usa essas (usuário pré-existente e confirmado).
 2. Caso contrário, ele tenta um usuário padrão
-   (`playwright+e2e@vplusa.test` / `Playwright!E2E#2025`):
+   (`playwright+e2e-auto-confirm@vplusa.test` / `Playwright!E2E#2025`):
    - Primeiro tenta `signInWithPassword`.
-   - Se o usuário não existir, faz `signUp` e segue logado (quando o
-     auto-confirm de e-mail está ligado).
+   - Se o usuário não existir, faz `signUp` e segue logado com o auto-confirm
+     de e-mail ligado.
+   - Se o usuário já existir, reaproveita a sessão obtida no `signIn` e não
+     exige nenhuma etapa manual.
 
 ### Variáveis de ambiente
 
 | Variável | Obrigatória? | Descrição |
 | --- | --- | --- |
-| `E2E_TEST_EMAIL` | Não | E-mail do usuário de teste pré-confirmado. Se omitido, o helper usa um padrão e provisiona via `signUp`. |
-| `E2E_TEST_PASSWORD` | Junto com a anterior | Senha do usuário acima. |
+| `E2E_TEST_EMAIL` | Não | E-mail do usuário de teste pré-confirmado. Se omitido, o helper usa o padrão determinístico e provisiona via `signUp`. |
+| `E2E_TEST_PASSWORD` | Junto com a anterior | Senha do usuário acima. Omita junto com `E2E_TEST_EMAIL` para usar a senha determinística. |
 | `E2E_SUPABASE_URL` | Não | Sobrescreve `VITE_SUPABASE_URL` (raro). |
 | `E2E_SUPABASE_PUBLISHABLE_KEY` | Não | Sobrescreve `VITE_SUPABASE_PUBLISHABLE_KEY`. |
 | `PLAYWRIGHT_BASE_URL` | Não | Default `http://localhost:8080`. |
@@ -112,3 +114,8 @@ isso, mas em CI costuma valer a pena cachear `~/.cache/ms-playwright`):
     E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
     E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
 ```
+
+Se esses secrets não existirem, deixe as variáveis ausentes/vazias: o helper
+usa automaticamente `playwright+e2e-auto-confirm@vplusa.test` e
+`Playwright!E2E#2025`, cria o usuário com auto-confirm e reaproveita a sessão
+nas próximas execuções.

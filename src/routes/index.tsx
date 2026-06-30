@@ -84,9 +84,9 @@ function Landing() {
 
 
   return (
-    <div className="min-h-dvh bg-background text-foreground">
+    <div className="min-h-dvh bg-background text-foreground" data-testid="landing-page">
       {/* NAV */}
-      <header className="sticky top-0 z-30 backdrop-blur-md bg-background/85 border-b border-border/60">
+      <header className="sticky top-0 z-30 backdrop-blur-md bg-background/85 border-b border-border/60" data-testid="landing-header">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between">
           <Link to="/" className="flex items-center gap-2">
             <img src={logo} alt="VaiPraLá" width={36} height={36} className="h-9 w-9" />
@@ -115,7 +115,7 @@ function Landing() {
 
       <main id="main">
       {/* HERO — Americana */}
-      <section className="relative overflow-hidden bg-flag-stripes">
+      <section className="relative overflow-hidden bg-flag-stripes" data-testid="landing-hero">
         <div
           className="absolute inset-0 opacity-60"
           aria-hidden
@@ -206,7 +206,7 @@ function Landing() {
       </section>
 
       {/* DEPOIMENTOS */}
-      <section id="prova" className="border-t border-border/60">
+      <section id="prova" className="border-t border-border/60" data-testid="landing-social-proof">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">Quem já foi</span>
