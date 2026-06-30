@@ -82,7 +82,8 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
       })(),
     ]);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // supabaseAdmin já importado acima para resolver owner_id.
+
     const EXPIRES = 60 * 60; // 1h, regenerated each load
     const media: PublicMedia[] = [];
     for (const m of mediaRows.data ?? []) {
