@@ -369,7 +369,7 @@ jobs:
                 echo
                 echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
                 echo
-                while IFS= read -r t; do echo "- \`${t}\`"; done < /tmp/spec-titles-targeted.txt
+                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"; done < /tmp/spec-titles-targeted.txt
                 echo
                 echo "</details>"
               fi
