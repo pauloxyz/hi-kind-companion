@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import { VideoScriptPdf } from "@/components/VideoScriptPdf";
+import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
 import QRCode from "qrcode";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
@@ -51,63 +52,7 @@ function saveTtsCache(cache: Map<number, string>) {
 }
 
 
-const AiErrorBanner = memo(function AiErrorBanner({
-  error, secondsLeft, onRetry, onDismiss, busy,
-}: {
-  error: AiErrorInfo | null;
-  secondsLeft: number;
-  onRetry: () => void;
-  onDismiss: () => void;
-  busy: boolean;
-}) {
-  if (!error) return null;
-  const blocked = error.code === "no_credits";
-  const waiting = error.code === "rate_limited" && secondsLeft > 0;
-  const palette = blocked
-    ? "border-destructive/40 bg-destructive/10 text-destructive"
-    : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200";
-  const title = blocked
-    ? "Créditos de IA esgotados"
-    : error.code === "rate_limited"
-    ? "Limite temporário atingido"
-    : error.code === "bad_json"
-    ? "Resposta inesperada da IA"
-    : "Falha na geração";
-  return (
-    <div className={`flex items-start gap-2 text-xs rounded-md border p-3 ${palette}`}>
-      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-      <div className="flex-1 space-y-2">
-        <div>
-          <div className="font-semibold">{title}</div>
-          <div>{error.msg}</div>
-          <div className="text-[11px] opacity-80 mt-1">
-            Nada do que você já fez foi perdido — o roteiro, áudios e link continuam salvos.
-          </div>
-        </div>
-        {!blocked && (
-          <div className="flex items-center gap-2">
-            <Button size="sm" variant="outline" onClick={onRetry} disabled={busy || waiting} className="h-7">
-              {busy ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                : <RotateCcw className="h-3.5 w-3.5 mr-1" />}
-              {waiting ? `Tentar de novo em ${secondsLeft}s` : "Tentar de novo"}
-            </Button>
-            <Button size="sm" variant="ghost" className="h-7" onClick={onDismiss}>
-              Dispensar
-            </Button>
-          </div>
-        )}
-      </div>
-    </div>
-  );
-});
 
-
-type AiErrorInfo = {
-  action: "script" | "meta";
-  code: "rate_limited" | "no_credits" | "bad_json" | "other";
-  msg: string;
-  retryAt: number; // epoch ms; 0 = retry immediately
-};
 
 function Page() {
   const genFn = useServerFn(generateVideoScript);
@@ -257,15 +202,20 @@ function Page() {
       const code = m[1] as AiErrorInfo["code"];
       const retryAfter = parseInt(m[2], 10) || 0;
       const msg = m[3];
+      // Structured client log — easy to grep in console / Sentry
+      console.warn("[ai-error]", { action, code, retryAfter, msg, at: new Date().toISOString() });
       setAiError({ action, code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
       toast.error(msg);
     } else {
+      console.warn("[ai-error]", { action, code: "other", msg: raw, at: new Date().toISOString() });
       setAiError({ action, code: "other", msg: raw || "Erro inesperado.", retryAt: 0 });
       toast.error(raw || "Erro");
     }
   }
 
   async function handleGenerate() {
+    const isRetry = aiError?.action === "script";
+    if (isRetry) console.info("[ai-retry]", { action: "script", code: aiError?.code });
     setGenerating(true);
     setAiError((e) => (e?.action === "script" ? null : e));
     try {
@@ -349,6 +299,8 @@ function Page() {
 
   async function handleGenerateMeta() {
     if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
+    const isRetry = aiError?.action === "meta";
+    if (isRetry) console.info("[ai-retry]", { action: "meta", code: aiError?.code });
     setGenMeta(true);
     setAiError((e) => (e?.action === "meta" ? null : e));
     try {

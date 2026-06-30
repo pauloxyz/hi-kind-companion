@@ -55,18 +55,33 @@ export async function callJsonAI<T = unknown>(
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);
     if (msg.includes("429")) {
+      const retryAfter = extractRetryAfter(msg);
+      console.warn("[ai-gateway]", {
+        code: "rate_limited",
+        status: 429,
+        label,
+        retryAfter,
+        at: new Date().toISOString(),
+      });
       throw aiErr(
         "rate_limited",
         "Muitas requisições em pouco tempo. Aguarde alguns segundos e tente de novo — seu progresso não é perdido.",
-        extractRetryAfter(msg),
+        retryAfter,
       );
     }
     if (msg.includes("402")) {
+      console.warn("[ai-gateway]", {
+        code: "no_credits",
+        status: 402,
+        label,
+        at: new Date().toISOString(),
+      });
       throw aiErr(
         "no_credits",
         "Os créditos de IA acabaram. Avise o administrador para recarregar — quando reabrir a página, é só clicar em Gerar de novo.",
       );
     }
+    console.error("[ai-gateway]", { code: "other", label, msg, at: new Date().toISOString() });
     throw aiErr("other", `Falha ao gerar ${label}. Tente novamente em instantes.`);
   }
 
