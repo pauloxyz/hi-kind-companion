@@ -10,6 +10,10 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "check:migrations": "bun run scripts/check-migration-security.ts",
+    "prebuild": "bun run check:migrations",
+    "test:smoke:deploy": "playwright install chromium && playwright test e2e/smoke-post-deploy.spec.ts --reporter=line",
+
     "e2e:install": "playwright install --with-deps chromium",
     "pretest:e2e": "playwright install chromium",
     "test:e2e": "playwright test",

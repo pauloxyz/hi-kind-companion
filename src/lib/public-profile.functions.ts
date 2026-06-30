@@ -34,25 +34,39 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
   .inputValidator((d: { slug: string }) => d)
   .handler(async ({ data }): Promise<PublicProfilePayload> => {
     const sb = publicClient();
+    // A view public_profiles deixou de expor owner_id (PII — vincula a
+    // auth.users). Para puxar os dados relacionados (experiências,
+    // skills, mídia) ainda precisamos do owner_id internamente — então
+    // resolvemos via service-role aqui (server-only), sem nunca
+    // devolvê-lo para o cliente.
     const { data: profile } = await sb
       .from("public_profiles" as never)
-      .select("owner_id, full_name, country, public_headline, languages, has_prior_h2_experience, youtube_video_url")
+      .select("full_name, country, public_headline, languages, has_prior_h2_experience, youtube_video_url, public_slug")
       .eq("public_slug", data.slug)
       .maybeSingle<{
-        owner_id: string;
         full_name: string | null;
         country: string | null;
         public_headline: string | null;
         languages: string[] | null;
         has_prior_h2_experience: boolean | null;
         youtube_video_url: string | null;
+        public_slug: string | null;
       }>();
     if (!profile) return null;
 
     const { data: phoneRow } = await (sb.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: string | null }>)("get_public_profile_whatsapp", { _slug: data.slug });
     const phone = (typeof phoneRow === "string" ? phoneRow : null) as string | null;
 
-    const ownerId = profile.owner_id;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: ownerRow } = await supabaseAdmin
+      .from("my_profile")
+      .select("owner_id")
+      .eq("public_slug", data.slug)
+      .eq("public_page_enabled", true)
+      .maybeSingle();
+    if (!ownerRow) return null;
+    const ownerId = ownerRow.owner_id;
+
     // intro_video bucket removido do fluxo público — vídeo agora é
     // só YouTube (campo youtube_video_url) e renderizado direto na
     // página via embed nocookie. Sem chamada de storage = sem signed
@@ -68,7 +82,8 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
       })(),
     ]);
 
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    // supabaseAdmin já importado acima para resolver owner_id.
+
     const EXPIRES = 60 * 60; // 1h, regenerated each load
     const media: PublicMedia[] = [];
     for (const m of mediaRows.data ?? []) {

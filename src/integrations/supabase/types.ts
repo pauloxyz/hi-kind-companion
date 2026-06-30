@@ -1053,6 +1053,39 @@ export type Database = {
         }
         Relationships: []
       }
+      security_scan_runs: {
+        Row: {
+          created_at: string
+          errors: number
+          findings: Json
+          id: string
+          scanned_at: string
+          source: string
+          total: number
+          warnings: number
+        }
+        Insert: {
+          created_at?: string
+          errors?: number
+          findings?: Json
+          id?: string
+          scanned_at?: string
+          source?: string
+          total?: number
+          warnings?: number
+        }
+        Update: {
+          created_at?: string
+          errors?: number
+          findings?: Json
+          id?: string
+          scanned_at?: string
+          source?: string
+          total?: number
+          warnings?: number
+        }
+        Relationships: []
+      }
       seo_scan_runs: {
         Row: {
           created_at: string
@@ -1429,7 +1462,6 @@ export type Database = {
           full_name: string | null
           has_prior_h2_experience: boolean | null
           languages: string[] | null
-          owner_id: string | null
           photo_url: string | null
           public_headline: string | null
           public_slug: string | null
@@ -1440,7 +1472,6 @@ export type Database = {
           full_name?: string | null
           has_prior_h2_experience?: boolean | null
           languages?: string[] | null
-          owner_id?: string | null
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
@@ -1451,7 +1482,6 @@ export type Database = {
           full_name?: string | null
           has_prior_h2_experience?: boolean | null
           languages?: string[] | null
-          owner_id?: string | null
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
@@ -1526,6 +1556,7 @@ export type Database = {
       }
       purge_rate_limit_buckets: { Args: never; Returns: number }
       purge_security_audit_log: { Args: never; Returns: number }
+      purge_security_scan_runs: { Args: never; Returns: number }
       purge_uptime_checks: { Args: never; Returns: undefined }
       read_email_batch: {
         Args: { batch_size: number; queue_name: string; vt: number }
@@ -1536,6 +1567,7 @@ export type Database = {
         }[]
       }
       record_admin_denial: { Args: { _resource: string }; Returns: undefined }
+      run_security_linter: { Args: never; Returns: string }
     }
     Enums: {
       app_role: "admin" | "user"
