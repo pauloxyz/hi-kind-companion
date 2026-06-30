@@ -224,10 +224,15 @@ function Page() {
       correlationId,
       readyAt: readyAtRef.current,
       previousCode: aiError?.code,
+      bannerReady: aiError?.code !== "rate_limited" || readyAtRef.current > 0,
       generator: () => genFn({ data: { correlationId } }),
       sinks,
     });
     setGenerating(false);
+    if (!result.ok && "skipped" in result) {
+      // Banner still counting down — UI button is disabled, this is a no-op safety net.
+      return;
+    }
     if (result.ok) {
       const r = result.value;
       setScriptPt(r.pt);
