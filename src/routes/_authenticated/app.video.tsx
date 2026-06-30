@@ -26,6 +26,7 @@ import {
 import { pdf } from "@react-pdf/renderer";
 import { VideoScriptPdf } from "@/components/VideoScriptPdf";
 import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
+import { track } from "@/lib/telemetry";
 import QRCode from "qrcode";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
@@ -195,19 +196,21 @@ function Page() {
     setActiveIdx(null);
   }
 
-  function handleAiError(action: "script" | "meta", e: unknown) {
+  function handleAiError(action: "script" | "meta", e: unknown, startedAt: number) {
+    const latencyMs = Date.now() - startedAt;
     const raw = e instanceof Error ? e.message : String(e);
     const m = raw.match(/^AI_ERR\|(\w+)\|(\d+)\|(.+)$/s);
     if (m) {
       const code = m[1] as AiErrorInfo["code"];
       const retryAfter = parseInt(m[2], 10) || 0;
       const msg = m[3];
-      // Structured client log — easy to grep in console / Sentry
-      console.warn("[ai-error]", { action, code, retryAfter, msg, at: new Date().toISOString() });
+      console.warn("[ai-error]", { action, code, retryAfter, msg, latencyMs, at: new Date().toISOString() });
+      track("ai_error", { action, code, retryAfter, latencyMs });
       setAiError({ action, code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
       toast.error(msg);
     } else {
-      console.warn("[ai-error]", { action, code: "other", msg: raw, at: new Date().toISOString() });
+      console.warn("[ai-error]", { action, code: "other", msg: raw, latencyMs, at: new Date().toISOString() });
+      track("ai_error", { action, code: "other", latencyMs });
       setAiError({ action, code: "other", msg: raw || "Erro inesperado.", retryAt: 0 });
       toast.error(raw || "Erro");
     }
@@ -215,7 +218,13 @@ function Page() {
 
   async function handleGenerate() {
     const isRetry = aiError?.action === "script";
-    if (isRetry) console.info("[ai-retry]", { action: "script", code: aiError?.code });
+    if (isRetry) {
+      // How long the user actually waited past the unlock (negative if early-fire blocked).
+      const waitedPastUnlockMs = aiError?.retryAt ? Date.now() - aiError.retryAt : 0;
+      console.info("[ai-retry]", { action: "script", code: aiError?.code, waitedPastUnlockMs });
+      track("ai_retry_click", { action: "script", code: aiError?.code, waitedPastUnlockMs });
+    }
+    const startedAt = Date.now();
     setGenerating(true);
     setAiError((e) => (e?.action === "script" ? null : e));
     try {
@@ -229,9 +238,12 @@ function Page() {
       setYtMeta(null);
       try { sessionStorage.removeItem(META_CACHE_KEY); } catch { /* ignore */ }
       setAiError(null);
+      const latencyMs = Date.now() - startedAt;
+      track(isRetry ? "ai_retry_success" : "ai_generate_success", { action: "script", latencyMs });
       toast.success("Roteiro + pronúncia gerados ✓");
     } catch (e) {
-      handleAiError("script", e);
+      if (isRetry) track("ai_retry_failure", { action: "script" });
+      handleAiError("script", e, startedAt);
     } finally {
       setGenerating(false);
     }
@@ -300,7 +312,12 @@ function Page() {
   async function handleGenerateMeta() {
     if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
     const isRetry = aiError?.action === "meta";
-    if (isRetry) console.info("[ai-retry]", { action: "meta", code: aiError?.code });
+    if (isRetry) {
+      const waitedPastUnlockMs = aiError?.retryAt ? Date.now() - aiError.retryAt : 0;
+      console.info("[ai-retry]", { action: "meta", code: aiError?.code, waitedPastUnlockMs });
+      track("ai_retry_click", { action: "meta", code: aiError?.code, waitedPastUnlockMs });
+    }
+    const startedAt = Date.now();
     setGenMeta(true);
     setAiError((e) => (e?.action === "meta" ? null : e));
     try {
@@ -308,9 +325,12 @@ function Page() {
       setYtMeta(r);
       try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(r)); } catch { /* ignore */ }
       setAiError(null);
+      const latencyMs = Date.now() - startedAt;
+      track(isRetry ? "ai_retry_success" : "ai_generate_success", { action: "meta", latencyMs });
       toast.success("Conteúdo do YouTube gerado ✓");
     } catch (e) {
-      handleAiError("meta", e);
+      if (isRetry) track("ai_retry_failure", { action: "meta" });
+      handleAiError("meta", e, startedAt);
     } finally {
       setGenMeta(false);
     }
