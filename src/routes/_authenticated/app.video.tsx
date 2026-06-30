@@ -23,8 +23,7 @@ import {
   Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle,
   Volume2, Play, Pause, SkipForward, RotateCcw, FileText, Tag, Settings2, ChevronDown,
 } from "lucide-react";
-import { pdf } from "@react-pdf/renderer";
-import { VideoScriptPdf } from "@/components/VideoScriptPdf";
+// `@react-pdf/renderer` + VideoScriptPdf are dynamic-imported in the export handler.
 import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
 import { track, newCorrelationId } from "@/lib/telemetry";
 import { captureAiError, initSentry, setCorrelationId, addAiBreadcrumb } from "@/lib/sentry";
