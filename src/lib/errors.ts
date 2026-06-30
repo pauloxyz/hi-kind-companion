@@ -143,7 +143,12 @@ export function toAppError(err: unknown, overrides: AppErrorOptions = {}): AppEr
   }
 
   const kind = overrides.kind ?? inferErrorKind(err);
-  const userMessage = overrides.code
+  // When we successfully classified the error from a structured signal
+  // (recognized status/code → non-internal kind), prefer the PT-BR fallback
+  // over the raw wire text. This catches plain-object errors that
+  // `pickReadableMessage` can't see (e.g. `{ code: "42501", message: "…" }`).
+  const wasClassified = kind !== "internal" || isAppError(err);
+  const userMessage = overrides.code || wasClassified
     ? FALLBACK_BY_KIND[kind]
     : pickReadableMessage(err) ?? FALLBACK_BY_KIND[kind];
 
