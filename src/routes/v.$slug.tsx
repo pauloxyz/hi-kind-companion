@@ -65,7 +65,7 @@ function PublicProfilePage() {
     trackProfileView({ data: { slug, userAgent: navigator.userAgent, referer: document.referrer || undefined } }).catch(() => {});
   }, [slug]);
 
-  const { profile, experiences, skills, media, video } = data;
+  const { profile, experiences, skills, media } = data;
   const ytId = parseYouTubeId(profile.youtube_video_url);
 
   return (
@@ -92,9 +92,11 @@ function PublicProfilePage() {
           </div>
         </header>
 
-        {/* Vídeo: preferir YouTube (unlisted) ao bucket interno.
-            youtube-nocookie reduz rastreamento e cookies de terceiros. */}
-        {ytId ? (
+        {/* Vídeo: somente YouTube (unlisted) via youtube-nocookie para
+            reduzir cookies/tracking de terceiros. O bucket interno
+            intro_video foi removido — vídeo agora é responsabilidade
+            do candidato no YouTube. */}
+        {ytId && (
           <section className="rounded-xl overflow-hidden bg-black shadow-lg aspect-video">
             <iframe
               src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1`}
@@ -105,11 +107,8 @@ function PublicProfilePage() {
               allowFullScreen
             />
           </section>
-        ) : video ? (
-          <section className="rounded-xl overflow-hidden bg-black shadow-lg">
-            <video src={video.url} controls playsInline className="w-full aspect-video" />
-          </section>
-        ) : null}
+        )}
+
 
 
         {/* Skills */}
@@ -197,29 +196,6 @@ function PublicProfilePage() {
   );
 }
 
-/**
- * Extrai o video ID de qualquer URL comum do YouTube
- * (youtu.be/ID, youtube.com/watch?v=ID, /shorts/ID, /embed/ID).
- * Retorna null para entrada inválida — caller decide o fallback.
- */
-function parseYouTubeId(raw: string | null): string | null {
-  if (!raw) return null;
-  try {
-    const u = new URL(raw.trim());
-    const host = u.hostname.replace(/^www\./, "");
-    if (host === "youtu.be") {
-      const id = u.pathname.slice(1).split("/")[0];
-      return /^[\w-]{6,}$/.test(id) ? id : null;
-    }
-    if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
-      const v = u.searchParams.get("v");
-      if (v && /^[\w-]{6,}$/.test(v)) return v;
-      const m = u.pathname.match(/\/(?:embed|shorts|v)\/([\w-]{6,})/);
-      if (m) return m[1];
-    }
-    return null;
-  } catch {
-    return null;
-  }
+
 }
 
