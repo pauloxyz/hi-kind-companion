@@ -784,7 +784,7 @@ function Step5Done({ form }: { form: FormState }) {
             </div>
 
             <div className="pt-3 border-t flex flex-wrap gap-2">
-              <Link to="/app/perfil" onClick={() => track("onboarding_edit_profile_clicked")}>
+              <Link to="/app/perfil" onClick={() => mirror("onboarding_edit_profile_clicked")}>
                 <Button variant="outline" size="sm">
                   <ArrowLeft className="mr-1.5 h-3.5 w-3.5" /> Voltar e editar meu perfil
                 </Button>
