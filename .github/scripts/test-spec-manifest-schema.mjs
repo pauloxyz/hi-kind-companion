@@ -35,12 +35,15 @@ const SPEC_FIELDS = {
   trace_reason: "reason",
   video_reason: "reason",
 };
+const REPORT_REASONS = new Set(["ok", "absent", "index_too_small", "no_assets"]);
 const TOP_FIELDS = {
   schema_version: "number",
   attempt: "number",
   has_report: "0|1",
+  report_reason: "report_reason",
   min_trace_bytes: "number",
   min_video_bytes: "number",
+  min_report_index_bytes: "number",
   count: "number",
   specs: "array",
 };
