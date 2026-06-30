@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import logo from "@/assets/vaiprala-logo.png";
 import { absUrl } from "@/lib/site";
 import { Button } from "@/components/ui/button";
+import { ProfilePreview } from "@/components/ProfilePreview";
 import {
   ArrowRight, FileText, Video, Send, ShieldCheck, Sparkles,
-  Check, Quote, Star, ClipboardList, CalendarClock, MessageCircle,
+  Check, Quote, Star, ClipboardList, CalendarClock,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
