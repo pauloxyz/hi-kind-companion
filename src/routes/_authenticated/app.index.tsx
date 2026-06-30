@@ -399,7 +399,7 @@ function Dashboard() {
         </Card>
       )}
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label={t("total_sent")} value={stats.data?.total ?? 0} />
         <StatCard label={t("response_rate")} value={`${rate}%`} />
         <StatCard label={t("followups_sent")} value={stats.data?.followups ?? 0} />
@@ -416,9 +416,9 @@ function Dashboard() {
 
 function StatCard({ label, value }: { label: string; value: number | string }) {
   return (
-    <Card><CardContent className="p-4">
-      <div className="text-xs uppercase tracking-wide text-muted-foreground">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
+    <Card className="transition-shadow hover:shadow-soft"><CardContent className="p-4 sm:p-5">
+      <div className="text-[11px] sm:text-xs uppercase tracking-[0.08em] font-medium text-muted-foreground">{label}</div>
+      <div className="mt-2 font-display text-2xl sm:text-3xl font-bold leading-none tracking-tight tabular-nums">{value}</div>
     </CardContent></Card>
   );
 }
