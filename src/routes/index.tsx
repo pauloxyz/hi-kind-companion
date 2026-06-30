@@ -130,7 +130,7 @@ function Landing() {
                 <strong className="text-foreground">simples, direta e profissional</strong>.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link to="/auth">
+                <Link to="/auth" search={{ mode: "signup" }}>
                   <Button size="lg" className="h-12 px-7 text-base shadow-elevated">
                     Criar meu perfil gratuito <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
