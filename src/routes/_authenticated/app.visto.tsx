@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { pdf } from "@react-pdf/renderer";
+// `@react-pdf/renderer` is dynamic-imported in the export handler — see line ~320.
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -25,7 +25,7 @@ import {
   History,
 } from "lucide-react";
 import { toast } from "sonner";
-import { VisaChecklistPdf, type VisaPdfData } from "@/components/VisaChecklistPdf";
+import type { VisaPdfData } from "@/components/VisaChecklistPdf";
 import { VisaAttachmentViewer, type ViewerAttachment } from "@/components/VisaAttachmentViewer";
 
 export const Route = createFileRoute("/_authenticated/app/visto")({
@@ -317,6 +317,10 @@ function VistoPage() {
           }),
         })),
       };
+      const [{ pdf }, { VisaChecklistPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/VisaChecklistPdf"),
+      ]);
       const blob = await pdf(<VisaChecklistPdf data={pdfData} />).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

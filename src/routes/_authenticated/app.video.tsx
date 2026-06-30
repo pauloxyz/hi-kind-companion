@@ -23,8 +23,7 @@ import {
   Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle,
   Volume2, Play, Pause, SkipForward, RotateCcw, FileText, Tag, Settings2, ChevronDown,
 } from "lucide-react";
-import { pdf } from "@react-pdf/renderer";
-import { VideoScriptPdf } from "@/components/VideoScriptPdf";
+// `@react-pdf/renderer` + VideoScriptPdf are dynamic-imported in the export handler.
 import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
 import { track, newCorrelationId } from "@/lib/telemetry";
 import { captureAiError, initSentry, setCorrelationId, addAiBreadcrumb } from "@/lib/sentry";
@@ -273,6 +272,10 @@ function Page() {
     try {
       const practiceUrl = `${window.location.origin}/app/video?mode=practice`;
       const qrDataUrl = await QRCode.toDataURL(practiceUrl, { margin: 1, width: 300 });
+      const [{ pdf }, { VideoScriptPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/VideoScriptPdf"),
+      ]);
       const blob = await pdf(
         <VideoScriptPdf
           pt={scriptPt} en={scriptEn} blocks={pdfBlocks}

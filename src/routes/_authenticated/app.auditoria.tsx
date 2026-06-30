@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "@/lib/i18n";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { pdf } from "@react-pdf/renderer";
+// `@react-pdf/renderer` + SecurityAuditPdf are dynamic-imported in the export handler.
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +48,7 @@ import { getAuditStats, getDeniedAdminSummary, listAuditEvents, type AuditEvent,
 import { getSpikeAlertStatus, bootstrapSpikeAlertConfig, sendSpikeAlertTest } from "@/lib/spike-alert.functions";
 import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
-import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
+// SecurityAuditPdf is dynamic-imported alongside @react-pdf/renderer below.
 import { UptimePanel } from "@/components/UptimePanel";
 
 const EVENT_TYPES = [
@@ -250,6 +250,10 @@ function AuditPanel() {
     }
     setExporting(true);
     try {
+      const [{ pdf }, { SecurityAuditPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/SecurityAuditPdf"),
+      ]);
       const blob = await pdf(
         <SecurityAuditPdf
           stats={stats.data}

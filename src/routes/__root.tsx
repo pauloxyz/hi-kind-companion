@@ -153,19 +153,27 @@ const PREFS_BOOT_SCRIPT = `
 `;
 
 function RootShell({ children }: { children: ReactNode }) {
+  // `suppressHydrationWarning` on <html>/<body> is intentional: PREFS_BOOT_SCRIPT
+  // runs synchronously in <head> to set `lang`, `style.colorScheme` and the
+  // `dark` class BEFORE React hydrates — preventing FOUC. That makes the
+  // server markup ≠ client DOM by design (the script mutated it). Without
+  // suppression React logs a hydration mismatch on every navigation and
+  // bails out of patching the root, forcing a full re-render. This is the
+  // standard pattern used by Next.js, Astro, Remix, etc. for theme bootscripts.
   return (
-    <html lang="pt-BR">
+    <html lang="pt-BR" suppressHydrationWarning>
       <head>
         <HeadContent />
         <script dangerouslySetInnerHTML={{ __html: PREFS_BOOT_SCRIPT }} />
       </head>
-      <body>
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>
     </html>
   );
 }
+
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
