@@ -319,6 +319,7 @@ jobs:
       # the first-run artifact never collides with the rerun artifact
       # below. Viewport is preserved per-test inside `test-results/<title>`.
       - name: Upload Playwright artifacts (shard ${{ matrix.shard }} run1)
+        id: upload_full_run1
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
@@ -329,8 +330,21 @@ jobs:
             test-results/**/*.zip
             test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link shard ${{ matrix.shard }} run1 artifact in job summary
+        if: ${{ !cancelled() && failure() && steps.upload_full_run1.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔎 Playwright — full shard ${{ matrix.shard }}/4 (run 1)"
+            echo
+            echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report for the failing shard:"
+            echo
+            echo "- [Download \`playwright-artifacts-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-run1\`](${{ steps.upload_full_run1.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
 
       # Snapshot the first-run artifacts so the rerun step below can start
