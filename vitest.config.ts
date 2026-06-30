@@ -6,6 +6,7 @@ export default defineConfig({
     alias: { "@": path.resolve(__dirname, "./src") },
   },
   test: {
+    // Default to node; tests that need DOM opt in with `// @vitest-environment jsdom`.
     environment: "node",
     include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     coverage: { reporter: ["text", "json-summary"] },
