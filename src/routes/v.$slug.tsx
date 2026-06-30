@@ -194,3 +194,30 @@ function PublicProfilePage() {
     </div>
   );
 }
+
+/**
+ * Extrai o video ID de qualquer URL comum do YouTube
+ * (youtu.be/ID, youtube.com/watch?v=ID, /shorts/ID, /embed/ID).
+ * Retorna null para entrada inválida — caller decide o fallback.
+ */
+function parseYouTubeId(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw.trim());
+    const host = u.hostname.replace(/^www\./, "");
+    if (host === "youtu.be") {
+      const id = u.pathname.slice(1).split("/")[0];
+      return /^[\w-]{6,}$/.test(id) ? id : null;
+    }
+    if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
+      const v = u.searchParams.get("v");
+      if (v && /^[\w-]{6,}$/.test(v)) return v;
+      const m = u.pathname.match(/\/(?:embed|shorts|v)\/([\w-]{6,})/);
+      if (m) return m[1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
