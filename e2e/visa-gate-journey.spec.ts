@@ -84,42 +84,38 @@ async function resetState(request: APIRequestContext, session: E2ESession) {
 
 /** Linha do checklist filtrada pelo `step_key` via DOM (`step_label` é estável). */
 function rowByStepKey(page: Page, stepKey: string) {
-  // O step_label é definido pelo trigger handle_new_user e é parte do contrato
-  // do banco; usamos o label porque é o que o usuário vê e também o que o
-  // teste de regressão precisa proteger.
+  // Regex precisa ser específica o suficiente para não colidir com o texto
+  // do banner de gate ("Disponível depois que você marcar 'Oferta...'"),
+  // que aparece dentro de TODOS os rows bloqueados.
   const labels: Record<string, RegExp> = {
-    hired_by_employer: /Oferta de trabalho aceita e contrato assinado/i,
+    hired_by_employer: /Oferta de trabalho aceita e contrato assinado em portugu[êe]s/i,
     ds160: /Formul[áa]rio DS-160 preenchido e enviado/i,
-    mrv_paid: /Taxa MRV paga/i,
+    mrv_paid: /Taxa MRV paga \(US\$ 190\)/i,
     interview_done: /Entrevista consular realizada/i,
   };
   const re = labels[stepKey];
   if (!re) throw new Error(`rowByStepKey: faltou regex para ${stepKey}`);
-  // O label vive dentro de um `div` filho do row `[id^="step-"]`. Subimos com
-  // `locator('..').locator('..')` evitando dependência de markup interno.
-  return page
-    .locator('[id^="step-"]')
-    .filter({ hasText: re })
-    .first();
+  return page.locator('[id^="step-"]').filter({ hasText: re }).first();
 }
 
 async function gotoVisto(page: Page) {
   await page.goto("/app/visto", { waitUntil: "commit" });
   await expect(page.getByTestId("app-main")).toBeVisible({ timeout: 15_000 });
-  // Aguarda o primeiro row do checklist hidratar.
   await expect(page.locator('[id^="step-"]').first()).toBeVisible({ timeout: 10_000 });
 }
 
-// `Fase ·` na sidebar (DOM tem 2 — desktop hidden e drawer mobile fechado);
-// pegamos a visível.
-function fasePhraseLocator(page: Page) {
-  return page.locator("text=/^Fase\\s+·/").filter({ visible: true }).first();
+/** Card da Jornada visível no breakpoint atual (drawer no mobile, sidebar no desktop). */
+function journeyCard(page: Page) {
+  return page.getByTestId("journey-card").filter({ visible: true }).first();
 }
 
 async function readPhaseLabel(page: Page): Promise<string> {
-  const t = await fasePhraseLocator(page).textContent();
+  const card = journeyCard(page);
+  // Texto "Fase · X" só existe quando journeyDataReady=true.
+  const t = await card.locator("text=/^Fase\\s+·/").first().textContent();
   return (t ?? "").trim();
 }
+
 
 const VIEWPORTS = [
   { name: "desktop", width: 1280, height: 900 },
