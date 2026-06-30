@@ -5,6 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+env:
+  VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+  VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+  VITE_SUPABASE_PROJECT_ID: lkvfvriexuxlvrufbqbf
+  SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+  SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+  E2E_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+  E2E_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+  E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
+  E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+
 jobs:
   # Cheap static guard that runs before any browser job: every e2e spec
   # that observes the journey-live-region MUST contain the explicit
