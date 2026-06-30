@@ -407,6 +407,8 @@ function Page() {
             {hasScript ? "Gerar de novo" : "Gerar meu roteiro"}
           </Button>
 
+          <AiErrorBanner action="script" onRetry={handleGenerate} busy={generating} />
+
           {needsRegenForBlocks && (
             <div className="flex items-start gap-2 text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2.5 text-amber-900 dark:text-amber-200">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
