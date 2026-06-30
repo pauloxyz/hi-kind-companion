@@ -140,3 +140,116 @@ describe("ChecklistRow — banner do gate como live region", () => {
     expect((after.textContent ?? "").replace(/\s+/g, " ").trim()).toBe(textBefore);
   });
 });
+
+/**
+ * Texto canônico do banner. Esta string é a "fonte da verdade" da
+ * explicação anunciada por leitores de tela. Qualquer divergência aqui
+ * quebra o contrato com o usuário — por isso fica em uma constante
+ * compartilhada entre os asserts.
+ */
+const CANONICAL_BANNER_TEXT =
+  "Disponível depois que você marcar \u201COferta de trabalho aceita e contrato assinado\u201D acima.";
+
+function normalize(s: string | null): string {
+  return (s ?? "").replace(/\s+/g, " ").trim();
+}
+
+describe("ChecklistRow — texto canônico do banner e aria-describedby determinístico", () => {
+  it("renderiza EXATAMENTE o texto canônico (normalizado)", () => {
+    renderBlockedRow();
+    const banner = screen.getByTestId("gate-banner");
+    expect(normalize(banner.textContent)).toBe(CANONICAL_BANNER_TEXT);
+  });
+
+  it("preserva as aspas tipográficas curvas (\u201C \u201D) ao redor da frase de ação", () => {
+    renderBlockedRow();
+    const banner = screen.getByTestId("gate-banner");
+    const txt = normalize(banner.textContent);
+    expect(txt).toContain("\u201COferta de trabalho aceita e contrato assinado\u201D");
+    // Nunca aspas retas " (regressão comum em copy/paste).
+    expect(txt).not.toContain('"Oferta de trabalho');
+  });
+
+  it("destaca a frase de ação em <strong> (ênfase semântica, não só visual)", () => {
+    renderBlockedRow();
+    const banner = screen.getByTestId("gate-banner");
+    const strong = banner.querySelector("strong");
+    expect(strong, "banner precisa ter <strong> com a frase de ação").not.toBeNull();
+    expect(normalize(strong!.textContent)).toBe(
+      "\u201COferta de trabalho aceita e contrato assinado\u201D",
+    );
+  });
+
+  it("aria-describedby do checkbox resolve para um elemento com o texto canônico", () => {
+    const { container } = renderBlockedRow();
+    const checkbox = screen.getByRole("checkbox", { name: /Marcar etapa:/i });
+    const describedById = checkbox.getAttribute("aria-describedby");
+    expect(describedById, "aria-describedby deve estar definido").toBeTruthy();
+
+    const target = container.ownerDocument.getElementById(describedById!);
+    expect(target, "elemento referenciado por aria-describedby deve existir").not.toBeNull();
+    expect(target).toBe(screen.getByTestId("gate-banner"));
+    expect(normalize(target!.textContent)).toBe(CANONICAL_BANNER_TEXT);
+  });
+
+  it("a relação id ↔ aria-describedby é determinística e baseada no item.id", () => {
+    cleanup();
+    render(
+      <ChecklistRow
+        item={ds160Item({ id: "alpha" })}
+        meta={undefined}
+        attachments={[]}
+        gateBlocked
+        onToggle={vi.fn()}
+        onDate={vi.fn()}
+        announce={vi.fn()}
+        refetchAttachments={vi.fn()}
+        onOpenViewer={vi.fn()}
+      />,
+    );
+    const cbAlpha = screen.getByRole("checkbox", { name: /Marcar etapa:/i });
+    expect(cbAlpha.getAttribute("aria-describedby")).toBe("gate-alpha");
+    expect(document.getElementById("gate-alpha")).not.toBeNull();
+
+    cleanup();
+    render(
+      <ChecklistRow
+        item={ds160Item({ id: "beta" })}
+        meta={undefined}
+        attachments={[]}
+        gateBlocked
+        onToggle={vi.fn()}
+        onDate={vi.fn()}
+        announce={vi.fn()}
+        refetchAttachments={vi.fn()}
+        onOpenViewer={vi.fn()}
+      />,
+    );
+    const cbBeta = screen.getByRole("checkbox", { name: /Marcar etapa:/i });
+    expect(cbBeta.getAttribute("aria-describedby")).toBe("gate-beta");
+    expect(document.getElementById("gate-beta")).not.toBeNull();
+    expect(document.getElementById("gate-alpha")).toBeNull();
+  });
+
+  it("o texto resolvido por aria-describedby é IGUAL entre estado fresco e drift", () => {
+    const { rerender } = renderBlockedRow();
+    const fresh = normalize(screen.getByTestId("gate-banner").textContent);
+
+    rerender(
+      <ChecklistRow
+        item={ds160Item({ is_completed: true })}
+        meta={undefined}
+        attachments={[]}
+        gateBlocked
+        onToggle={vi.fn()}
+        onDate={vi.fn()}
+        announce={vi.fn()}
+        refetchAttachments={vi.fn()}
+        onOpenViewer={vi.fn()}
+      />,
+    );
+    const drift = normalize(screen.getByTestId("gate-banner").textContent);
+    expect(drift).toBe(fresh);
+    expect(drift).toBe(CANONICAL_BANNER_TEXT);
+  });
+});
