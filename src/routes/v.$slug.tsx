@@ -64,6 +64,7 @@ function PublicProfilePage() {
   }, [slug]);
 
   const { profile, experiences, skills, media, video } = data;
+  const ytId = parseYouTubeId(profile.youtube_video_url);
 
   return (
     <div className="min-h-dvh bg-gradient-to-b from-background to-muted/30">
@@ -89,12 +90,25 @@ function PublicProfilePage() {
           </div>
         </header>
 
-        {/* Intro video */}
-        {video && (
+        {/* Vídeo: preferir YouTube (unlisted) ao bucket interno.
+            youtube-nocookie reduz rastreamento e cookies de terceiros. */}
+        {ytId ? (
+          <section className="rounded-xl overflow-hidden bg-black shadow-lg aspect-video">
+            <iframe
+              src={`https://www.youtube-nocookie.com/embed/${ytId}?rel=0&modestbranding=1`}
+              title="Candidate introduction video"
+              className="w-full h-full"
+              loading="lazy"
+              allow="accelerometer; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </section>
+        ) : video ? (
           <section className="rounded-xl overflow-hidden bg-black shadow-lg">
             <video src={video.url} controls playsInline className="w-full aspect-video" />
           </section>
-        )}
+        ) : null}
+
 
         {/* Skills */}
         {skills.length > 0 && (
@@ -180,3 +194,30 @@ function PublicProfilePage() {
     </div>
   );
 }
+
+/**
+ * Extrai o video ID de qualquer URL comum do YouTube
+ * (youtu.be/ID, youtube.com/watch?v=ID, /shorts/ID, /embed/ID).
+ * Retorna null para entrada inválida — caller decide o fallback.
+ */
+function parseYouTubeId(raw: string | null): string | null {
+  if (!raw) return null;
+  try {
+    const u = new URL(raw.trim());
+    const host = u.hostname.replace(/^www\./, "");
+    if (host === "youtu.be") {
+      const id = u.pathname.slice(1).split("/")[0];
+      return /^[\w-]{6,}$/.test(id) ? id : null;
+    }
+    if (host.endsWith("youtube.com") || host.endsWith("youtube-nocookie.com")) {
+      const v = u.searchParams.get("v");
+      if (v && /^[\w-]{6,}$/.test(v)) return v;
+      const m = u.pathname.match(/\/(?:embed|shorts|v)\/([\w-]{6,})/);
+      if (m) return m[1];
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+

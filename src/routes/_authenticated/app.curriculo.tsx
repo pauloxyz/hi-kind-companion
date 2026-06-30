@@ -13,7 +13,9 @@ import { toastError } from "@/lib/toast-error";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
 import { importResumeFromPdf } from "@/lib/resume-import.functions";
-import { listResumePhotos } from "@/lib/resume-photos.functions";
+// listResumePhotos removido — fotos vivem na página pública /v/:slug,
+// não no PDF (ATS-friendly = texto puro).
+
 // `@react-pdf/renderer` + ResumePdfDocument are dynamic-imported inside the
 // download handler to keep them out of the initial route chunk (~250kb gzip).
 import type { ResumePdfData } from "@/components/ResumePdfDocument";
@@ -79,7 +81,7 @@ function Page() {
   const [importing, setImporting] = useState(false);
   const translateFn = useServerFn(translateToEnglish);
   const importFn = useServerFn(importResumeFromPdf);
-  const photosFn = useServerFn(listResumePhotos);
+  
 
   useEffect(() => {
     void (async () => {
@@ -353,15 +355,9 @@ function Page() {
   async function handleDownloadPdf() {
     setGeneratingPdf(true);
     try {
-      // Fetch resume photos (signed URLs valid for 30d).
-      let resumePhotos: Array<{ url: string; caption?: string | null }> = [];
-      try {
-        const photos = await photosFn();
-        resumePhotos = photos.map((p) => ({ url: p.url, caption: p.caption }));
-      } catch {
-        // sem fotos é OK — PDF sai só com a página 1
-      }
-
+      // PDF ATS-friendly: sem fotos/avatar. Fotos e vídeo ficam na página
+      // pública (/v/:slug) — o currículo é texto puro para passar pelos
+      // sistemas automáticos de triagem.
       const data: ResumePdfData = {
         fullName: profile.full_name || "—",
         email: profile.email,
@@ -386,8 +382,8 @@ function Page() {
             descriptionEn: e.description_en,
           })),
         skills,
-        resumePhotos,
       };
+
       const [{ pdf }, { ResumePdfDocument }] = await Promise.all([
         import("@react-pdf/renderer"),
         import("@/components/ResumePdfDocument"),

@@ -62,7 +62,9 @@ function PerfilPage() {
     full_name: "", phone: "", country: "Brazil", birth_date: "",
     has_prior_h2_experience: false, languages: ["pt"] as string[],
     public_slug: "", public_headline: "", public_page_enabled: true,
+    youtube_video_url: "",
   });
+
   const [viewCount, setViewCount] = useState<number | null>(null);
   const [langInput, setLangInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,9 @@ function PerfilPage() {
     langInput: useId(),
     slug: useId(),
     headline: useId(),
+    youtube: useId(),
   };
+
 
   const handleGenerateHeadline = async () => {
     setGeneratingHeadline(true);
@@ -121,7 +125,9 @@ function PerfilPage() {
           public_slug: data.public_slug ?? "",
           public_headline: data.public_headline ?? "",
           public_page_enabled: data.public_page_enabled ?? true,
+          youtube_video_url: data.youtube_video_url ?? "",
         });
+
         const { count } = await supabase.from("profile_views").select("*", { count: "exact", head: true });
         setViewCount(count ?? 0);
       } catch (err) {
@@ -478,6 +484,22 @@ function PerfilPage() {
               maxLength={160}
             />
             <p className="text-xs text-muted-foreground">A IA usa seu currículo (experiências, habilidades, resumo) para criar uma frase que chame atenção do empregador. Revise antes de salvar.</p>
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor={ids.youtube}>Vídeo de apresentação no YouTube</Label>
+            <Input
+              id={ids.youtube}
+              type="url"
+              inputMode="url"
+              value={form.youtube_video_url}
+              onChange={(e) => setForm({ ...form, youtube_video_url: e.target.value })}
+              placeholder="https://youtu.be/..."
+              aria-describedby={`${ids.youtube}-help`}
+            />
+            <p id={`${ids.youtube}-help`} className="text-xs text-muted-foreground">
+              Suba seu vídeo no YouTube como <strong>“Não listado”</strong> (só quem tem o link acessa). Cole o link aqui — ele aparece embutido na sua página pública. Recomendado: 1 a 2 minutos, direto ao ponto.
+            </p>
+
           </div>
           <div className="rounded-md bg-muted/40 p-3 text-sm">
             <span className="font-semibold">{viewCount ?? "…"}</span> visualização(ões) registrada(s) na sua página.

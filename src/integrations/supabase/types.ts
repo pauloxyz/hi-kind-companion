@@ -1433,6 +1433,7 @@ export type Database = {
           photo_url: string | null
           public_headline: string | null
           public_slug: string | null
+          youtube_video_url: string | null
         }
         Insert: {
           country?: string | null
@@ -1443,6 +1444,7 @@ export type Database = {
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
+          youtube_video_url?: string | null
         }
         Update: {
           country?: string | null
@@ -1453,6 +1455,7 @@ export type Database = {
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
+          youtube_video_url?: string | null
         }
         Relationships: []
       }
