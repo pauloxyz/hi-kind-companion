@@ -720,7 +720,7 @@ function Step5Done({ form }: { form: FormState }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
       toast.success("Link copiado!");
-      track("onboarding_link_copied");
+      mirror("onboarding_link_copied");
     } catch {
       toast.error("Não consegui copiar — selecione e copie manualmente.");
     }
