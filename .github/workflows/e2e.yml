@@ -122,6 +122,8 @@ jobs:
         run: node .github/scripts/test-artifact-name-parser.mjs
       - name: Run spec-summary TSV parser regression tests
         run: bash .github/scripts/test-spec-summary-parser.sh
+      - name: Run spec-manifest JSON schema regression tests
+        run: node .github/scripts/test-spec-manifest-schema.mjs
 
 
 
