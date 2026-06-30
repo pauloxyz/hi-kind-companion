@@ -68,19 +68,43 @@ function Page() {
   const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
   const [genMeta, setGenMeta] = useState(false);
 
-  type AiErrorInfo = {
-    action: "script" | "meta";
-    code: "rate_limited" | "no_credits" | "bad_json" | "other";
-    msg: string;
-    retryAt: number; // epoch ms; 0 = retry immediately
-  };
+type AiErrorInfo = {
+  action: "script" | "meta";
+  code: "rate_limited" | "no_credits" | "bad_json" | "other";
+  msg: string;
+  retryAt: number; // epoch ms; 0 = retry immediately
+};
+
+function Page() {
+  const genFn = useServerFn(generateVideoScript);
+  const ttsFn = useServerFn(speakText);
+  const ytMetaFn = useServerFn(generateYoutubeMeta);
+
+  const [scriptPt, setScriptPt] = useState("");
+  const [scriptEn, setScriptEn] = useState("");
+  const [blocks, setBlocks] = useState<ScriptBlock[]>([]);
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [normalizedUrl, setNormalizedUrl] = useState<string | null>(null);
+  const [name, setName] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [savingUrl, setSavingUrl] = useState(false);
+  const [exporting, setExporting] = useState(false);
+
+  const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
+  const [genMeta, setGenMeta] = useState(false);
+
   const [aiError, setAiError] = useState<AiErrorInfo | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
   useEffect(() => {
     if (!aiError || aiError.retryAt <= Date.now()) return;
-    const id = window.setInterval(() => setNowTs(Date.now()), 500);
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setNowTs(now);
+      if (now >= aiError.retryAt) window.clearInterval(id);
+    }, 500);
     return () => window.clearInterval(id);
   }, [aiError]);
+
 
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
