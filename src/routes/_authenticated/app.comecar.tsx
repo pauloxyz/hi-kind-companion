@@ -251,7 +251,7 @@ function OnboardingPage() {
   };
 
   const goStep = (next: number) => {
-    track("onboarding_step_advanced", { from: step, to: next, label: STEP_LABELS[next] });
+    mirror("onboarding_step_advanced", next, STEP_LABELS[next], { from: step, nav: "manual" });
     setStep(next);
   };
 
