@@ -136,7 +136,7 @@ function Page() {
     const patch: { status: string; responded_at?: string } = { status };
     if (!current?.responded_at) patch.responded_at = nowIso;
     const { error } = await supabase.from("applications").update(patch as never).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toastError(error, { title: "Falha ao atualizar status" }); return; }
     updateLocal(id, patch as Partial<Row>);
     toast.success("Status atualizado");
   }
