@@ -58,57 +58,79 @@ function stripComments(sql: string): string {
     .replace(/--[^\n]*/g, "");
 }
 
-function checkFile(path: string): Issue[] {
-  const raw = readFileSync(path, "utf8");
-  const sql = stripComments(raw);
+/**
+ * Check the aggregated state of the schema after running ALL migrations
+ * in order. This matches what the database actually looks like in
+ * production — a later migration can fix something an earlier one
+ * introduced (e.g. an ALTER VIEW SET (security_invoker=true) that comes
+ * in a subsequent file).
+ *
+ * Issues are reported pointing at the migration that INTRODUCED the
+ * offending object, so the failure tells you where to look.
+ */
+function checkAggregated(files: string[]): Issue[] {
   const issues: Issue[] = [];
 
-  // 1+2) CREATE TABLE public.X
+  // First pass: index per file
+  const perFile = files.map((path) => ({
+    path,
+    sql: stripComments(readFileSync(path, "utf8")),
+  }));
+  const allSql = perFile.map((f) => f.sql).join("\n");
+
+  // Tables
   const tableRe = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?public\.([a-z0-9_]+)/gi;
-  for (const m of sql.matchAll(tableRe)) {
-    const name = m[1];
-    const grantRe = new RegExp(`GRANT\\s+[\\w\\s,]+\\s+ON\\s+(?:TABLE\\s+)?public\\.${name}\\b`, "i");
-    if (!grantRe.test(sql)) {
-      issues.push({
-        file: path,
-        level: "error",
-        rule: "table_without_grants",
-        object: `public.${name}`,
-        hint: `Add: GRANT SELECT,INSERT,UPDATE,DELETE ON public.${name} TO authenticated; GRANT ALL ON public.${name} TO service_role;`,
-      });
-    }
-    const rlsRe = new RegExp(`ALTER\\s+TABLE\\s+(?:ONLY\\s+)?public\\.${name}\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`, "i");
-    if (!rlsRe.test(sql)) {
-      issues.push({
-        file: path,
-        level: "error",
-        rule: "table_without_rls",
-        object: `public.${name}`,
-        hint: `Add: ALTER TABLE public.${name} ENABLE ROW LEVEL SECURITY; CREATE POLICY ...`,
-      });
+  const seenTables = new Set<string>();
+  for (const f of perFile) {
+    for (const m of f.sql.matchAll(tableRe)) {
+      const name = m[1];
+      if (seenTables.has(name)) continue;
+      seenTables.add(name);
+
+      const grantRe = new RegExp(`GRANT\\s+[\\w\\s,]+\\s+ON\\s+(?:TABLE\\s+)?public\\.${name}\\b`, "i");
+      if (!grantRe.test(allSql)) {
+        issues.push({
+          file: f.path, level: "error", rule: "table_without_grants",
+          object: `public.${name}`,
+          hint: `Add: GRANT SELECT,INSERT,UPDATE,DELETE ON public.${name} TO authenticated; GRANT ALL ON public.${name} TO service_role;`,
+        });
+      }
+      const rlsRe = new RegExp(`ALTER\\s+TABLE\\s+(?:ONLY\\s+)?public\\.${name}\\s+ENABLE\\s+ROW\\s+LEVEL\\s+SECURITY`, "i");
+      if (!rlsRe.test(allSql)) {
+        issues.push({
+          file: f.path, level: "error", rule: "table_without_rls",
+          object: `public.${name}`,
+          hint: `Add: ALTER TABLE public.${name} ENABLE ROW LEVEL SECURITY; CREATE POLICY ...`,
+        });
+      }
     }
   }
 
-  // 3) CREATE [OR REPLACE] VIEW public.X — must set security_invoker
+  // Views — check aggregated state. A later ALTER VIEW SET
+  // (security_invoker=true) counts as a fix.
   const viewRe = /CREATE\s+(?:OR\s+REPLACE\s+)?VIEW\s+public\.([a-z0-9_]+)/gi;
-  for (const m of sql.matchAll(viewRe)) {
-    const name = m[1];
-    // Either set inline via WITH (security_invoker=true) or via ALTER VIEW
-    const inlineRe = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?VIEW\\s+public\\.${name}[\\s\\S]*?WITH\\s*\\([^)]*security_invoker\\s*=\\s*true`, "i");
-    const alterRe = new RegExp(`ALTER\\s+VIEW\\s+public\\.${name}\\s+SET\\s*\\([^)]*security_invoker\\s*=\\s*true`, "i");
-    if (!inlineRe.test(sql) && !alterRe.test(sql)) {
-      issues.push({
-        file: path,
-        level: "error",
-        rule: "view_without_security_invoker",
-        object: `public.${name}`,
-        hint: `Add: ALTER VIEW public.${name} SET (security_invoker = true);`,
-      });
+  const seenViews = new Set<string>();
+  for (const f of perFile) {
+    for (const m of f.sql.matchAll(viewRe)) {
+      const name = m[1];
+      if (seenViews.has(name)) continue;
+      seenViews.add(name);
+
+      const inlineRe = new RegExp(`CREATE\\s+(?:OR\\s+REPLACE\\s+)?VIEW\\s+public\\.${name}[\\s\\S]*?WITH\\s*\\([^)]*security_invoker\\s*=\\s*true`, "i");
+      const alterRe = new RegExp(`ALTER\\s+VIEW\\s+public\\.${name}\\s+SET\\s*\\([^)]*security_invoker\\s*=\\s*true`, "i");
+      if (!inlineRe.test(allSql) && !alterRe.test(allSql)) {
+        issues.push({
+          file: f.path, level: "error", rule: "view_without_security_invoker",
+          object: `public.${name}`,
+          hint: `Add: ALTER VIEW public.${name} SET (security_invoker = true);`,
+        });
+      }
     }
   }
 
   return issues;
 }
+
 
 function main() {
   const sinceIdx = process.argv.indexOf("--since");
@@ -120,12 +142,11 @@ function main() {
     return;
   }
 
-  console.log(`Checking ${files.length} migration file(s)...`);
-  const all: Issue[] = [];
-  for (const f of files) {
-    try { statSync(f); } catch { continue; }
-    all.push(...checkFile(f));
-  }
+  console.log(`Checking ${files.length} migration file(s) (aggregated state)...`);
+  const all: Issue[] = checkAggregated(files.filter((f) => {
+    try { statSync(f); return true; } catch { return false; }
+  }));
+
 
   if (all.length === 0) {
     console.log("✓ No migration security issues found.");
