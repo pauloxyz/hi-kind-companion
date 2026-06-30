@@ -772,7 +772,7 @@ function Step5Done({ form }: { form: FormState }) {
               target="_blank"
               rel="noopener noreferrer"
               className="block"
-              onClick={() => track("onboarding_whatsapp_send_again_clicked")}
+              onClick={() => mirror("onboarding_whatsapp_send_again_clicked")}
             >
               <Button className="w-full h-11 bg-[#25D366] hover:bg-[#1ebe5a] text-white">
                 <MessageCircle className="mr-2 h-4 w-4" /> Enviar para outro contato
