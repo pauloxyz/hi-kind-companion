@@ -12,7 +12,10 @@ async function resolveOrCreateCustomer(
   options: { email?: string; userId?: string },
 ): Promise<string> {
   if (options.userId && !/^[a-zA-Z0-9_-]+$/.test(options.userId)) {
-    throw new Error("Invalid userId");
+    throw new AppError("Identificador de usuário inválido.", {
+      kind: "validation",
+      code: "payments.invalid_user_id",
+    });
   }
   if (options.userId) {
     const found = await stripe.customers.search({
