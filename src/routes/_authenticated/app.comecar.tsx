@@ -234,13 +234,9 @@ function OnboardingPage() {
       if (error) throw error;
       setForm(merged);
       setStep(nextStep);
-      track("onboarding_step_advanced", {
-        from: step,
-        to: nextStep,
-        label: STEP_LABELS[nextStep],
-      });
+      mirror("onboarding_step_advanced", nextStep, STEP_LABELS[nextStep], { from: step });
       if (isCompletion) {
-        track("onboarding_completed", {
+        mirror("onboarding_completed", nextStep, STEP_LABELS[nextStep], {
           has_experience: merged.field_experience.length > 0,
           has_physical: merged.physical_conditions.length > 0,
         });
