@@ -217,6 +217,7 @@ jobs:
             test-results/**/*.webm
             test-results/**/*.zip
             test-results/**/error-context.md
+            test-results/_spec-manifest.json
             playwright-report/**
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
@@ -327,6 +328,7 @@ jobs:
             test-results/**/*.webm
             test-results/**/*.zip
             test-results/**/error-context.md
+            test-results/_spec-manifest.json
             playwright-report/**
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
@@ -432,6 +434,7 @@ jobs:
             test-results/**/*.webm
             test-results/**/*.zip
             test-results/**/error-context.md
+            test-results/_spec-manifest.json
             playwright-report/**
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
@@ -545,6 +548,7 @@ jobs:
             test-results/**/*.webm
             test-results/**/*.zip
             test-results/**/error-context.md
+            test-results/_spec-manifest.json
             playwright-report/**
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
