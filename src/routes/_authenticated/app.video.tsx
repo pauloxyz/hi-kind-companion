@@ -198,7 +198,7 @@ function Page() {
     setActiveIdx(null);
   }
 
-  function handleAiError(action: "script" | "meta", e: unknown, startedAt: number) {
+  function handleAiError(action: "script" | "meta", e: unknown, startedAt: number, correlationId: string) {
     const latencyMs = Date.now() - startedAt;
     const raw = e instanceof Error ? e.message : String(e);
     const m = raw.match(/^AI_ERR\|(\w+)\|(\d+)\|(.+)$/s);
@@ -206,13 +206,15 @@ function Page() {
       const code = m[1] as AiErrorInfo["code"];
       const retryAfter = parseInt(m[2], 10) || 0;
       const msg = m[3];
-      console.warn("[ai-error]", { action, code, retryAfter, msg, latencyMs, at: new Date().toISOString() });
-      track("ai_error", { action, code, retryAfter, latencyMs });
+      console.warn("[ai-error]", { action, code, retryAfter, msg, latencyMs, correlationId, at: new Date().toISOString() });
+      track("ai_error", { action, code, retryAfter, latencyMs, correlationId });
+      captureAiError(e, { ai_action: action, ai_code: code, correlation_id: correlationId }, { retryAfter, latencyMs, msg });
       setAiError({ action, code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
       toast.error(msg);
     } else {
-      console.warn("[ai-error]", { action, code: "other", msg: raw, latencyMs, at: new Date().toISOString() });
-      track("ai_error", { action, code: "other", latencyMs });
+      console.warn("[ai-error]", { action, code: "other", msg: raw, latencyMs, correlationId, at: new Date().toISOString() });
+      track("ai_error", { action, code: "other", latencyMs, correlationId });
+      captureAiError(e, { ai_action: action, ai_code: "other", correlation_id: correlationId }, { latencyMs });
       setAiError({ action, code: "other", msg: raw || "Erro inesperado.", retryAt: 0 });
       toast.error(raw || "Erro");
     }
@@ -220,32 +222,34 @@ function Page() {
 
   async function handleGenerate() {
     const isRetry = aiError?.action === "script";
+    const correlationId = newCorrelationId();
+    setCorrelationId(correlationId);
     if (isRetry) {
-      // How long the user actually waited past the unlock (negative if early-fire blocked).
       const waitedPastUnlockMs = aiError?.retryAt ? Date.now() - aiError.retryAt : 0;
-      console.info("[ai-retry]", { action: "script", code: aiError?.code, waitedPastUnlockMs });
-      track("ai_retry_click", { action: "script", code: aiError?.code, waitedPastUnlockMs });
+      console.info("[ai-retry]", { action: "script", code: aiError?.code, waitedPastUnlockMs, correlationId });
+      track("ai_retry_click", { action: "script", code: aiError?.code, waitedPastUnlockMs, correlationId });
+    } else {
+      track("ai_generate_click", { action: "script", correlationId });
     }
     const startedAt = Date.now();
     setGenerating(true);
     setAiError((e) => (e?.action === "script" ? null : e));
     try {
-      const r = await genFn();
+      const r = await genFn({ data: { correlationId } });
       setScriptPt(r.pt);
       setScriptEn(r.en);
       setBlocks(r.blocks);
       audioCacheRef.current.clear();
       try { sessionStorage.removeItem(TTS_CACHE_KEY); } catch { /* ignore */ }
-      // Invalidate cached metadata — script changed
       setYtMeta(null);
       try { sessionStorage.removeItem(META_CACHE_KEY); } catch { /* ignore */ }
       setAiError(null);
       const latencyMs = Date.now() - startedAt;
-      track(isRetry ? "ai_retry_success" : "ai_generate_success", { action: "script", latencyMs });
+      track(isRetry ? "ai_retry_success" : "ai_generate_success", { action: "script", latencyMs, correlationId });
       toast.success("Roteiro + pronúncia gerados ✓");
     } catch (e) {
-      if (isRetry) track("ai_retry_failure", { action: "script" });
-      handleAiError("script", e, startedAt);
+      if (isRetry) track("ai_retry_failure", { action: "script", correlationId });
+      handleAiError("script", e, startedAt, correlationId);
     } finally {
       setGenerating(false);
     }
