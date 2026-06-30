@@ -52,15 +52,25 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     returnUrl: string;
     environment: StripeEnv;
   }) => {
-    if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) throw new Error("Invalid priceId");
+    if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) {
+      throw new AppError("Plano inválido. Recarregue a página e tente novamente.", {
+        kind: "validation",
+        code: "payments.invalid_price_id",
+      });
+    }
     return data;
   })
-  .handler(async ({ data }): Promise<CheckoutSessionResult> => {
+  .handler(withServerErrors("payments.checkout", async ({ data }): Promise<CheckoutSessionResult> => {
     try {
       const stripe = createStripeClient(data.environment);
 
       const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
-      if (!prices.data.length) throw new Error("Price not found");
+      if (!prices.data.length) {
+        throw new AppError("Plano não encontrado. Atualize a página e tente novamente.", {
+          kind: "not_found",
+          code: "payments.price_not_found",
+        });
+      }
       const stripePrice = prices.data[0];
       const isRecurring = stripePrice.type === "recurring";
 
