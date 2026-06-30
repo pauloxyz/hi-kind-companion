@@ -277,6 +277,18 @@ jobs:
       # via `attempt-N`). Viewport information is encoded in each test
       # title (e.g. `360 phone (360x780)`), so the per-test directory
       # under `test-results/` carries the viewport in its name already.
+      - name: Collect spec titles with artifacts (targeted)
+        id: spec_titles_targeted
+        if: ${{ !cancelled() }}
+        run: |
+          {
+            if [ -d test-results ]; then
+              find test-results -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
+                | sort -u
+            fi
+          } > /tmp/spec-titles-targeted.txt
+          echo "count=$(wc -l < /tmp/spec-titles-targeted.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+
       - name: Upload Playwright artifacts (shard targeted)
         id: upload_targeted
         if: ${{ !cancelled() && failure() }}
@@ -292,17 +304,35 @@ jobs:
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
-      - name: Link targeted artifact in job summary
-        if: ${{ !cancelled() && failure() && steps.upload_targeted.outputs.artifact-url != '' }}
+      - name: Targeted summary (artifact link + spec titles or green fallback)
+        if: ${{ !cancelled() }}
+        env:
+          ARTIFACT_URL: ${{ steps.upload_targeted.outputs.artifact-url }}
+          SPEC_COUNT: ${{ steps.spec_titles_targeted.outputs.count }}
+          ATTEMPT: ${{ github.run_attempt }}
         run: |
           {
-            echo "### 🔎 Playwright — targeted regression"
+            echo "### 🔎 Playwright — targeted regression (attempt ${ATTEMPT})"
             echo
-            echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report for the failing targeted run:"
-            echo
-            echo "- [Download \`playwright-artifacts-shard-targeted-attempt-${{ github.run_attempt }}-run1\`](${{ steps.upload_targeted.outputs.artifact-url }})"
-            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
-            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "✅ All 4 targeted specs passed — no trace/video produced."
+            elif [ -n "${ARTIFACT_URL}" ]; then
+              echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report:"
+              echo
+              echo "- [Download \`playwright-artifacts-shard-targeted-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL})"
+              echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
+              echo "- Artifact retention: **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days** (auto-cleaned by GitHub)."
+              if [ -s /tmp/spec-titles-targeted.txt ]; then
+                echo
+                echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
+                echo
+                while IFS= read -r t; do echo "- \`${t}\`"; done < /tmp/spec-titles-targeted.txt
+                echo
+                echo "</details>"
+              fi
+            else
+              echo "⚠️ No Playwright artifacts were produced (job failed before tests ran). Check the job logs above."
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
 
