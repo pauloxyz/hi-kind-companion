@@ -282,6 +282,10 @@ function VistoPage() {
       .eq("id", item.id);
     qc.invalidateQueries({ queryKey: ["visa-checklist"] });
     qc.invalidateQueries({ queryKey: ["visa-history"] });
+    // Sidebar consome `visa_checklist_items` numa query separada — sem este
+    // invalidate, a Jornada (Fase · X, progressbar) ficaria stale após
+    // marcar/desmarcar uma etapa, e a UX divergiria do checklist.
+    qc.invalidateQueries({ queryKey: ["sidebar", "visaSteps"] });
     announce(next ? `Etapa concluída: ${item.step_label}.` : `Etapa reaberta: ${item.step_label}.`);
   };
 
