@@ -3,6 +3,7 @@ import {
   CONTRACT_GATE_BLOCKED_MESSAGE,
   CONTRACT_GATED_STEP_KEYS,
   canCompleteStep,
+  computeStepGateBlocked,
   isContractGatedStep,
 } from "./h2a-journey-gate";
 import { computeJourney, type JourneyInput, type JourneyStageKey } from "./h2a-journey";
