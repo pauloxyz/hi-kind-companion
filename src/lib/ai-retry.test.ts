@@ -45,7 +45,7 @@ describe("runAiAttempt — 429", () => {
     });
 
     expect(result.ok).toBe(false);
-    if (result.ok) return;
+    if (result.ok || "skipped" in result) throw new Error("expected error result");
     expect(result.error.code).toBe("rate_limited");
     expect(result.error.retryAfter).toBe(30);
     expect(result.latencyMs).toBe(500);
