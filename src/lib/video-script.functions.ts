@@ -222,7 +222,12 @@ Return ONLY this JSON (no markdown, no commentary):
           "Idioma do vídeo: Inglês (Estados Unidos)",
         ];
 
-    return { title, description, tags, category, settings } satisfies YoutubeMeta;
+    const meta: YoutubeMeta = { title, description, tags, category, settings };
+    await supabase
+      .from("my_profile")
+      .update({ video_youtube_meta: meta as never })
+      .eq("owner_id", userId);
+    return meta;
   });
 
 // ---------- SRT helpers (client-side) ----------
