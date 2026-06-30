@@ -1462,7 +1462,6 @@ export type Database = {
           full_name: string | null
           has_prior_h2_experience: boolean | null
           languages: string[] | null
-          owner_id: string | null
           photo_url: string | null
           public_headline: string | null
           public_slug: string | null
@@ -1473,7 +1472,6 @@ export type Database = {
           full_name?: string | null
           has_prior_h2_experience?: boolean | null
           languages?: string[] | null
-          owner_id?: string | null
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
@@ -1484,7 +1482,6 @@ export type Database = {
           full_name?: string | null
           has_prior_h2_experience?: boolean | null
           languages?: string[] | null
-          owner_id?: string | null
           photo_url?: string | null
           public_headline?: string | null
           public_slug?: string | null
