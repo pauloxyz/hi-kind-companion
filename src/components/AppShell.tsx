@@ -306,6 +306,35 @@ export function AppShell({ children }: { children?: ReactNode }) {
     const badgeLoading = it.badgeKey != null && badge === null;
     const hasCount = typeof count === "number" && count > 0;
     const hasBadge = typeof badge === "number" && badge > 0;
+    const locked = !!it.requiresOnboarding && showOnboarding;
+
+    if (locked) {
+      return (
+        <button
+          key={it.to}
+          type="button"
+          onClick={() => {
+            toast.info("Complete seu perfil para destravar esta seção.", {
+              action: {
+                label: "Continuar perfil",
+                onClick: () => { navigate({ to: "/app/comecar" }); setOpen(false); },
+              },
+            });
+          }}
+          aria-disabled="true"
+          aria-describedby={`nav-${it.labelKey}-locked-hint`}
+          className="group relative flex w-full items-center gap-3 rounded-xl px-4 py-2.5 text-sm text-sidebar-foreground/35 cursor-not-allowed hover:bg-sidebar-accent/30 transition-colors text-left"
+        >
+          <Icon className="size-[18px] shrink-0 opacity-50" />
+          <span className="flex-1 truncate font-medium">{t(it.labelKey)}</span>
+          <Lock className="h-3.5 w-3.5 opacity-70" aria-hidden />
+          <span id={`nav-${it.labelKey}-locked-hint`} className="sr-only">
+            Bloqueado até concluir o onboarding
+          </span>
+        </button>
+      );
+    }
+
     return (
       <Link
         key={it.to}
@@ -351,6 +380,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
       </Link>
     );
   };
+
 
   const Sidebar = (
     <nav
