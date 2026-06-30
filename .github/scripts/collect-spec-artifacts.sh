@@ -137,6 +137,14 @@ if [ -n "$out_json" ]; then
     printf '  ]\n'
     printf '}\n'
   } > "$out_json"
+
+  # Also drop the manifest inside test-results/ so it ships in the
+  # uploaded artifact bundle without needing the upload `path:` list to
+  # learn about an extra location. Downstream steps (consolidated
+  # summary, post-mortem scripts) can read it directly from the bundle.
+  if [ -d test-results ]; then
+    cp -f "$out_json" test-results/_spec-manifest.json 2>/dev/null || true
+  fi
 fi
 
 if [ -n "${GITHUB_OUTPUT:-}" ]; then
