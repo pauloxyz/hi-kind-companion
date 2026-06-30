@@ -31,7 +31,7 @@ import { PageHeader } from "@/components/page-header";
 import {
   CONTRACT_GATE_BLOCKED_MESSAGE,
   canCompleteStep,
-  isContractGatedStep,
+  computeStepGateBlocked,
 } from "@/lib/h2a-journey-gate";
 
 export const Route = createFileRoute("/_authenticated/app/visto")({
