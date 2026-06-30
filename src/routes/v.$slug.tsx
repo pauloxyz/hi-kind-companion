@@ -2,6 +2,8 @@ import { createFileRoute, notFound } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { getPublicProfileBySlug, trackProfileView, type PublicSkill, type PublicExperience, type PublicMedia } from "@/lib/public-profile.functions";
 import { absUrl } from "@/lib/site";
+import { parseYouTubeId } from "@/lib/youtube";
+
 
 export const Route = createFileRoute("/v/$slug")({
   loader: async ({ params }) => {
