@@ -625,6 +625,10 @@ export function ChecklistRow({
           {blocked && (
             <p
               id={`gate-${item.id}`}
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              data-testid="gate-banner"
               className="flex items-start gap-1.5 rounded-md border border-warning/30 bg-warning/10 px-2.5 py-1.5 text-xs leading-snug text-warning-foreground"
             >
               <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0 opacity-80" aria-hidden />
