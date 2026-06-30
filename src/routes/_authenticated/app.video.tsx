@@ -99,6 +99,7 @@ function Page() {
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
+    initSentry();
     audioCacheRef.current = loadTtsCache();
     try {
       const m = sessionStorage.getItem(META_CACHE_KEY);
