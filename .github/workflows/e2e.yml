@@ -107,6 +107,22 @@ jobs:
           fi
           echo "OK — every Playwright artifact upload uses PLAYWRIGHT_ARTIFACT_RETENTION_DAYS."
 
+  # Unit-tests the regexes the consolidated `debug-links` job uses to
+  # parse artifact names back into (label, phase, attempt). If somebody
+  # renames an artifact upload step in this workflow without updating
+  # those regexes, the consolidated summary silently degrades to
+  # "Attempt: –" and useless labels — this guard fails the workflow
+  # immediately so the regression is caught at PR time.
+  artifact-name-parser-guard:
+    timeout-minutes: 2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run artifact-name parser unit tests
+        run: node .github/scripts/test-artifact-name-parser.mjs
+
+
+
 
   smoke:
     needs: aria-live-guard
@@ -177,18 +193,14 @@ jobs:
       # combo that produced artifacts, so this list maps 1:1 to the specs
       # whose trace/video is in the artifact upload below. Used by the
       # summary step to show "which test produced which artifact".
+      # Scan test-results/ and write a TSV manifest of every spec result
+      # folder + which artifact types it actually contains. Used by the
+      # summary renderer below to emit per-file links (trace.zip /
+      # video.webm / screenshot.png) only when the file truly exists.
       - name: Collect spec titles with artifacts (smoke)
         id: spec_titles_smoke
         if: ${{ !cancelled() }}
-        run: |
-          {
-            if [ -d test-results ]; then
-              find test-results -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-                | sort -u
-            fi
-          } > /tmp/spec-titles-smoke.txt
-          count=$(wc -l < /tmp/spec-titles-smoke.txt | tr -d ' ')
-          echo "count=${count}" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-smoke.tsv
 
       - name: Upload Playwright artifacts (smoke)
         id: upload_smoke
@@ -207,7 +219,7 @@ jobs:
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
-      - name: Smoke summary (artifact link + spec titles or green fallback)
+      - name: Smoke summary (per-spec trace/video links or green fallback)
         if: ${{ !cancelled() }}
         env:
           ARTIFACT_URL: ${{ steps.upload_smoke.outputs.artifact-url }}
@@ -218,36 +230,13 @@ jobs:
             echo "### 🔎 Playwright — smoke (attempt ${ATTEMPT})"
             echo
             if [ "${{ job.status }}" = "success" ] && [ "${SPEC_COUNT:-0}" = "0" ]; then
-              # Green run, no artifacts written (no retries, no failures).
-              # Do NOT print a "Download" link — the upload step is gated on
-              # `if-no-files-found: ignore` and may not have produced an
-              # artifact at all.
               echo "✅ All smoke specs passed — no trace/video produced."
               echo
               echo "_Smoke records on every run (\`PW_RECORD_ALWAYS=1\`) but Playwright only writes \`test-results/\` entries for retries or failures, so a fully-green run has nothing to ship._"
             elif [ -n "${ARTIFACT_URL}" ]; then
-              echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report:"
-              echo
-              echo "- [Download \`playwright-smoke-artifacts-attempt-${ATTEMPT}\`](${ARTIFACT_URL})"
-              echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
-              echo "- Artifact retention: **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days** (auto-cleaned by GitHub)."
-              if [ -s /tmp/spec-titles-smoke.txt ]; then
-                echo
-                echo "<details><summary>Specs with recorded artifacts (${SPEC_COUNT})</summary>"
-                echo
-                while IFS= read -r t; do
-                  # Each spec links to the SAME shard+attempt artifact
-                  # (GitHub artifacts are zipped per upload — there is no
-                  # per-file public URL — so the artifact bundle is the
-                  # finest-grained debug link the platform exposes).
-                  echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"
-                done < /tmp/spec-titles-smoke.txt
-                echo
-                echo "</details>"
-              fi
+              echo "Bundle: [\`playwright-smoke-artifacts-attempt-${ATTEMPT}\`](${ARTIFACT_URL}) — retention **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days**."
+              bash .github/scripts/render-spec-summary.sh /tmp/spec-titles-smoke.tsv "${ARTIFACT_URL}" "Specs with recorded artifacts"
             else
-              # Job failed BEFORE Playwright produced any artifacts (install
-              # step, lint, etc.). Don't emit a broken link.
               echo "⚠️ No Playwright artifacts were produced (job likely failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
@@ -323,14 +312,7 @@ jobs:
       - name: Collect spec titles with artifacts (targeted)
         id: spec_titles_targeted
         if: ${{ !cancelled() }}
-        run: |
-          {
-            if [ -d test-results ]; then
-              find test-results -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-                | sort -u
-            fi
-          } > /tmp/spec-titles-targeted.txt
-          echo "count=$(wc -l < /tmp/spec-titles-targeted.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-targeted.tsv
 
       - name: Upload Playwright artifacts (shard targeted)
         id: upload_targeted
@@ -347,7 +329,7 @@ jobs:
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
-      - name: Targeted summary (artifact link + spec titles or green fallback)
+      - name: Targeted summary (per-spec trace/video links or green fallback)
         if: ${{ !cancelled() }}
         env:
           ARTIFACT_URL: ${{ steps.upload_targeted.outputs.artifact-url }}
@@ -360,19 +342,8 @@ jobs:
             if [ "${{ job.status }}" = "success" ]; then
               echo "✅ All 4 targeted specs passed — no trace/video produced."
             elif [ -n "${ARTIFACT_URL}" ]; then
-              echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report:"
-              echo
-              echo "- [Download \`playwright-artifacts-shard-targeted-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL})"
-              echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
-              echo "- Artifact retention: **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days** (auto-cleaned by GitHub)."
-              if [ -s /tmp/spec-titles-targeted.txt ]; then
-                echo
-                echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
-                echo
-                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"; done < /tmp/spec-titles-targeted.txt
-                echo
-                echo "</details>"
-              fi
+              echo "Bundle: [\`playwright-artifacts-shard-targeted-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL}) — retention **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days**."
+              bash .github/scripts/render-spec-summary.sh /tmp/spec-titles-targeted.tsv "${ARTIFACT_URL}" "Failed specs"
             else
               echo "⚠️ No Playwright artifacts were produced (job failed before tests ran). Check the job logs above."
             fi
@@ -446,14 +417,7 @@ jobs:
       - name: Collect spec titles with artifacts (shard ${{ matrix.shard }} run1)
         id: spec_titles_full_run1
         if: ${{ !cancelled() }}
-        run: |
-          {
-            if [ -d test-results ]; then
-              find test-results -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-                | sort -u
-            fi
-          } > /tmp/spec-titles-full-${{ matrix.shard }}-run1.txt
-          echo "count=$(wc -l < /tmp/spec-titles-full-${{ matrix.shard }}-run1.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-full-${{ matrix.shard }}-run1.tsv
 
       - name: Upload Playwright artifacts (shard ${{ matrix.shard }} run1)
         id: upload_full_run1
@@ -470,7 +434,7 @@ jobs:
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
-      - name: Shard ${{ matrix.shard }} run1 summary (artifact link + spec titles or green fallback)
+      - name: Shard ${{ matrix.shard }} run1 summary (per-spec trace/video links or green fallback)
         if: ${{ !cancelled() }}
         env:
           ARTIFACT_URL: ${{ steps.upload_full_run1.outputs.artifact-url }}
@@ -484,19 +448,8 @@ jobs:
             if [ "${{ job.status }}" = "success" ]; then
               echo "✅ All specs in shard ${SHARD}/4 passed — no trace/video produced."
             elif [ -n "${ARTIFACT_URL}" ]; then
-              echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report:"
-              echo
-              echo "- [Download \`playwright-artifacts-shard-${SHARD}-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL})"
-              echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
-              echo "- Artifact retention: **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days** (auto-cleaned by GitHub)."
-              if [ -s /tmp/spec-titles-full-${SHARD}-run1.txt ]; then
-                echo
-                echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
-                echo
-                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle for shard ${SHARD}/4 (attempt ${ATTEMPT})"; done < /tmp/spec-titles-full-${SHARD}-run1.txt
-                echo
-                echo "</details>"
-              fi
+              echo "Bundle: [\`playwright-artifacts-shard-${SHARD}-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL}) — retention **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days**."
+              bash .github/scripts/render-spec-summary.sh "/tmp/spec-titles-full-${SHARD}-run1.tsv" "${ARTIFACT_URL}" "Failed specs (shard ${SHARD}/4)"
             else
               echo "⚠️ No Playwright artifacts were produced (shard ${SHARD}/4 failed before tests ran). Check the job logs above."
             fi
@@ -1151,6 +1104,8 @@ jobs:
             const { owner, repo } = context.repo;
             const run_id = context.runId;
             const attempt = context.runAttempt;
+            const jobName = context.job;
+            const workflow = context.workflow;
             const retention = process.env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS || '14';
             const jobResults = {
               smoke: `${{ needs.smoke.result }}`,
@@ -1158,17 +1113,26 @@ jobs:
               full: `${{ needs.full.result }}`,
             };
             const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${run_id}/attempts/${attempt}`;
+            // Deep link straight to the Artifacts tab so triage can grab
+            // a bundle even when the consolidated table can't render.
+            const artifactsTabUrl = `https://github.com/${owner}/${repo}/actions/runs/${run_id}#artifacts`;
 
-            const writeFallback = async (reason, detail) => {
+            const writeFallback = async (reason, detail, counts) => {
               const out = [
                 `## 🧭 Playwright debug links — consolidated (attempt ${attempt})`,
                 '',
                 `⚠️ Could not build the consolidated artifact table: **${reason}**.`,
                 '',
-                `- Workflow status: smoke=\`${jobResults.smoke}\` · targeted=\`${jobResults.targeted}\` · full=\`${jobResults.full}\``,
-                `- Open the [run page](${runUrl}) and scroll to **Artifacts** to download trace/video bundles manually.`,
-                `- Artifact retention: **${retention} days** (auto-cleaned by GitHub).`,
+                `- **Workflow:** \`${workflow}\` · job \`${jobName}\` · run [#${run_id}](${runUrl}) · attempt **${attempt}**`,
+                `- **Upstream job results:** smoke=\`${jobResults.smoke}\` · targeted=\`${jobResults.targeted}\` · full=\`${jobResults.full}\``,
+                `- **Artifacts:** open the [Artifacts tab for this run](${artifactsTabUrl}) to download trace/video bundles manually.`,
+                `- **Artifact retention:** ${retention} days (auto-cleaned by GitHub).`,
               ];
+              if (counts) {
+                out.push(
+                  `- **Counts seen:** ${counts.total} total artifact(s); ${counts.matched} matched the Playwright naming convention (\`playwright-smoke-artifacts-*\`, \`playwright-artifacts-shard-*\`, \`playwright-rerun-shard-*\`).`,
+                );
+              }
               if (detail) {
                 out.push('', '<details><summary>Diagnostic</summary>', '', '```', String(detail).slice(0, 4000), '```', '', '</details>');
               }
@@ -1177,10 +1141,6 @@ jobs:
 
             let artifacts;
             try {
-              // List ALL artifacts produced by this workflow run, then keep
-              // only the Playwright ones. `paginate` retries on transient
-              // 5xx itself, but we still guard against hard failures (rate
-              // limit, network blip, permissions drift).
               artifacts = await github.paginate(
                 github.rest.actions.listWorkflowRunArtifacts,
                 { owner, repo, run_id, per_page: 100 },
@@ -1203,7 +1163,8 @@ jobs:
             if (matched.length === 0) {
               await writeFallback(
                 'no Playwright artifacts were uploaded by this run',
-                `Total artifacts seen: ${(artifacts || []).length}. The failing job(s) likely crashed before tests executed — check the per-job logs.`,
+                'The failing job(s) likely crashed before tests executed — check the per-job logs.',
+                { total: (artifacts || []).length, matched: 0 },
               );
               return;
             }
@@ -1262,5 +1223,5 @@ jobs:
               await core.summary.addRaw(lines.join('\n')).write();
             } catch (err) {
               core.warning(`Rendering consolidated table failed: ${err.message}`);
-              await writeFallback('rendering the consolidated table threw', err.stack || err.message);
+              await writeFallback('rendering the consolidated table threw', err.stack || err.message, { total: (artifacts || []).length, matched: matched.length });
             }
