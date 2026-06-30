@@ -21,126 +21,34 @@ import { speakText } from "@/lib/english.functions";
 import { toast } from "sonner";
 import {
   Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle,
-  Volume2, Play, Pause, SkipForward, RotateCcw, FileText, Tag, Settings2,
+  Volume2, Play, Pause, SkipForward, RotateCcw, FileText, Tag, Settings2, ChevronDown,
 } from "lucide-react";
-import { pdf, Document, Page as PdfPage, Text, View, StyleSheet, Image as PdfImage } from "@react-pdf/renderer";
-import { PdfBrandedFooter, PdfLogo } from "@/components/PdfLogo";
+import { pdf } from "@react-pdf/renderer";
+import { VideoScriptPdf } from "@/components/VideoScriptPdf";
 import QRCode from "qrcode";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
 
-// ---------------- PDF ----------------
+const TTS_CACHE_KEY = "video-tts-cache-v1";
+const META_CACHE_KEY = "video-ytmeta-cache-v1";
 
-const s = StyleSheet.create({
-  page: { padding: 36, fontFamily: "Helvetica", fontSize: 11, color: "#111" },
-  title: { fontSize: 18, fontFamily: "Helvetica-Bold", marginBottom: 4, color: "#1a3a6e", textAlign: "center" },
-  subtitle: { fontSize: 10, color: "#555", textAlign: "center", marginBottom: 14 },
-  sectionTitle: {
-    fontSize: 12, fontFamily: "Helvetica-Bold", color: "#fff", backgroundColor: "#1a3a6e",
-    padding: 6, marginTop: 14, marginBottom: 8, textAlign: "center",
-  },
-  ptBlock: { fontSize: 12, lineHeight: 1.6, textAlign: "justify", marginBottom: 6 },
-  blockRow: { borderBottom: "1px solid #e2d8c4", paddingVertical: 8, paddingHorizontal: 4 },
-  blockHeader: { flexDirection: "row", alignItems: "center", marginBottom: 4 },
-  blockNum: {
-    fontSize: 10, fontFamily: "Helvetica-Bold", color: "#fff", backgroundColor: "#1a3a6e",
-    paddingVertical: 2, paddingHorizontal: 6, borderRadius: 8, marginRight: 8,
-  },
-  blockEn: { fontSize: 14, fontFamily: "Helvetica-Bold", color: "#111", flexShrink: 1 },
-  blockLabel: { fontSize: 8, color: "#888", textTransform: "uppercase", letterSpacing: 0.5, marginTop: 4 },
-  blockPhonetic: { fontSize: 12, color: "#0a5d2e", fontFamily: "Helvetica-Oblique", marginBottom: 2 },
-  blockPt: { fontSize: 10, color: "#555" },
-  blockIntonation: { fontSize: 10, color: "#7a4a00", fontFamily: "Helvetica-Oblique" },
-  tip: {
-    fontSize: 9, color: "#555", backgroundColor: "#fef6e4",
-    padding: 8, marginBottom: 10, borderRadius: 3,
-  },
-  qrBox: {
-    flexDirection: "row", alignItems: "center", gap: 12, marginTop: 14, padding: 10,
-    backgroundColor: "#f5ede0", borderRadius: 4,
-  },
-  qrImg: { width: 90, height: 90 },
-  qrText: { fontSize: 10, color: "#1a3a6e", flexShrink: 1, lineHeight: 1.4 },
-  footer: { fontSize: 9, color: "#666", marginTop: 16, textAlign: "center", fontStyle: "italic" },
-});
-
-function ScriptPdf({
-  pt, en, blocks, name, qrDataUrl, secondsPerBlock,
-}: {
-  pt: string; en: string; blocks: ScriptBlock[]; name: string;
-  qrDataUrl: string | null; secondsPerBlock: number;
-}) {
-  const totalSec = Math.round(blocks.length * secondsPerBlock);
-  return (
-    <Document>
-      <PdfPage size="LETTER" style={s.page} wrap>
-        <View style={{ alignItems: "center", marginBottom: 8 }}><PdfLogo /></View>
-        <Text style={s.title}>Roteiro do vídeo — {name}</Text>
-        <Text style={s.subtitle}>
-          Treine bloco por bloco. Leia a pronúncia "abrasileirada" em voz alta — não tente ler o inglês escrito.
-        </Text>
-
-        <View style={s.tip}>
-          <Text>
-            DICA: o inglês não se lê como se escreve. Use a coluna verde (pronúncia) para falar.
-            Repita cada bloco 5 vezes antes de passar pro próximo. Quando souber 3 blocos seguidos sem olhar, junte-os.
-          </Text>
-        </View>
-
-        <Text style={s.sectionTitle}>Roteiro completo em português (entenda primeiro)</Text>
-        <Text style={s.ptBlock}>{pt}</Text>
-
-        <Text style={s.sectionTitle}>Roteiro completo em inglês (texto corrido)</Text>
-        <Text style={s.ptBlock}>{en}</Text>
-
-        {qrDataUrl && (
-          <View style={s.qrBox}>
-            <PdfImage src={qrDataUrl} style={s.qrImg} />
-            <Text style={s.qrText}>
-              Aponte a câmera do celular para este QR code e abra o MODO PRÁTICA — você ouve cada bloco em inglês
-              e repete junto. Ritmo configurado: ~{secondsPerBlock}s por bloco (~{totalSec}s total).
-            </Text>
-          </View>
-        )}
-
-        <Text style={s.footer}>Vire a página para ver os blocos com pronúncia →</Text>
-        <PdfBrandedFooter />
-      </PdfPage>
-
-      <PdfPage size="LETTER" style={s.page} wrap>
-        <View style={{ alignItems: "center", marginBottom: 8 }}><PdfLogo /></View>
-        <Text style={s.title}>Blocos de treino — leia a pronúncia em voz alta</Text>
-        <Text style={s.subtitle}>
-          Cubra o inglês com o dedo e treine só pela pronúncia. As notas em laranja indicam o ritmo/entonação.
-        </Text>
-
-        {blocks.length === 0 ? (
-          <View style={s.tip}><Text>Não foi possível gerar os blocos. Volte ao app e clique em "Gerar de novo".</Text></View>
-        ) : (
-          blocks.map((b, i) => (
-            <View key={i} style={s.blockRow} wrap={false}>
-              <View style={s.blockHeader}>
-                <Text style={s.blockNum}>{String(i + 1).padStart(2, "0")}</Text>
-                <Text style={s.blockEn}>{b.en}</Text>
-              </View>
-              <Text style={s.blockLabel}>Como falar (leia em voz alta)</Text>
-              <Text style={s.blockPhonetic}>{b.phonetic}</Text>
-              <Text style={s.blockLabel}>Entonação / ritmo</Text>
-              <Text style={s.blockIntonation}>{b.intonation}</Text>
-              <Text style={s.blockLabel}>Significado</Text>
-              <Text style={s.blockPt}>{b.pt}</Text>
-            </View>
-          ))
-        )}
-
-        <Text style={s.footer}>Grave horizontal, boa luz, olhe para a câmera. ~60 segundos. Você consegue.</Text>
-        <PdfBrandedFooter />
-      </PdfPage>
-    </Document>
-  );
+function loadTtsCache(): Map<number, string> {
+  if (typeof window === "undefined") return new Map();
+  try {
+    const raw = sessionStorage.getItem(TTS_CACHE_KEY);
+    if (!raw) return new Map();
+    const obj = JSON.parse(raw) as Record<string, string>;
+    return new Map(Object.entries(obj).map(([k, v]) => [Number(k), v]));
+  } catch { return new Map(); }
 }
-
-// ---------------- Page ----------------
+function saveTtsCache(cache: Map<number, string>) {
+  if (typeof window === "undefined") return;
+  try {
+    const obj: Record<string, string> = {};
+    cache.forEach((v, k) => { obj[String(k)] = v; });
+    sessionStorage.setItem(TTS_CACHE_KEY, JSON.stringify(obj));
+  } catch { /* quota — ignore */ }
+}
 
 function Page() {
   const genFn = useServerFn(generateVideoScript);
@@ -157,16 +65,14 @@ function Page() {
   const [savingUrl, setSavingUrl] = useState(false);
   const [exporting, setExporting] = useState(false);
 
-  // YouTube metadata + SRT
   const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
   const [genMeta, setGenMeta] = useState(false);
 
-  // Practice mode
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [playingAll, setPlayingAll] = useState(false);
   const [loadingIdx, setLoadingIdx] = useState<number | null>(null);
-  const audioCacheRef = useRef<Map<number, string>>(new Map()); // idx -> base64 mp3
+  const audioCacheRef = useRef<Map<number, string>>(new Map());
   const audioElRef = useRef<HTMLAudioElement | null>(null);
   const playAllStopRef = useRef(false);
 
@@ -174,6 +80,11 @@ function Page() {
   useEffect(() => {
     if (loadedRef.current) return;
     loadedRef.current = true;
+    audioCacheRef.current = loadTtsCache();
+    try {
+      const m = sessionStorage.getItem(META_CACHE_KEY);
+      if (m) setYtMeta(JSON.parse(m) as YoutubeMeta);
+    } catch { /* ignore */ }
     void (async () => {
       const { data: prof } = await supabase
         .from("my_profile")
@@ -195,7 +106,6 @@ function Page() {
     setNormalizedUrl(youtubeUrl.trim() ? normalizeYouTubeUrl(youtubeUrl) : null);
   }, [youtubeUrl]);
 
-  // Stop playback on unmount
   useEffect(() => () => stopAll(), []);
 
   function stopAll() {
@@ -215,6 +125,7 @@ function Page() {
     try {
       const { audio } = await ttsFn({ data: { text } });
       audioCacheRef.current.set(idx, audio);
+      saveTtsCache(audioCacheRef.current);
       return audio;
     } finally {
       setLoadingIdx((cur) => (cur === idx ? null : cur));
@@ -255,7 +166,6 @@ function Page() {
       if (playAllStopRef.current) break;
       try { await playBlock(i); } catch { break; }
       if (playAllStopRef.current) break;
-      // Pause between blocks for the user to repeat out loud
       await new Promise((r) => setTimeout(r, secondsPerBlock * 1000));
     }
     setPlayingAll(false);
@@ -270,6 +180,10 @@ function Page() {
       setScriptEn(r.en);
       setBlocks(r.blocks);
       audioCacheRef.current.clear();
+      try { sessionStorage.removeItem(TTS_CACHE_KEY); } catch { /* ignore */ }
+      // Invalidate cached metadata — script changed
+      setYtMeta(null);
+      try { sessionStorage.removeItem(META_CACHE_KEY); } catch { /* ignore */ }
       toast.success("Roteiro + pronúncia gerados ✓");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro");
@@ -287,7 +201,6 @@ function Page() {
   const hasScript = !!scriptPt && !!scriptEn;
   const needsRegenForBlocks = hasScript && !hasRealBlocks;
 
-  // Blocks used in the PDF: real or fallback (derived from EN)
   const pdfBlocks = useMemo<ScriptBlock[]>(
     () => (hasRealBlocks ? blocks : deriveFallbackBlocks(scriptEn)),
     [hasRealBlocks, blocks, scriptEn],
@@ -300,7 +213,7 @@ function Page() {
       const practiceUrl = `${window.location.origin}/app/video?mode=practice`;
       const qrDataUrl = await QRCode.toDataURL(practiceUrl, { margin: 1, width: 300 });
       const blob = await pdf(
-        <ScriptPdf
+        <VideoScriptPdf
           pt={scriptPt} en={scriptEn} blocks={pdfBlocks}
           name={name || "Candidato"} qrDataUrl={qrDataUrl}
           secondsPerBlock={secondsPerBlock}
@@ -345,6 +258,7 @@ function Page() {
     try {
       const r = await ytMetaFn();
       setYtMeta(r);
+      try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(r)); } catch { /* ignore */ }
       toast.success("Conteúdo do YouTube gerado ✓");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro");
@@ -379,21 +293,21 @@ function Page() {
       <div>
         <h1 className="text-2xl font-bold">Vídeo de Apresentação</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Empregadores H-2A confiam mais em quem mostra a cara. Grave um vídeo curto em inglês, suba no YouTube e cole o link aqui.
+          Empregadores H-2A confiam mais em quem mostra a cara. Grave ~60s em inglês, suba como "Não listado" no YouTube e cole o link.
         </p>
       </div>
 
-      {/* PASSO 1 */}
+      {/* PASSO 1 — Gerar roteiro */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Sparkles className="h-4 w-4 text-primary" />
-            1. Gerar seu roteiro + pronúncia (personalizado por IA)
+            1. Gerar seu roteiro + pronúncia (IA)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <p className="text-xs text-muted-foreground">
-            A IA lê seu currículo e monta um roteiro de ~50s em PT-BR e EN, com o inglês <strong>quebrado em blocos curtos</strong>, a pronúncia escrita do jeito que um brasileiro lê (ex.: <em>"Rái, mái nêimi is Djón"</em>) e notas de entonação. Treine bloco a bloco com áudio.
+            A IA lê seu currículo e monta ~50s em PT-BR e EN, com o inglês quebrado em blocos curtos e a pronúncia escrita do jeito que um brasileiro lê (ex.: <em>"Rái, mái nêimi is Djón"</em>).
           </p>
           <Button onClick={handleGenerate} disabled={generating}>
             {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
@@ -403,146 +317,136 @@ function Page() {
           {needsRegenForBlocks && (
             <div className="flex items-start gap-2 text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2.5 text-amber-900 dark:text-amber-200">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-              <div>
-                Seu roteiro foi gerado antes do modo de blocos com pronúncia/áudio existir. Clique em <strong>"Gerar de novo"</strong> para destravar os blocos, áudio TTS e a página 2 do PDF.
-              </div>
+              <div>Seu roteiro foi gerado antes dos blocos. Clique em <strong>"Gerar de novo"</strong> para destravar áudio TTS e página 2 do PDF.</div>
             </div>
           )}
 
           {hasScript && (
-            <>
-              <div className="grid gap-3 md:grid-cols-2 pt-2">
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">🇧🇷 Português (entenda)</span>
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(scriptPt, "PT")}>
-                      <Copy className="h-3 w-3 mr-1" /> Copiar
-                    </Button>
-                  </div>
-                  <Textarea value={scriptPt} onChange={(e) => setScriptPt(e.target.value)} className="min-h-[180px] text-sm" />
+            <div className="grid gap-3 md:grid-cols-2 pt-2">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">🇧🇷 Português (entenda)</span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(scriptPt, "PT")}>
+                    <Copy className="h-3 w-3 mr-1" /> Copiar
+                  </Button>
                 </div>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-medium text-muted-foreground">🇺🇸 English (grave esta)</span>
-                    <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(scriptEn, "EN")}>
-                      <Copy className="h-3 w-3 mr-1" /> Copiar
-                    </Button>
-                  </div>
-                  <Textarea value={scriptEn} onChange={(e) => setScriptEn(e.target.value)} className="min-h-[180px] text-sm" />
+                <Textarea value={scriptPt} onChange={(e) => setScriptPt(e.target.value)} className="min-h-[180px] text-sm" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-medium text-muted-foreground">🇺🇸 English (grave esta)</span>
+                  <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(scriptEn, "EN")}>
+                    <Copy className="h-3 w-3 mr-1" /> Copiar
+                  </Button>
                 </div>
+                <Textarea value={scriptEn} onChange={(e) => setScriptEn(e.target.value)} className="min-h-[180px] text-sm" />
               </div>
-
-              <div className="flex flex-wrap items-center gap-2 pt-2">
-                <Button onClick={handleExportPdf} disabled={exporting} variant="outline" size="sm">
-                  {exporting ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-2" />}
-                  Baixar PDF (roteiro + blocos + QR pro modo prática)
-                </Button>
-                <span className="text-xs text-muted-foreground">
-                  O PDF traz cada bloco com pronúncia e entonação. O áudio fica aqui no app (PDF não toca som).
-                </span>
-              </div>
-            </>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      {/* PASSO 2 — Modo Prática */}
-      {hasRealBlocks && (
+      {/* PASSO 2 — Treinar (prática + PDF) */}
+      {hasScript && (
         <Card id="practice">
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Volume2 className="h-4 w-4 text-primary" />
-              2. Modo prática — ouça e repita
+              2. Treinar — ouça, repita e leve no PDF
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-md border bg-muted/40 p-3 space-y-3">
-              <div className="flex flex-wrap items-center gap-3 justify-between">
-                <div className="flex items-center gap-2">
-                  {playingAll ? (
-                    <Button size="sm" variant="destructive" onClick={stopAll}>
-                      <Pause className="h-3.5 w-3.5 mr-1" /> Parar
-                    </Button>
-                  ) : (
-                    <Button size="sm" onClick={handlePlayAll}>
-                      <Play className="h-3.5 w-3.5 mr-1" /> Tocar tudo
-                    </Button>
-                  )}
-                  <Button size="sm" variant="outline" onClick={() => { stopAll(); setActiveIdx(null); }}>
-                    <RotateCcw className="h-3.5 w-3.5 mr-1" /> Resetar
-                  </Button>
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  Total estimado: <strong>{totalSec}s</strong> ({blocks.length} blocos × {secondsPerBlock}s de repetição)
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs">
-                  <label className="font-medium">Pausa entre blocos para você repetir</label>
-                  <span className="tabular-nums text-muted-foreground">{secondsPerBlock}s</span>
-                </div>
-                <Slider
-                  value={[secondsPerBlock]}
-                  min={2} max={8} step={1}
-                  onValueChange={(v) => setSecondsPerBlock(v[0] ?? 4)}
-                  disabled={playingAll}
-                />
-                <p className="text-[11px] text-muted-foreground">
-                  Comece com 5s para repetir devagar. Vá baixando até 3s quando estiver mais confiante.
-                </p>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button onClick={handleExportPdf} disabled={exporting} variant="outline" size="sm">
+                {exporting ? <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" /> : <Download className="h-3.5 w-3.5 mr-2" />}
+                Baixar PDF (roteiro + blocos + QR)
+              </Button>
+              <span className="text-xs text-muted-foreground">PDF não toca áudio — use o modo prática abaixo.</span>
             </div>
 
-            <ol className="space-y-2">
-              {blocks.map((b, i) => {
-                const isActive = activeIdx === i;
-                const isLoading = loadingIdx === i;
-                return (
-                  <li
-                    key={i}
-                    className={[
-                      "rounded-md border p-3 text-sm transition-colors",
-                      isActive
-                        ? "border-primary bg-primary/10 ring-2 ring-primary"
-                        : "bg-background",
-                    ].join(" ")}
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="text-xs font-bold text-primary bg-primary/15 rounded px-1.5 py-0.5 mt-0.5">
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                      <div className="flex-1 space-y-1.5">
-                        <div className="font-semibold">{b.en}</div>
-                        <div>
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Como falar</div>
-                          <div className="italic text-emerald-700 dark:text-emerald-400">{b.phonetic}</div>
-                        </div>
-                        <div>
-                          <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Entonação</div>
-                          <div className="text-amber-700 dark:text-amber-400 text-xs italic">{b.intonation}</div>
-                        </div>
-                        <div className="text-xs text-muted-foreground">{b.pt}</div>
-                      </div>
-                      <Button
-                        size="sm" variant={isActive ? "default" : "outline"}
-                        onClick={() => handlePlayOne(i)}
-                        disabled={isLoading || playingAll}
-                        className="flex-shrink-0"
-                      >
-                        {isLoading ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                        ) : isActive ? (
-                          <SkipForward className="h-3.5 w-3.5" />
-                        ) : (
-                          <Play className="h-3.5 w-3.5" />
-                        )}
+            {hasRealBlocks ? (
+              <>
+                <div className="rounded-md border bg-muted/40 p-3 space-y-3">
+                  <div className="flex flex-wrap items-center gap-3 justify-between">
+                    <div className="flex items-center gap-2">
+                      {playingAll ? (
+                        <Button size="sm" variant="destructive" onClick={stopAll}>
+                          <Pause className="h-3.5 w-3.5 mr-1" /> Parar
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={handlePlayAll}>
+                          <Play className="h-3.5 w-3.5 mr-1" /> Tocar tudo
+                        </Button>
+                      )}
+                      <Button size="sm" variant="outline" onClick={() => { stopAll(); setActiveIdx(null); }}>
+                        <RotateCcw className="h-3.5 w-3.5 mr-1" /> Resetar
                       </Button>
                     </div>
-                  </li>
-                );
-              })}
-            </ol>
+                    <div className="text-xs text-muted-foreground">
+                      Total: <strong>{totalSec}s</strong> ({blocks.length} blocos × {secondsPerBlock}s)
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <label className="font-medium">Pausa entre blocos para você repetir</label>
+                      <span className="tabular-nums text-muted-foreground">{secondsPerBlock}s</span>
+                    </div>
+                    <Slider
+                      value={[secondsPerBlock]}
+                      min={2} max={8} step={1}
+                      onValueChange={(v) => setSecondsPerBlock(v[0] ?? 4)}
+                      disabled={playingAll}
+                    />
+                    <p className="text-[11px] text-muted-foreground">Comece com 5s, baixe pra 3s quando estiver confiante.</p>
+                  </div>
+                </div>
+
+                <ol className="space-y-2">
+                  {blocks.map((b, i) => {
+                    const isActive = activeIdx === i;
+                    const isLoading = loadingIdx === i;
+                    return (
+                      <li
+                        key={i}
+                        className={[
+                          "rounded-md border p-3 text-sm transition-colors",
+                          isActive ? "border-primary bg-primary/10 ring-2 ring-primary" : "bg-background",
+                        ].join(" ")}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span className="text-xs font-bold text-primary bg-primary/15 rounded px-1.5 py-0.5 mt-0.5">
+                            {String(i + 1).padStart(2, "0")}
+                          </span>
+                          <div className="flex-1 space-y-1.5">
+                            <div className="font-semibold">{b.en}</div>
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Como falar</div>
+                              <div className="italic text-emerald-700 dark:text-emerald-400">{b.phonetic}</div>
+                            </div>
+                            <div>
+                              <div className="text-[10px] uppercase tracking-wide text-muted-foreground">Entonação</div>
+                              <div className="text-amber-700 dark:text-amber-400 text-xs italic">{b.intonation}</div>
+                            </div>
+                            <div className="text-xs text-muted-foreground">{b.pt}</div>
+                          </div>
+                          <Button
+                            size="sm" variant={isActive ? "default" : "outline"}
+                            onClick={() => handlePlayOne(i)}
+                            disabled={isLoading || playingAll}
+                            className="flex-shrink-0"
+                          >
+                            {isLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              : isActive ? <SkipForward className="h-3.5 w-3.5" />
+                              : <Play className="h-3.5 w-3.5" />}
+                          </Button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </>
+            ) : null}
           </CardContent>
         </Card>
       )}
@@ -550,76 +454,24 @@ function Page() {
       {/* PASSO 3 — Gravar */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">3. Gravar e subir no YouTube</CardTitle>
+          <CardTitle className="text-base">3. Gravar</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-2 text-sm">
-          <ol className="list-decimal pl-5 space-y-1.5">
-            <li>Use o modo prática acima até saber 3 blocos seguidos sem olhar.</li>
-            <li><strong>Grave com o celular na horizontal</strong>, boa luz, fundo neutro. <strong>~60-90 segundos.</strong></li>
-            <li>Suba em <a href="https://youtube.com/upload" target="_blank" rel="noopener noreferrer" className="text-primary underline">youtube.com/upload</a> marcado como <strong>"Não listado"</strong>.</li>
-            <li>Cole o link no campo abaixo.</li>
-          </ol>
+        <CardContent className="text-sm">
+          <p>Celular na horizontal, boa luz, fundo neutro, olhando para a câmera. ~60-90 segundos. Use o modo prática até saber 3 blocos seguidos sem olhar.</p>
         </CardContent>
       </Card>
 
-      {/* TUTORIAL — Como subir no YouTube */}
-      <Card className="border-dashed">
-        <CardHeader>
-          <CardTitle className="text-base flex items-center gap-2">
-            <Youtube className="h-4 w-4 text-destructive" />
-            Tutorial: como subir seu vídeo no YouTube (passo a passo)
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-3 text-sm">
-          <p className="text-muted-foreground">
-            Não precisa deixar público. O modo <strong>"Não listado"</strong> esconde o vídeo da busca — só quem tem o link consegue ver. É o que recomendamos pra mandar pros empregadores.
-          </p>
-
-          <div className="space-y-2">
-            <p className="font-semibold">No celular (app YouTube):</p>
-            <ol className="list-decimal pl-5 space-y-1">
-              <li>Abra o app <strong>YouTube</strong> e entre com sua conta Google (a mesma do Gmail serve).</li>
-              <li>Toque no <strong>+</strong> no centro da barra de baixo → <strong>"Enviar um vídeo"</strong>.</li>
-              <li>Escolha o vídeo da galeria. Dá pra cortar começo/fim se precisar.</li>
-              <li>Em <strong>Título</strong>, escreva algo como: <em>"My H-2A introduction — [Seu Nome]"</em>.</li>
-              <li>Em <strong>Descrição</strong>, cole seu script em inglês (opcional, ajuda o empregador).</li>
-              <li>Em <strong>Visibilidade / Privacidade</strong>, escolha <strong>"Não listado"</strong> (Unlisted). <span className="text-muted-foreground">⚠ Não escolha "Privado", senão o empregador não consegue abrir.</span></li>
-              <li>Toque em <strong>Enviar</strong> e aguarde o upload terminar.</li>
-              <li>Quando terminar, abra o vídeo, toque em <strong>Compartilhar</strong> e <strong>Copiar link</strong>.</li>
-              <li>Volte aqui e cole no campo abaixo. ✅</li>
-            </ol>
-          </div>
-
-          <div className="space-y-2">
-            <p className="font-semibold">No computador:</p>
-            <ol className="list-decimal pl-5 space-y-1">
-              <li>Acesse <a href="https://youtube.com/upload" target="_blank" rel="noopener noreferrer" className="text-primary underline">youtube.com/upload</a> logado na sua conta Google.</li>
-              <li>Arraste o arquivo do vídeo pra tela (ou clique em <strong>Selecionar arquivos</strong>).</li>
-              <li>Preencha título e descrição → <strong>Próxima</strong> até a tela <strong>Visibilidade</strong>.</li>
-              <li>Marque <strong>"Não listado"</strong> → <strong>Salvar</strong>.</li>
-              <li>Clique no ícone de compartilhar e copie o link <code className="font-mono text-xs">youtu.be/...</code>.</li>
-              <li>Cole no campo abaixo. ✅</li>
-            </ol>
-          </div>
-
-          <div className="rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs space-y-1">
-            <p className="font-semibold">Não tem conta no YouTube?</p>
-            <p>Toda conta <strong>Google / Gmail</strong> já é uma conta YouTube — basta fazer login. Se não tem Gmail, crie em <a href="https://accounts.google.com/signup" target="_blank" rel="noopener noreferrer" className="text-primary underline">accounts.google.com/signup</a> (leva 2 min).</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* CONTEÚDO PRO UPLOAD — Título, descrição, tags, configs + SRT */}
+      {/* PASSO 4 — Conteúdo pro upload (inclui config "Não listado", tutorial em <details>) */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
-            Conteúdo pronto pro YouTube (título, descrição, tags + legendas)
+            4. Conteúdo pronto pro YouTube (título, descrição, tags, legendas)
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            A IA monta título e descrição em inglês com base no seu roteiro, sugere tags, categoria e configurações recomendadas (incluindo "Não listado"). Você só copia e cola na hora do upload. Também dá pra baixar legendas SRT (EN + PT) pra subir na tela "Subtítulos".
+            A IA monta título e descrição em inglês com base no seu roteiro, sugere tags, categoria e configurações (incluindo <strong>"Não listado"</strong>). Copie e cole no upload. Baixe também as legendas SRT pra subir no YouTube Studio.
           </p>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -628,10 +480,10 @@ function Page() {
               {ytMeta ? "Gerar de novo" : "Gerar título, descrição e tags"}
             </Button>
             <Button onClick={() => handleDownloadSrt("en")} disabled={!hasScript} size="sm" variant="outline">
-              <Download className="h-3.5 w-3.5 mr-2" /> Baixar legenda EN (.srt)
+              <Download className="h-3.5 w-3.5 mr-2" /> Legenda EN (.srt)
             </Button>
             <Button onClick={() => handleDownloadSrt("pt")} disabled={!hasScript} size="sm" variant="outline">
-              <Download className="h-3.5 w-3.5 mr-2" /> Baixar legenda PT (.srt)
+              <Download className="h-3.5 w-3.5 mr-2" /> Legenda PT (.srt)
             </Button>
           </div>
 
@@ -667,7 +519,7 @@ function Page() {
                     <Tag className="h-3 w-3" /> Tags ({ytMeta.tags.length})
                   </span>
                   <Button size="sm" variant="ghost" className="h-7 px-2" onClick={() => copy(ytMeta.tags.join(", "), "Tags")}>
-                    <Copy className="h-3 w-3 mr-1" /> Copiar (vírgula)
+                    <Copy className="h-3 w-3 mr-1" /> Copiar
                   </Button>
                 </div>
                 <div className="flex flex-wrap gap-1.5 rounded-md border p-2 bg-muted/30">
@@ -679,39 +531,78 @@ function Page() {
 
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="rounded-md border p-3 space-y-1">
-                  <div className="text-xs font-medium text-muted-foreground">Categoria sugerida</div>
+                  <div className="text-xs font-medium text-muted-foreground">Categoria</div>
                   <div className="text-sm font-semibold">{ytMeta.category}</div>
                 </div>
                 <div className="rounded-md border p-3 space-y-2">
                   <div className="text-xs font-medium text-muted-foreground flex items-center gap-1">
-                    <Settings2 className="h-3 w-3" /> Configurações recomendadas
+                    <Settings2 className="h-3 w-3" /> Configurações
                   </div>
                   <ul className="text-xs space-y-1 list-disc pl-4">
                     {ytMeta.settings.map((s, i) => <li key={i}>{s}</li>)}
                   </ul>
                 </div>
               </div>
-
-              <div className="rounded-md border border-primary/20 bg-primary/5 p-3 text-xs space-y-1">
-                <p className="font-semibold">Como subir as legendas no YouTube</p>
-                <ol className="list-decimal pl-4 space-y-0.5">
-                  <li>No YouTube Studio, abra seu vídeo → menu lateral <strong>Subtítulos</strong>.</li>
-                  <li>Clique em <strong>Adicionar idioma</strong> → escolha Inglês → <strong>Adicionar</strong> em "Legendas" → <strong>Fazer upload de arquivo</strong> → <em>Com tempo</em> → selecione o <code className="font-mono">.srt</code> EN.</li>
-                  <li>Repita pra Português (Brasil) com o arquivo PT.</li>
-                  <li>Publique. O empregador pode ligar legendas no idioma dele.</li>
-                </ol>
-              </div>
             </div>
           )}
+
+          <details className="group rounded-md border bg-muted/20">
+            <summary className="cursor-pointer list-none p-3 flex items-center justify-between text-sm font-medium">
+              <span className="flex items-center gap-2">
+                <Youtube className="h-4 w-4 text-destructive" />
+                Passo a passo: como subir no YouTube
+              </span>
+              <ChevronDown className="h-4 w-4 transition-transform group-open:rotate-180" />
+            </summary>
+            <div className="p-3 pt-0 space-y-3 text-sm">
+              <p className="text-muted-foreground text-xs">
+                <strong>"Não listado"</strong> esconde o vídeo da busca — só quem tem o link vê. Não escolha "Privado" (empregador não consegue abrir).
+              </p>
+
+              <div>
+                <p className="font-semibold text-xs mb-1">Pelo celular:</p>
+                <ol className="list-decimal pl-5 space-y-0.5 text-xs">
+                  <li>App YouTube → <strong>+</strong> → <strong>Enviar vídeo</strong>.</li>
+                  <li>Cole o título e a descrição gerados acima.</li>
+                  <li>Visibilidade: <strong>"Não listado"</strong> → Enviar.</li>
+                  <li>Abra o vídeo → <strong>Compartilhar</strong> → <strong>Copiar link</strong>.</li>
+                </ol>
+              </div>
+
+              <div>
+                <p className="font-semibold text-xs mb-1">Pelo computador:</p>
+                <ol className="list-decimal pl-5 space-y-0.5 text-xs">
+                  <li>Acesse <a href="https://youtube.com/upload" target="_blank" rel="noopener noreferrer" className="text-primary underline">youtube.com/upload</a>.</li>
+                  <li>Arraste o vídeo, cole título/descrição.</li>
+                  <li>Visibilidade: <strong>"Não listado"</strong> → Salvar → copie o link <code className="font-mono">youtu.be/...</code>.</li>
+                </ol>
+              </div>
+
+              {ytMeta && (
+                <div>
+                  <p className="font-semibold text-xs mb-1">Subir as legendas (SRT):</p>
+                  <ol className="list-decimal pl-5 space-y-0.5 text-xs">
+                    <li>YouTube Studio → seu vídeo → <strong>Subtítulos</strong>.</li>
+                    <li><strong>Adicionar idioma</strong> → Inglês → <strong>Fazer upload</strong> → <em>Com tempo</em> → arquivo EN.</li>
+                    <li>Repita para Português (Brasil) com o arquivo PT.</li>
+                  </ol>
+                </div>
+              )}
+
+              <p className="text-xs text-muted-foreground">
+                Não tem conta? Toda conta Google/Gmail já é YouTube. Crie em <a href="https://accounts.google.com/signup" target="_blank" rel="noopener noreferrer" className="text-primary underline">accounts.google.com/signup</a>.
+              </p>
+            </div>
+          </details>
         </CardContent>
       </Card>
 
-      {/* PASSO 4 — Link */}
+      {/* PASSO 5 — Cole o link */}
       <Card>
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <Youtube className="h-4 w-4 text-destructive" />
-            4. Cole o link do YouTube
+            5. Cole o link do YouTube
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -736,7 +627,7 @@ function Page() {
 
           {normalizedUrl && ytId && (
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-xs text-success-foreground">
+              <div className="flex items-center gap-2 text-xs">
                 <Check className="h-3.5 w-3.5 text-success" />
                 <span>Link reconhecido. Aparecerá nos emails como <code className="font-mono">{normalizedUrl}</code></span>
               </div>

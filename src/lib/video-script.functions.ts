@@ -95,35 +95,11 @@ EXPERIENCE:
 ${expLines || "(no experience listed — use generic farm worker phrasing, but mention being ready to learn any crop)"}
 `;
 
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY ausente");
-
-    const { generateText } = await import("ai");
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const gateway = createLovableAiGatewayProvider(key);
-
-    let raw = "";
-    try {
-      const { text } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
-        prompt,
-      });
-      raw = text.trim();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("429")) throw new Error("Limite de IA atingido. Tente novamente em alguns minutos.");
-      if (msg.includes("402")) throw new Error("Créditos de IA esgotados.");
-      throw new Error("Falha ao gerar roteiro: " + msg);
-    }
-
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("Resposta da IA não veio em JSON.");
-    let parsed: { pt?: string; en?: string; blocks?: ScriptBlock[] };
-    try {
-      parsed = JSON.parse(jsonMatch[0]);
-    } catch {
-      throw new Error("Não foi possível interpretar o roteiro gerado.");
-    }
+    const { callJsonAI } = await import("./ai-gateway.server");
+    const parsed = await callJsonAI<{ pt?: string; en?: string; blocks?: ScriptBlock[] }>(
+      prompt,
+      { errorLabel: "roteiro" },
+    );
     const pt = (parsed.pt ?? "").trim();
     const en = (parsed.en ?? "").trim();
     const blocks = Array.isArray(parsed.blocks)
@@ -228,30 +204,8 @@ Return ONLY this JSON (no markdown, no commentary):
   ]
 }`;
 
-    const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY ausente");
-    const { generateText } = await import("ai");
-    const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
-    const gateway = createLovableAiGatewayProvider(key);
-
-    let raw = "";
-    try {
-      const { text } = await generateText({
-        model: gateway("google/gemini-3-flash-preview"),
-        prompt,
-      });
-      raw = text.trim();
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("429")) throw new Error("Limite de IA atingido. Tente novamente em alguns minutos.");
-      if (msg.includes("402")) throw new Error("Créditos de IA esgotados.");
-      throw new Error("Falha ao gerar metadados: " + msg);
-    }
-
-    const jsonMatch = raw.match(/\{[\s\S]*\}/);
-    if (!jsonMatch) throw new Error("Resposta da IA não veio em JSON.");
-    let parsed: Partial<YoutubeMeta>;
-    try { parsed = JSON.parse(jsonMatch[0]); } catch { throw new Error("JSON inválido."); }
+    const { callJsonAI } = await import("./ai-gateway.server");
+    const parsed = await callJsonAI<Partial<YoutubeMeta>>(prompt, { errorLabel: "metadados" });
 
     const title = String(parsed.title ?? "").trim().slice(0, 95) || `${name} — H-2A Introduction`;
     const description = String(parsed.description ?? "").trim() || en;
