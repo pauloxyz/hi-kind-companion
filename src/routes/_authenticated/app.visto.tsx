@@ -483,22 +483,29 @@ function VistoPage() {
 
             <Card>
               <CardContent className="p-0 divide-y">
-                {phase.items.map((it) => (
-                  <ChecklistRow
-                    key={it.id}
-                    item={it}
-                    meta={STEP_META[it.step_key]}
-                    attachments={attByItem.get(it.id) ?? []}
-                    onToggle={() => toggle(it)}
-                    onDate={(field, value) => updateDate(it, field, value)}
-                    announce={announce}
-                    refetchAttachments={() => {
-                      qc.invalidateQueries({ queryKey: ["visa-attachments"] });
-                      qc.invalidateQueries({ queryKey: ["visa-history"] });
-                    }}
-                    onOpenViewer={(idx, list) => openViewer(list, idx, it.step_label)}
-                  />
-                ))}
+                {phase.items.map((it) => {
+                  const gateBlocked =
+                    !it.is_completed &&
+                    !contractSigned &&
+                    isContractGatedStep(it.step_key);
+                  return (
+                    <ChecklistRow
+                      key={it.id}
+                      item={it}
+                      meta={STEP_META[it.step_key]}
+                      attachments={attByItem.get(it.id) ?? []}
+                      gateBlocked={gateBlocked}
+                      onToggle={() => toggle(it)}
+                      onDate={(field, value) => updateDate(it, field, value)}
+                      announce={announce}
+                      refetchAttachments={() => {
+                        qc.invalidateQueries({ queryKey: ["visa-attachments"] });
+                        qc.invalidateQueries({ queryKey: ["visa-history"] });
+                      }}
+                      onOpenViewer={(idx, list) => openViewer(list, idx, it.step_label)}
+                    />
+                  );
+                })}
               </CardContent>
             </Card>
           </section>
