@@ -4,15 +4,19 @@
 export type JourneyInput = {
   /** true when the user finished onboarding (resume created). */
   onboardingDone: boolean;
-  /** total applications the user has created. */
-  appsCount: number;
+  /**
+   * true when the user has an accepted offer + signed contract — tracked
+   * via the `hired_by_employer` step in `visa_checklist_items`.
+   * Sending an application is NOT a milestone: it doesn't unblock DS-160.
+   */
+  contractSigned: boolean;
   /** map of visa_checklist_items.step_key -> is_completed. */
   visaSteps: Record<string, boolean>;
 };
 
 export type JourneyStageKey =
   | "curriculo"
-  | "candidatura"
+  | "contrato"
   | "ds160"
   | "entrevista"
   | "visto";
@@ -35,10 +39,10 @@ export type JourneyResult = {
 export const JOURNEY_FALLBACK_STAGE = "Embarque";
 
 export function computeJourney(input: JourneyInput): JourneyResult {
-  const { onboardingDone, appsCount, visaSteps } = input;
+  const { onboardingDone, contractSigned, visaSteps } = input;
   const stages: JourneyStage[] = [
     { key: "curriculo", label: "Currículo", done: !!onboardingDone },
-    { key: "candidatura", label: "Candidatura", done: appsCount > 0 },
+    { key: "contrato", label: "Contrato", done: !!contractSigned },
     { key: "ds160", label: "DS-160", done: !!visaSteps.ds160 },
     { key: "entrevista", label: "Entrevista", done: !!visaSteps.interview_done },
     { key: "visto", label: "Visto emitido", done: !!visaSteps.visa_issued },
@@ -49,3 +53,4 @@ export function computeJourney(input: JourneyInput): JourneyResult {
   const currentStage = stages.find((s) => !s.done)?.label ?? JOURNEY_FALLBACK_STAGE;
   return { stages, doneCount, total, progressPct, currentStage };
 }
+

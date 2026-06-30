@@ -474,11 +474,11 @@ function JourneyTimeline({ jobs }: { jobs: number }) {
   // signed-in users see in the sidebar. Counter at the top reads live
   // from the public stats query so the page feels alive on every load.
   const stages: { label: string; icon: typeof FileText; copy: string }[] = [
-    { label: "Currículo",  icon: FileText, copy: "Perfil + experiência rural em inglês" },
-    { label: "Candidatura", icon: Send,    copy: "Aplique em vagas DOL com 1 clique" },
-    { label: "DS-160",      icon: Stamp,   copy: "Formulário consular sem ‘despachante’" },
-    { label: "Entrevista",  icon: Mic,     copy: "Ensaio + inglês para o consulado" },
-    { label: "Embarque",    icon: Plane,   copy: "Visto carimbado, mala pronta 🇺🇸" },
+    { label: "Currículo", icon: FileText, copy: "Perfil + experiência rural em inglês" },
+    { label: "Contrato",  icon: Send,     copy: "Aplique até receber a oferta confirmada" },
+    { label: "DS-160",    icon: Stamp,    copy: "Formulário consular sem ‘despachante’" },
+    { label: "Entrevista", icon: Mic,     copy: "Ensaio + inglês para o consulado" },
+    { label: "Embarque",  icon: Plane,    copy: "Visto carimbado, mala pronta 🇺🇸" },
   ];
   return (
     <aside
