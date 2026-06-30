@@ -336,7 +336,7 @@ function Landing() {
           <p className="mt-4 text-primary-foreground/85 text-lg max-w-xl mx-auto">
             Crie seu perfil agora e aumente suas chances de ser visto por quem está contratando.
           </p>
-          <Link to="/auth" className="inline-block mt-8">
+          <Link to="/auth" search={{ mode: "signup" }} className="inline-block mt-8">
             <Button size="lg" variant="secondary" className="h-12 px-8 text-base font-bold">
               Criar meu perfil gratuito <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
