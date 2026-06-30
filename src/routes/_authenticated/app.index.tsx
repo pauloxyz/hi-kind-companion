@@ -224,8 +224,15 @@ function Dashboard() {
     : null;
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">{t("dashboard")}</h1>
+    <div className="space-y-6 sm:space-y-8">
+      <header className="space-y-1">
+        <h1 className="font-display text-3xl sm:text-4xl lg:text-[2.625rem] font-bold leading-[1.05] tracking-tight text-balance">
+          {t("dashboard")}
+        </h1>
+        <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+          Acompanhe sua jornada H-2A em um único lugar.
+        </p>
+      </header>
 
       {stats.isPending && (
         <div className="space-y-4" aria-busy="true" aria-label="Carregando painel">
