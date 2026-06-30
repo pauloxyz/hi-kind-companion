@@ -97,7 +97,7 @@ function Landing() {
             ) : (
               <>
                 <Link to="/auth" className="text-sm font-medium hover:underline hidden sm:inline">Entrar</Link>
-                <Link to="/auth"><Button size="sm">Criar perfil grátis</Button></Link>
+                <Link to="/auth" search={{ mode: "signup" }}><Button size="sm">Criar perfil grátis</Button></Link>
               </>
             )}
           </div>
@@ -130,7 +130,7 @@ function Landing() {
                 <strong className="text-foreground">simples, direta e profissional</strong>.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Link to="/auth">
+                <Link to="/auth" search={{ mode: "signup" }}>
                   <Button size="lg" className="h-12 px-7 text-base shadow-elevated">
                     Criar meu perfil gratuito <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
@@ -298,7 +298,7 @@ function Landing() {
                 Produtores iniciam a seleção com antecedência.{" "}
                 <strong className="text-foreground">Quem se posiciona primeiro, sai na frente.</strong>
               </p>
-              <Link to="/auth" className="inline-block mt-5">
+              <Link to="/auth" search={{ mode: "signup" }} className="inline-block mt-5">
                 <Button className="h-11 px-6">
                   Criar meu perfil agora <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
@@ -336,7 +336,7 @@ function Landing() {
           <p className="mt-4 text-primary-foreground/85 text-lg max-w-xl mx-auto">
             Crie seu perfil agora e aumente suas chances de ser visto por quem está contratando.
           </p>
-          <Link to="/auth" className="inline-block mt-8">
+          <Link to="/auth" search={{ mode: "signup" }} className="inline-block mt-8">
             <Button size="lg" variant="secondary" className="h-12 px-8 text-base font-bold">
               Criar meu perfil gratuito <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
