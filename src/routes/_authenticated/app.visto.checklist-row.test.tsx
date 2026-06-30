@@ -72,7 +72,7 @@ describe("ChecklistRow — a11y do gate de contrato", () => {
     it("desabilita o checkbox", () => {
       renderRow({ gateBlocked: true });
       const checkbox = screen.getByRole("checkbox", { name: /Marcar etapa:/i });
-      expect(checkbox).toBeDisabled();
+      expect((checkbox as HTMLButtonElement).disabled).toBe(true);
     });
 
     it("renderiza o banner com a frase canônica do gate", () => {
@@ -122,7 +122,7 @@ describe("ChecklistRow — a11y do gate de contrato", () => {
         item: { is_completed: true },
       });
       const checkbox = screen.getByRole("checkbox", { name: /Marcar etapa:/i });
-      expect(checkbox).toBeDisabled();
+      expect((checkbox as HTMLButtonElement).disabled).toBe(true);
       // Estado interno do Radix Checkbox reflete `checked`:
       expect(checkbox.getAttribute("data-state")).toBe("checked");
       // Banner segue presente para orientar a correção via "Oferta aceita".
@@ -136,7 +136,7 @@ describe("ChecklistRow — a11y do gate de contrato", () => {
     it("habilita o checkbox", () => {
       renderRow({ gateBlocked: false });
       const checkbox = screen.getByRole("checkbox", { name: /Marcar etapa:/i });
-      expect(checkbox).not.toBeDisabled();
+      expect((checkbox as HTMLButtonElement).disabled).toBe(false);
     });
 
     it("não renderiza o banner do gate", () => {
