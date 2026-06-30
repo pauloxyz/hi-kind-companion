@@ -53,13 +53,25 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const navigate = useNavigate();
   const [signedIn, setSignedIn] = useState(false);
   const [stats, setStats] = useState<{ jobs: number | null }>({ jobs: null });
 
   useEffect(() => {
     let cancelled = false;
     supabase.auth.getSession().then(({ data }) => {
-      if (!cancelled) setSignedIn(!!data.session);
+      if (cancelled) return;
+      if (data.session) {
+        navigate({ to: "/app", replace: true });
+        return;
+      }
+      setSignedIn(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      if (cancelled) return;
+      if (session && (event === "SIGNED_IN" || event === "TOKEN_REFRESHED" || event === "INITIAL_SESSION")) {
+        navigate({ to: "/app", replace: true });
+      }
     });
     supabase
       .from("public_jobs" as unknown as "jobs")
@@ -67,8 +79,9 @@ function Landing() {
       .then(({ count }) => {
         if (!cancelled) setStats({ jobs: count ?? 0 });
       });
-    return () => { cancelled = true; };
-  }, []);
+    return () => { cancelled = true; sub.subscription.unsubscribe(); };
+  }, [navigate]);
+
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
