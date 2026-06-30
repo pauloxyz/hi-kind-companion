@@ -273,6 +273,11 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
           AGGREGATE_OUT_JSON: aggregate-stats/aggregate-smoke.json
           AGGREGATE_OUT_CSV: aggregate-stats/aggregate-smoke.csv
+          MANIFEST_JSON: /tmp/spec-titles-smoke.json
+          EXPECTED_MANIFEST_SCHEMA: "3"
+          HAS_REPORT_HTML: ${{ steps.preflight_smoke.outputs.has_report_html }}
+          BUNDLE_OK: ${{ steps.preflight_smoke.outputs.bundle_ok }}
+
         run: |
           {
             echo "### 🔎 Playwright — smoke (attempt ${ATTEMPT})"
