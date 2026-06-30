@@ -795,8 +795,159 @@ for (const vp of VIEWPORTS) {
       expect(phaseAfter, `fase após reload: ${phaseAfter}`).toMatch(/Contrato/i);
       expect(phaseAfter).not.toMatch(/DS-?160/i);
     });
+    /* --------------------------------------------------------------------- */
+    /* 13) TECLADO: Tab até o DS-160 + Enter/Space não progride o gate       */
+    /* --------------------------------------------------------------------- */
+
+    test("Tab+Enter no checklist com gate ativo não conclui DS-160 e mantém o banner", async ({
+      page,
+    }) => {
+      await gotoVisto(page);
+
+      const ds160 = rowByStepKey(page, "ds160");
+      const checkbox = ds160.getByRole("checkbox", { name: /Marcar etapa:/i });
+      const banner = ds160.locator('[id^="gate-"]');
+
+      await expect(ds160).toHaveAttribute("data-gate-blocked", "true");
+      await expect(banner).toBeVisible();
+
+      // Foca o checkbox do DS-160 via API DOM (equivalente ao destino final
+      // de uma sequência de Tab; evita varrer N elementos focáveis e
+      // garante que estamos exercitando keyboard activation, não mouse).
+      await checkbox.focus().catch(() => {});
+
+      // Mesmo `disabled`, Radix mantém o nó focável em alguns navegadores;
+      // pressionar Enter/Space NUNCA pode disparar o toggle.
+      await page.keyboard.press("Enter").catch(() => {});
+      await page.keyboard.press("Space").catch(() => {});
+
+      // Sem progressão: checkbox segue não-marcado, banner segue visível,
+      // gate segue ativo. Aguardamos brevemente para descartar um toggle
+      // assíncrono espúrio (~250ms é folga suficiente para qualquer
+      // setState/refetch propagar antes da asserção).
+      await page.waitForTimeout(250);
+      await expect(checkbox).not.toBeChecked();
+      await expect(banner).toBeVisible();
+      await expect(ds160).toHaveAttribute("data-gate-blocked", "true");
+
+      // E a Jornada segue em Contrato — Tab/Enter não burlam o gate.
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+      }
+      const phase = await readPhaseLabel(page);
+      expect(phase, `fase: ${phase}`).toMatch(/Contrato/i);
+      expect(phase).not.toMatch(/DS-?160/i);
+    });
+
+    /* --------------------------------------------------------------------- */
+    /* 14) DEEP-LINK: abrir direto a âncora #step-<ds160> não burla o gate   */
+    /* --------------------------------------------------------------------- */
+
+    test("navegar via URL direta para a âncora do DS-160 mantém banner e disabled", async ({
+      page,
+      request,
+    }) => {
+      // Descobre o id real do item DS-160 via PostgREST (autenticado) para
+      // montar a âncora deep-link `/app/visto#step-<id>`.
+      const lookup = await request.get(
+        `${SUPABASE_URL}/rest/v1/visa_checklist_items?step_key=eq.ds160&select=id`,
+        {
+          headers: {
+            apikey: SUPABASE_KEY,
+            Authorization: `Bearer ${session.session.access_token}`,
+          },
+        },
+      );
+      expect(lookup.ok(), `lookup DS-160 falhou: ${lookup.status()}`).toBeTruthy();
+      const rows = (await lookup.json()) as Array<{ id: string }>;
+      expect(rows.length, "DS-160 deve existir para o usuário e2e").toBeGreaterThan(0);
+      const ds160Id = rows[0]!.id;
+
+      // Deep-link direto para a row — simula um link compartilhado que
+      // tentaria "pular" o usuário para a fase consular sem passar pelo
+      // contrato. A aplicação NÃO redireciona (a página é a mesma), mas o
+      // gate precisa permanecer 100% efetivo.
+      await page.goto(`/app/visto#step-${ds160Id}`, { waitUntil: "commit" });
+      await expect(page.getByTestId("app-main")).toBeVisible({ timeout: 15_000 });
+
+      const row = page.locator(`#step-${ds160Id}`);
+      await expect(row, "âncora deve resolver para a row do DS-160").toBeVisible();
+
+      // Gate ainda ativo apesar da navegação direta.
+      await expect(row).toHaveAttribute("data-gate-blocked", "true");
+      const banner = row.locator('[id^="gate-"]');
+      await expect(banner).toBeVisible();
+      await expect(banner).toContainText(/Oferta de trabalho aceita/i);
+      await expect(row.getByRole("checkbox", { name: /Marcar etapa:/i })).toBeDisabled();
+
+      // Sidebar/drawer não foi enganada pela URL — Jornada segue em Contrato.
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+      }
+      const phase = await readPhaseLabel(page);
+      expect(phase, `fase: ${phase}`).not.toMatch(/DS-?160/i);
+      expect(phase).toMatch(/Contrato/i);
+    });
+
+    /* --------------------------------------------------------------------- */
+    /* 15) NETWORK: clique forçado em CTA bloqueada NÃO dispara PATCH        */
+    /* --------------------------------------------------------------------- */
+
+    test("clique forçado nas CTAs bloqueadas não dispara request de transição", async ({
+      page,
+    }) => {
+      await gotoVisto(page);
+
+      // Captura QUALQUER request a visa_checklist_items que não seja GET —
+      // PATCH/POST/DELETE indicaria que o gate foi burlado.
+      const transitionRequests: string[] = [];
+      page.on("request", (req) => {
+        const url = req.url();
+        if (!/\/rest\/v1\/visa_checklist_items/.test(url)) return;
+        const method = req.method();
+        if (method === "GET" || method === "OPTIONS") return;
+        transitionRequests.push(`${method} ${url}`);
+      });
+
+      const gatedKeys = ["ds160", "mrv_paid", "interview_done"] as const;
+      for (const k of gatedKeys) {
+        const row = rowByStepKey(page, k);
+        await expect(row).toHaveAttribute("data-gate-blocked", "true");
+        const cb = row.getByRole("checkbox", { name: /Marcar etapa:/i });
+
+        // Sanidade: a CTA está marcada como disabled no DOM (aria + prop).
+        await expect(cb).toBeDisabled();
+        // Radix expõe `data-disabled` quando `disabled=true`.
+        await expect(cb).toHaveAttribute("data-disabled", "");
+
+        // Clique forçado (Playwright pula `pointer-events: none` e o
+        // estado disabled). Mesmo assim a UI não pode disparar PATCH.
+        await cb.click({ force: true }).catch(() => {});
+      }
+
+      // Folga para qualquer request assíncrono (toast/announce) propagar
+      // antes de validarmos que NADA foi para o backend.
+      await page.waitForTimeout(500);
+
+      expect(
+        transitionRequests,
+        `nenhum request de transição esperado, recebidos: ${transitionRequests.join(" | ")}`,
+      ).toEqual([]);
+
+      // Estado da UI também não mudou.
+      for (const k of gatedKeys) {
+        const row = rowByStepKey(page, k);
+        await expect(row).toHaveAttribute("data-gate-blocked", "true");
+        await expect(
+          row.getByRole("checkbox", { name: /Marcar etapa:/i }),
+        ).not.toBeChecked();
+      }
+    });
   });
 }
+
 
 
 
