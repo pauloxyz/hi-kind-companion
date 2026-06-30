@@ -5,18 +5,17 @@ import logo from "@/assets/vaiprala-logo.png";
 import { absUrl } from "@/lib/site";
 import { Button } from "@/components/ui/button";
 import {
-  ArrowRight, Briefcase, FileText, Video, ShieldCheck, BarChart3,
-  Star, Quote, Sparkles, Check, GraduationCap, Send,
-  Stamp, Mic, Plane,
+  ArrowRight, FileText, Video, Send, ShieldCheck, Sparkles,
+  Check, Quote, Star, ClipboardList, CalendarClock, MessageCircle,
 } from "lucide-react";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Vagas H-2A e Visto Agrícola EUA para Brasileiros | VaiPraLá" },
-      { name: "description", content: "Vagas H-2A oficiais do DOL por estado, guia do visto agrícola, salário AEWR 2025, entrevista consular e curso de inglês. Sem agenciador, sem taxa." },
-      { property: "og:title", content: "VaiPraLá — Vagas H-2A e visto agrícola dos EUA para brasileiros" },
-      { property: "og:description", content: "Vagas reais de fazendas americanas, salário em dólar, guia completo do visto H-2A e curso de inglês — tudo num só lugar." },
+      { title: "Vagas H-2A nos EUA: crie seu perfil e conecte com recrutadores | VaiPraLá" },
+      { name: "description", content: "Monte um perfil profissional, grave um vídeo de apresentação e envie direto para recrutadores e produtores do programa H-2A. Sem taxa, sem promessas irreais." },
+      { property: "og:title", content: "VaiPraLá — Sua oportunidade no agro dos EUA começa com um perfil forte" },
+      { property: "og:description", content: "Conecte-se com recrutadores e produtores do programa H-2A de forma simples, direta e profissional." },
       { property: "og:image", content: "https://www.vaiprala.net/og-default.jpg" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:image", content: "https://www.vaiprala.net/og-default.jpg" },
@@ -31,7 +30,7 @@ export const Route = createFileRoute("/")({
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "VaiPraLá",
-          description: "Plataforma para trabalhadores rurais brasileiros aplicarem em vagas H-2A nos EUA.",
+          description: "Plataforma para trabalhadores rurais brasileiros criarem perfil e se conectarem com recrutadores do programa H-2A.",
           url: absUrl("/"),
         }),
       },
@@ -55,7 +54,6 @@ export const Route = createFileRoute("/")({
 function Landing() {
   const navigate = useNavigate();
   const [signedIn, setSignedIn] = useState(false);
-  const [stats, setStats] = useState<{ jobs: number | null }>({ jobs: null });
 
   useEffect(() => {
     let cancelled = false;
@@ -73,15 +71,8 @@ function Landing() {
         navigate({ to: "/app", replace: true });
       }
     });
-    supabase
-      .from("public_jobs" as unknown as "jobs")
-      .select("id", { count: "exact", head: true })
-      .then(({ count }) => {
-        if (!cancelled) setStats({ jobs: count ?? 0 });
-      });
     return () => { cancelled = true; sub.subscription.unsubscribe(); };
   }, [navigate]);
-
 
   return (
     <div className="min-h-dvh bg-background text-foreground" data-testid="landing-page">
@@ -93,9 +84,8 @@ function Landing() {
             <span className="font-bold tracking-tight text-lg">VaiPraLá</span>
           </Link>
           <nav className="hidden md:flex items-center gap-6 text-sm">
-            <a href="#prova" className="text-muted-foreground hover:text-foreground transition-colors">Quem usa</a>
-            <a href="#recursos" className="text-muted-foreground hover:text-foreground transition-colors">Recursos</a>
-            <Link to="/precos" className="text-muted-foreground hover:text-foreground transition-colors">Preços</Link>
+            <a href="#por-que" className="text-muted-foreground hover:text-foreground transition-colors">Por que usar</a>
+            <a href="#como-funciona" className="text-muted-foreground hover:text-foreground transition-colors">Como funciona</a>
             <Link to="/vagas-h2a" className="text-muted-foreground hover:text-foreground transition-colors">Vagas</Link>
             <a href="#faq" className="text-muted-foreground hover:text-foreground transition-colors">FAQ</a>
           </nav>
@@ -106,7 +96,7 @@ function Landing() {
             ) : (
               <>
                 <Link to="/auth" className="text-sm font-medium hover:underline hidden sm:inline">Entrar</Link>
-                <Link to="/auth"><Button size="sm">Começar grátis</Button></Link>
+                <Link to="/auth"><Button size="sm">Criar perfil grátis</Button></Link>
               </>
             )}
           </div>
@@ -114,10 +104,10 @@ function Landing() {
       </header>
 
       <main id="main">
-      {/* HERO — Americana */}
-      <section className="relative overflow-hidden bg-flag-stripes" data-testid="landing-hero">
+      {/* HERO */}
+      <section className="relative overflow-hidden" data-testid="landing-hero">
         <div
-          className="absolute inset-0 opacity-60"
+          className="absolute inset-0 opacity-70"
           aria-hidden
           style={{
             background:
@@ -129,46 +119,34 @@ function Landing() {
             <div>
               <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-accent-red/30 bg-accent-red/10 text-accent-red text-xs font-bold mb-6">
                 <span className="inline-block w-2 h-2 rounded-full bg-accent-red animate-pulse" />
-                {stats.jobs && stats.jobs > 0 ? (
-                  <>
-                    <strong className="tabular-nums">{stats.jobs.toLocaleString("pt-BR")}</strong>
-                    {" "}vagas H-2A ativas agora
-                  </>
-                ) : (
-                  <>Vagas H-2A 2027 abertas agora</>
-                )}
+                Temporada H-2A aberta — produtores selecionando agora
               </div>
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.02] text-balance">
-                Da <span className="text-primary">roça brasileira</span>
-                <br />
-                <span className="italic font-light text-muted-foreground text-3xl sm:text-4xl lg:text-5xl">para a</span>{" "}
-                <span className="text-accent-red">fazenda americana.</span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight leading-[1.05] text-balance">
+                Sua oportunidade no <span className="text-primary">agro dos EUA</span> começa com um perfil forte.
               </h1>
               <p className="mt-6 max-w-xl text-lg text-muted-foreground leading-relaxed">
-                Da primeira candidatura até o visto carimbado, em <strong className="text-foreground">5 passos</strong>{" "}
-                acompanhados no app — sem agenciador, sem taxa, sem você adivinhar o que vem depois.
+                Conecte-se com recrutadores e produtores do programa H-2A de forma{" "}
+                <strong className="text-foreground">simples, direta e profissional</strong>.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
                 <Link to="/auth">
                   <Button size="lg" className="h-12 px-7 text-base shadow-elevated">
-                    Começar minha jornada <ArrowRight className="ml-2 h-4 w-4" />
+                    Criar meu perfil gratuito <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                 </Link>
-                <a href="#prova">
+                <a href="#como-funciona">
                   <Button size="lg" variant="outline" className="h-12 px-6 text-base border-2">
-                    Ver depoimentos
+                    Como funciona
                   </Button>
                 </a>
               </div>
 
-              {/* Trust row */}
               <div className="mt-8 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-muted-foreground">
-                <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> Vagas oficiais do DOL</span>
+                <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> Sem taxa por vaga</span>
                 <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> Sem agenciador</span>
-                <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> 100% gratuito</span>
+                <span className="inline-flex items-center gap-1.5"><Check className="h-3.5 w-3.5 text-primary" /> Focado no H-2A</span>
               </div>
 
-              {/* Star rating mini */}
               <div className="mt-6 flex items-center gap-3">
                 <div className="flex -space-x-2">
                   {AVATAR_STACK.map((a, i) => (
@@ -182,40 +160,101 @@ function Landing() {
                     {[0,1,2,3,4].map(i => <Star key={i} className="h-3.5 w-3.5 fill-accent-gold text-accent-gold" />)}
                     <span className="ml-1.5 font-semibold text-foreground">4,9</span>
                   </div>
-                  <p className="text-muted-foreground">
-                    Brasileiros trilhando a Jornada H-2A com a gente
-                  </p>
+                  <p className="text-muted-foreground">Brasileiros já com perfil ativo no app</p>
                 </div>
               </div>
             </div>
 
-            {/* Hero right: Jornada H-2A visual timeline */}
-            <JourneyTimeline jobs={stats.jobs ?? 0} />
+            {/* Hero right: phone-style profile preview */}
+            <ProfilePreview />
           </div>
         </div>
       </section>
 
-      {/* PROVA SOCIAL: NÚMEROS */}
+      {/* SEM COMPLICAÇÃO */}
+      <section className="border-t border-border/60 bg-muted/30">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-16 text-center">
+          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-balance">
+            Sem complicação. <span className="text-muted-foreground">Sem promessas irreais.</span>
+          </h2>
+          <p className="mt-4 text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+            Monte seu currículo em minutos, grave um vídeo de apresentação e envie seu perfil
+            diretamente para recrutadores e produtores que buscam trabalhadores para o H-2A.
+          </p>
+        </div>
+      </section>
+
+      {/* POR QUE USAR */}
+      <section id="por-que" className="border-t border-border/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">Por que usar</span>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Tudo que você precisa pra ser visto</h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {REASONS.map((r) => (
+              <div key={r.title} className="group rounded-xl border bg-card p-6 hover:border-primary/40 hover:shadow-elevated transition-all">
+                <div className="inline-flex items-center justify-center h-11 w-11 rounded-lg bg-primary/10 text-primary mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
+                  <r.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-bold mb-1.5">{r.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed">{r.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* SEGURANÇA */}
       <section className="border-t border-border/60 bg-primary text-primary-foreground">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-12 grid grid-cols-2 lg:grid-cols-4 gap-6 text-center">
-          <BigStat value="2.4k+" label="vagas H-2A reais importadas" />
-          <BigStat value="612" label="trabalhadores cadastrados" />
-          <BigStat value="1.284" label="candidaturas enviadas" accent />
-          <BigStat value="4,9 ⭐" label="avaliação média" />
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-16">
+          <div className="text-center mb-10">
+            <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-gold mb-3">Segurança e transparência</span>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Você no controle do processo</h2>
+          </div>
+          <div className="grid sm:grid-cols-3 gap-4">
+            {TRUST.map((t) => (
+              <div key={t.title} className="rounded-xl border border-primary-foreground/15 bg-primary-foreground/5 p-6">
+                <ShieldCheck className="h-6 w-6 text-accent-gold mb-3" />
+                <h3 className="font-bold mb-1">{t.title}</h3>
+                <p className="text-sm text-primary-foreground/80 leading-relaxed">{t.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* COMO FUNCIONA */}
+      <section id="como-funciona" className="border-t border-border/60">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+          <div className="text-center max-w-2xl mx-auto mb-14">
+            <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">Como funciona</span>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Em 4 passos você está enviando seu perfil</h2>
+          </div>
+          <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {STEPS.map((s, i) => (
+              <li key={s.title} className="relative rounded-xl border bg-card p-6 hover:border-primary/40 transition-colors">
+                <div className="text-6xl font-black text-primary/10 absolute top-2 right-4 leading-none">{i + 1}</div>
+                <div className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 text-primary mb-3 relative">
+                  <s.icon className="h-5 w-5" />
+                </div>
+                <h3 className="font-bold mb-1.5 relative">{s.title}</h3>
+                <p className="text-sm text-muted-foreground relative leading-relaxed">{s.desc}</p>
+              </li>
+            ))}
+          </ol>
         </div>
       </section>
 
       {/* DEPOIMENTOS */}
-      <section id="prova" className="border-t border-border/60" data-testid="landing-social-proof">
+      <section className="border-t border-border/60 bg-muted/30">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
           <div className="text-center max-w-2xl mx-auto mb-12">
             <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">Quem já foi</span>
             <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-balance">
-              Brasileiros que cruzaram a fronteira <span className="text-primary">com o VaiPraLá</span>
+              Brasileiros que se conectaram <span className="text-primary">direto com o produtor</span>
             </h2>
-            <p className="mt-3 text-muted-foreground">Histórias reais de quem largou o intermediário, aplicou direto e foi.</p>
           </div>
-
           <div className="grid md:grid-cols-3 gap-5">
             {TESTIMONIALS.map((t) => (
               <article key={t.name} className="relative rounded-2xl border bg-card p-6 hover:shadow-elevated transition-shadow">
@@ -236,7 +275,7 @@ function Landing() {
                 <div className="mt-4 pt-4 border-t flex items-center justify-between text-[11px] text-muted-foreground">
                   <span>{t.from}</span>
                   <span className="inline-flex items-center gap-1 text-success font-semibold">
-                    <Check className="h-3 w-3" /> Visto aprovado
+                    <Check className="h-3 w-3" /> Contratado
                   </span>
                 </div>
               </article>
@@ -245,159 +284,26 @@ function Landing() {
         </div>
       </section>
 
-      {/* ANTES / DEPOIS */}
-      <section className="border-t border-border/60 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-          <div className="text-center max-w-2xl mx-auto mb-12">
-            <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">Antes & depois</span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-balance">
-              A diferença que muda o resultado da entrevista
-            </h2>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Currículo antes/depois */}
-            <div className="rounded-2xl border bg-card overflow-hidden">
-              <div className="grid grid-cols-2">
-                <div className="p-5 border-r bg-muted/40">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-3">❌ Antes</p>
-                  <div className="space-y-2">
-                    <div className="h-2 w-3/4 rounded bg-muted-foreground/30" />
-                    <div className="h-2 w-full rounded bg-muted-foreground/20" />
-                    <div className="h-2 w-2/3 rounded bg-muted-foreground/20" />
-                    <div className="h-2 w-1/2 rounded bg-muted-foreground/20" />
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-4 italic">
-                    Word do tio, em português, sem experiência detalhada.
-                  </p>
-                </div>
-                <div className="p-5">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-primary mb-3">✓ Depois</p>
-                  <div className="space-y-2">
-                    <div className="h-2 w-3/4 rounded bg-primary" />
-                    <div className="h-2 w-full rounded bg-primary/70" />
-                    <div className="h-2 w-5/6 rounded bg-primary/60" />
-                    <div className="h-2 w-full rounded bg-primary/60" />
-                    <div className="h-2 w-2/3 rounded bg-primary/60" />
-                  </div>
-                  <p className="text-xs text-foreground/80 mt-4 italic">
-                    PDF em inglês, com fotos do trabalho, link de vídeo e métricas claras.
-                  </p>
-                </div>
-              </div>
-              <div className="p-4 border-t bg-card flex items-center gap-3">
-                <FileText className="h-5 w-5 text-primary" />
-                <p className="text-sm font-semibold">Currículo gerado pela IA — 3x mais respostas.</p>
-              </div>
+      {/* TEMPORADA */}
+      <section className="border-t border-border/60">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-16">
+          <div className="rounded-2xl border-2 border-accent-red/30 bg-accent-red/5 p-8 sm:p-10 flex flex-col sm:flex-row items-start gap-6">
+            <div className="inline-flex items-center justify-center h-14 w-14 shrink-0 rounded-2xl bg-accent-red text-white">
+              <CalendarClock className="h-7 w-7" />
             </div>
-
-            {/* Inglês antes/depois */}
-            <div className="rounded-2xl border bg-card overflow-hidden">
-              <div className="grid grid-cols-2">
-                <div className="p-5 border-r bg-muted/40">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground mb-3">❌ Antes</p>
-                  <p className="text-sm font-mono text-muted-foreground italic">
-                    "I from Brazil. I work farm. Tank you."
-                  </p>
-                  <p className="text-xs text-muted-foreground mt-4">
-                    Travado, com vergonha, perdendo entrevistas no Zoom.
-                  </p>
-                </div>
-                <div className="p-5">
-                  <p className="text-[10px] uppercase tracking-wider font-bold text-primary mb-3">✓ Depois</p>
-                  <p className="text-sm font-mono text-foreground">
-                    "I'm from Brazil, sir. I have <strong>5 years</strong> picking oranges. I'm ready to work."
-                  </p>
-                  <p className="text-xs text-foreground/80 mt-4">
-                    Confiante. Treinou no app com áudio, flashcards e quiz de listening.
-                  </p>
-                </div>
-              </div>
-              <div className="p-4 border-t bg-card flex items-center gap-3">
-                <GraduationCap className="h-5 w-5 text-primary" />
-                <p className="text-sm font-semibold">27 lições de inglês para H-2A — incluso no plano grátis.</p>
-              </div>
+            <div className="flex-1">
+              <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">A temporada já começou</h2>
+              <p className="mt-2 text-muted-foreground leading-relaxed">
+                Produtores iniciam a seleção com antecedência.{" "}
+                <strong className="text-foreground">Quem se posiciona primeiro, sai na frente.</strong>
+              </p>
+              <Link to="/auth" className="inline-block mt-5">
+                <Button className="h-11 px-6">
+                  Criar meu perfil agora <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
+              </Link>
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* RECURSOS */}
-      <section id="recursos" className="border-t border-border/60">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">Tudo no app</span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Você não precisa de agenciador</h2>
-            <p className="mt-3 text-muted-foreground">Sem taxa. Sem intermediário. Sem alguém cobrando R$ 5 mil pra fazer o que você mesmo faz.</p>
-          </div>
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="group rounded-xl border bg-card p-6 hover:border-primary/40 hover:shadow-elevated transition-all">
-                <div className="inline-flex items-center justify-center h-11 w-11 rounded-lg bg-primary/10 text-primary mb-4 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <f.icon className="h-5 w-5" />
-                </div>
-                <h3 className="font-bold mb-1.5">{f.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{f.desc}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* COMO FUNCIONA */}
-      <section id="como-funciona" className="border-t border-border/60 bg-muted/30">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-20">
-          <div className="text-center max-w-2xl mx-auto mb-14">
-            <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">4 passos</span>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Em 30 segundos você está aplicando</h2>
-          </div>
-          <ol className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            {STEPS.map((s, i) => (
-              <li key={s.title} className="relative rounded-xl border bg-card p-6 hover:border-primary/40 transition-colors">
-                <div className="text-6xl font-black text-primary/10 absolute top-2 right-4 leading-none">{i + 1}</div>
-                <h3 className="font-bold mb-1.5 relative">{s.title}</h3>
-                <p className="text-sm text-muted-foreground relative leading-relaxed">{s.desc}</p>
-              </li>
-            ))}
-          </ol>
-        </div>
-      </section>
-
-      {/* PREÇOS */}
-      <section id="precos" className="border-t border-border/60">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 py-20 text-center">
-          <span className="inline-block text-xs font-bold uppercase tracking-wider text-accent-red mb-3">Preços</span>
-          <h2 className="text-3xl sm:text-4xl font-bold tracking-tight text-balance">Comece grátis. Pague só se quiser turbinar.</h2>
-          <p className="mt-3 text-muted-foreground max-w-xl mx-auto">Grátis pra sempre. Pro com candidaturas ilimitadas por menos que uma pizza por mês.</p>
-          <div className="mt-10 grid sm:grid-cols-2 gap-4 max-w-3xl mx-auto text-left">
-            <div className="rounded-2xl border-2 p-6 bg-card">
-              <div className="text-sm font-bold text-muted-foreground uppercase tracking-wider">Grátis</div>
-              <div className="mt-1 text-4xl font-black">R$ 0<span className="text-sm font-normal text-muted-foreground">/sempre</span></div>
-              <ul className="mt-4 space-y-1.5 text-sm text-muted-foreground">
-                <li>✓ Vagas oficiais do DOL</li>
-                <li>✓ 10 candidaturas/mês</li>
-                <li>✓ Carta com IA + vídeo</li>
-                <li>✓ Checklist do visto</li>
-                <li>✓ Primeira lição grátis de cada módulo de inglês</li>
-              </ul>
-            </div>
-            <div className="rounded-2xl border-2 border-primary p-6 bg-card relative shadow-elevated">
-              <div className="absolute -top-3 left-6 px-2.5 py-0.5 rounded-full bg-accent-red text-white text-xs font-bold">Mais escolhido</div>
-              <div className="text-sm font-bold text-primary uppercase tracking-wider">Pro</div>
-              <div className="mt-1 text-4xl font-black">R$ 19,90<span className="text-sm font-normal text-muted-foreground">/mês</span></div>
-              <ul className="mt-4 space-y-1.5 text-sm">
-                <li>✓ Candidaturas ilimitadas</li>
-                <li>✓ <strong>27 lições de inglês completas</strong></li>
-                <li>✓ Alertas por email de vagas novas</li>
-                <li>✓ Follow-up automático em 48h</li>
-                <li>✓ Detecção automática de respostas</li>
-                <li>✓ Selo Pro na sua página pública</li>
-              </ul>
-            </div>
-          </div>
-          <Link to="/precos" className="inline-block mt-8">
-            <Button variant="outline">Ver todos os planos <ArrowRight className="ml-2 h-4 w-4" /></Button>
-          </Link>
         </div>
       </section>
 
@@ -419,21 +325,23 @@ function Landing() {
         </div>
       </section>
 
-      {/* CTA */}
+      {/* CTA FINAL */}
       <section className="border-t border-border/60 bg-primary text-primary-foreground relative overflow-hidden">
         <div className="absolute inset-0 bg-flag-stripes opacity-30" aria-hidden />
         <div className="relative max-w-4xl mx-auto px-4 sm:px-6 py-20 text-center">
           <h2 className="text-3xl sm:text-5xl font-black tracking-tight text-balance">
-            Sua próxima safra pode ser na Califórnia.
+            Dê o próximo passo
           </h2>
-          <p className="mt-4 text-primary-foreground/80 text-lg">Crie sua conta grátis e veja vagas em menos de 30 segundos.</p>
+          <p className="mt-4 text-primary-foreground/85 text-lg max-w-xl mx-auto">
+            Crie seu perfil agora e aumente suas chances de ser visto por quem está contratando.
+          </p>
           <Link to="/auth" className="inline-block mt-8">
             <Button size="lg" variant="secondary" className="h-12 px-8 text-base font-bold">
-              Começar agora <ArrowRight className="ml-2 h-4 w-4" />
+              Criar meu perfil gratuito <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
           <div className="mt-6 inline-flex items-center gap-2 text-xs text-primary-foreground/70">
-            <Sparkles className="h-3.5 w-3.5" /> Sem cartão de crédito · cancele quando quiser
+            <Sparkles className="h-3.5 w-3.5" /> Grátis · sem cartão de crédito
           </div>
         </div>
       </section>
@@ -460,88 +368,61 @@ function Landing() {
   );
 }
 
-function BigStat({ value, label, accent }: { value: string; label: string; accent?: boolean }) {
+function ProfilePreview() {
   return (
-    <div>
-      <p className={`text-3xl sm:text-4xl font-black ${accent ? "text-accent-gold" : "text-primary-foreground"}`}>{value}</p>
-      <p className="text-xs sm:text-sm text-primary-foreground/70 mt-1">{label}</p>
-    </div>
-  );
-}
-
-function JourneyTimeline({ jobs }: { jobs: number }) {
-  // Mirrors src/lib/h2a-journey.ts so the landing visual matches what
-  // signed-in users see in the sidebar. Counter at the top reads live
-  // from the public stats query so the page feels alive on every load.
-  const stages: { label: string; icon: typeof FileText; copy: string }[] = [
-    { label: "Currículo", icon: FileText, copy: "Perfil + experiência rural em inglês" },
-    { label: "Contrato",  icon: Send,     copy: "Aplique até receber a oferta confirmada" },
-    { label: "DS-160",    icon: Stamp,    copy: "Formulário consular sem ‘despachante’" },
-    { label: "Entrevista", icon: Mic,     copy: "Ensaio + inglês para o consulado" },
-    { label: "Embarque",  icon: Plane,    copy: "Visto carimbado, mala pronta 🇺🇸" },
-  ];
-  return (
-    <aside
-      aria-label="Jornada H-2A em 5 fases"
-      className="relative"
-    >
+    <aside aria-label="Pré-visualização de perfil" className="relative">
       <div className="absolute -inset-4 bg-primary/5 rounded-3xl rotate-2" aria-hidden />
       <div className="relative rounded-2xl border-2 border-primary/20 bg-card p-5 sm:p-6 shadow-elevated">
         <div className="flex items-center gap-2 mb-5">
           <span className="inline-flex h-2 w-2 rounded-full bg-success animate-pulse" aria-hidden />
           <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
-            Jornada H-2A · ao vivo
+            Perfil ativo · visível para recrutadores
           </span>
-          <div className="ml-auto text-right">
-            <p className="text-base font-black tabular-nums leading-none">
-              {jobs > 0 ? jobs.toLocaleString("pt-BR") : "—"}
-            </p>
-            <p className="text-[9px] uppercase tracking-wide text-muted-foreground">vagas ativas</p>
+        </div>
+
+        <div className="flex items-center gap-3 mb-5">
+          <div className="h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-black text-lg">
+            JS
+          </div>
+          <div className="min-w-0">
+            <p className="font-bold leading-tight">Joelson S., 34</p>
+            <p className="text-xs text-muted-foreground">Minas Gerais · Disponível ago/2026</p>
           </div>
         </div>
 
-        <ol className="relative space-y-3">
-          {/* Vertical rail */}
-          <span
-            aria-hidden
-            className="absolute left-[19px] top-2 bottom-2 w-px bg-gradient-to-b from-primary via-primary/40 to-primary/10"
-          />
-          {stages.map((s, i) => {
-            const Icon = s.icon;
-            return (
-              <li
-                key={s.label}
-                className="relative grid grid-cols-[40px_minmax(0,1fr)_auto] items-center gap-3"
-              >
-                <div className="relative z-10 grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground shadow-sm ring-4 ring-card">
-                  <Icon className="h-4 w-4" aria-hidden />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold leading-tight">
-                    <span className="text-primary mr-1.5">{String(i + 1).padStart(2, "0")}</span>
-                    {s.label}
-                  </p>
-                  <p className="text-xs text-muted-foreground truncate">{s.copy}</p>
-                </div>
-                <span className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">
-                  {i === 0 ? "começa aqui" : i === stages.length - 1 ? "🇺🇸" : ""}
-                </span>
-              </li>
-            );
-          })}
-        </ol>
-
-        <div className="mt-5 pt-4 border-t flex items-center gap-2 text-xs">
-          <Check className="h-3.5 w-3.5 text-primary shrink-0" />
-          <span>
-            <strong>Tudo num só app:</strong> vagas, carta com IA, inglês e checklist do visto.
+        {/* Video preview */}
+        <div className="relative aspect-video rounded-lg bg-foreground/90 mb-4 overflow-hidden flex items-center justify-center group cursor-pointer">
+          <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 to-accent-red/20" />
+          <div className="relative h-12 w-12 rounded-full bg-white/95 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
+            <Video className="h-5 w-5 text-primary translate-x-0.5" />
+          </div>
+          <span className="absolute bottom-2 right-2 text-[10px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded">
+            0:58
           </span>
+        </div>
+
+        <div className="space-y-2 mb-5">
+          <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Experiência</p>
+          <div className="flex flex-wrap gap-1.5">
+            {["Colheita laranja", "Trator", "Irrigação", "Plantio"].map((tag) => (
+              <span key={tag} className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-semibold">
+                {tag}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="pt-4 border-t flex items-center gap-2">
+          <MessageCircle className="h-4 w-4 text-success shrink-0" />
+          <p className="text-xs">
+            <strong>Enviado para 3 recrutadores</strong>{" "}
+            <span className="text-muted-foreground">via WhatsApp</span>
+          </p>
         </div>
       </div>
     </aside>
   );
 }
-
 
 const AVATAR_STACK = [
   { initials: "JS", bg: "bg-primary" },
@@ -550,48 +431,62 @@ const AVATAR_STACK = [
   { initials: "AS", bg: "bg-success" },
 ];
 
+const REASONS = [
+  {
+    icon: ClipboardList,
+    title: "Currículo profissional em minutos",
+    desc: "Se apresente de forma clara e organizada, mesmo sem experiência prévia com currículo.",
+  },
+  {
+    icon: Video,
+    title: "Vídeo de apresentação",
+    desc: "Mostre quem você é na prática e aumente suas chances de ser escolhido.",
+  },
+  {
+    icon: Send,
+    title: "Envio direto para recrutadores",
+    desc: "Seu perfil chega até quem realmente está contratando para o H-2A.",
+  },
+];
+
+const TRUST = [
+  { title: "Não cobramos por vagas", desc: "Sem taxa, sem comissão, sem 'reserva de vaga'. Empregador legítimo do H-2A nunca cobra do trabalhador." },
+  { title: "Conexão com oportunidades reais", desc: "Você fala direto com quem contrata — sem agenciador no meio do caminho." },
+  { title: "Plataforma focada no H-2A", desc: "Feita para o programa de trabalho agrícola dos EUA. Sem distração, sem promessa de visto." },
+];
+
+const STEPS = [
+  { icon: ClipboardList, title: "Crie seu perfil", desc: "Em poucos minutos, com nome, contato e localização." },
+  { icon: FileText, title: "Adicione experiências no campo", desc: "Plantio, colheita, máquinas, irrigação — marque o que sabe." },
+  { icon: Video, title: "Grave um vídeo simples", desc: "Até 1 minuto, direto pelo celular, falando quem você é." },
+  { icon: Send, title: "Envie para recrutadores", desc: "Link compartilhável e envio via WhatsApp em um toque." },
+];
+
 const TESTIMONIALS = [
   {
     name: "Joelson Silva", age: 34, role: "Colheita de laranja", state: "Florida",
     from: "Minas Gerais → Lake Wales, FL",
     initials: "JS", avatar: "bg-primary",
-    quote: "Apliquei em 12 fazendas direto pelo app. Em 3 semanas tinha contrato. Sem agenciador, sem 5 mil reais de taxa. As lições de inglês me salvaram na entrevista do consulado.",
+    quote: "Montei meu perfil numa tarde, gravei o vídeo e mandei pro WhatsApp de um produtor. Em duas semanas tinha resposta.",
   },
   {
     name: "Marcos Pereira", age: 41, role: "Operador de trator", state: "Iowa",
     from: "Bahia → Cedar Rapids, IA",
     initials: "MP", avatar: "bg-accent-red",
-    quote: "O vídeo de apresentação fez diferença. O patrão americano falou que viu eu mexendo no trator e fechou na hora. Cheguei aqui em outubro pra safra de milho.",
+    quote: "O vídeo fez diferença. O patrão viu eu mexendo no trator no celular e me chamou. Sem agenciador, sem taxa.",
   },
   {
     name: "Roseli Cardoso", age: 29, role: "Packing house", state: "Georgia",
     from: "Pernambuco → Tifton, GA",
     initials: "RC", avatar: "bg-accent-gold",
-    quote: "Sempre tive medo de cair em golpe. O app me alertou de uma vaga que pedia R$ 2 mil de 'depósito' — era fraude mesmo. Acabei achando vaga real numa farm de mirtilo.",
+    quote: "O que me convenceu foi não ter cobrança escondida. Mandei meu perfil pra três fazendas e uma respondeu em dois dias.",
   },
 ];
 
-const FEATURES = [
-  { icon: Briefcase, title: "Vagas DOL ao vivo", desc: "Importação diária de vagas H-2A oficiais do Departamento do Trabalho dos EUA, com match score baseado no seu perfil." },
-  { icon: GraduationCap, title: "Curso de inglês H-2A", desc: "27 lições focadas em entrevista, aeroporto, trabalho no campo. Áudio nativo, flashcards e quizzes de listening." },
-  { icon: FileText, title: "Carta em inglês com IA", desc: "Geramos uma cover letter humilde e direta em inglês para cada vaga, em segundos." },
-  { icon: Video, title: "Vídeo de apresentação", desc: "Grave 90 segundos pelo navegador. Empregadores respondem 3x mais quando há vídeo." },
-  { icon: ShieldCheck, title: "Detector de fraude", desc: "Alertamos vagas suspeitas que pedem 'taxa' ou 'depósito' — golpe comum no setor." },
-  { icon: BarChart3, title: "Acompanhamento total", desc: "Veja candidaturas, follow-ups, taxa de resposta e checklist do visto num só painel." },
-];
-
-const STEPS = [
-  { title: "Crie seu perfil", desc: "Nome, telefone, idiomas e se já fez H-2 antes." },
-  { title: "Monte seu currículo", desc: "Experiência rural, foto de trabalho e vídeo em inglês." },
-  { title: "Aplique nas vagas", desc: "A IA escreve a carta. Você só revisa e envia." },
-  { title: "Acompanhe o visto", desc: "Checklist dos 7 passos até o H-2A na sua mão." },
-];
-
 const FAQ = [
-  { q: "É realmente gratuito?", a: "Sim. Não cobramos taxa, comissão nem 'consultoria'. Toda a plataforma é gratuita. Os custos do visto (DS-160, MRV, viagem) são pagos diretamente aos órgãos oficiais." },
-  { q: "De onde vêm as vagas?", a: "Direto do feed público do U.S. Department of Labor (Office of Foreign Labor Certification). São as mesmas vagas que os agenciadores cobram para te mostrar." },
-  { q: "Preciso falar inglês?", a: "Quanto mais melhor, mas a interface é em português e geramos suas cartas em inglês automaticamente. E você tem 27 lições de inglês incluídas focadas em H-2A — entrevista, aeroporto, trabalho no campo." },
-  { q: "Vocês garantem o visto?", a: "Não. Quem aprova o visto é o consulado americano. Nós te damos as ferramentas para chegar bem preparado: vagas reais, candidatura organizada e checklist do processo." },
-  { q: "Como me protejo de golpe?", a: "Nunca pague 'taxa de aplicação', 'depósito de segurança' ou 'reserva de vaga'. Empregador legítimo de H-2A NUNCA cobra do trabalhador. Nosso sistema alerta vagas suspeitas automaticamente." },
+  { q: "É realmente gratuito?", a: "Sim. Você cria seu perfil, grava o vídeo e envia para recrutadores sem pagar nada. Não cobramos taxa de vaga nem comissão." },
+  { q: "Vocês garantem contratação ou visto?", a: "Não. Quem contrata é o produtor e quem aprova o visto é o consulado. A gente te dá a ferramenta para se apresentar profissionalmente e chegar até quem está contratando." },
+  { q: "Como meu perfil chega no recrutador?", a: "Você recebe um link da sua página de apresentação e pode enviar direto no WhatsApp do recrutador, com uma mensagem pronta. Também pode copiar o link e compartilhar onde quiser." },
+  { q: "Preciso falar inglês?", a: "Não para criar o perfil — tudo é em português. Falar inglês ajuda na entrevista com o produtor, e o app tem material de apoio para te preparar." },
+  { q: "Como me protejo de golpe?", a: "Nunca pague 'taxa de aplicação', 'depósito de segurança' ou 'reserva de vaga'. Empregador legítimo de H-2A NUNCA cobra do trabalhador." },
 ];
-

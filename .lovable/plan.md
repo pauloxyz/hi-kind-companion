@@ -1,102 +1,109 @@
-## Diagnóstico
+# Plano: Onboarding renovado (perfil-first, < 90s)
 
-Investiguei o app de quatro ângulos. Os principais gargalos:
+Objetivo: reduzir fricção entre "clicou em criar perfil" e "enviou perfil pra
+recrutador" para menos de 2 minutos. Velocidade > perfeição.
 
-**Banco (medido via slow_queries — top ofensores por tempo total):**
-- `jobs WHERE imported_at >= ?` — 1.381 chamadas, **18,4s acumulados**, 13ms médios. Sem índice em `imported_at`.
-- `jobs ORDER BY posted_date DESC NULLS LAST LIMIT/OFFSET` — 412 chamadas, **5,3s**. Sem índice em `posted_date`.
-- `applications WHERE responded_at >= ?` — 3.858 chamadas, 1,2s. Sem índice em `responded_at`.
-- `applications ORDER BY` em listas do dono — sem índice composto `(owner_id, sent_at DESC)`.
+## Princípios
 
-**Data fetching (estrutural):**
-- **Zero rotas** usam `ensureQueryData` + `useSuspenseQuery` (o padrão recomendado pelo TanStack Start).
-- 13 rotas autenticadas usam `useQuery` + `isLoading` no render, criando spinners em cascata e bloqueando o paint inicial.
-- Só 4 rotas (vagas/perfil público) têm `loader`. Em todas as outras, o componente monta vazio, faz fetch e re-renderiza.
-- `useEffect` ausente do grep — bom, mas o problema migrou pra `useQuery` puro.
+1. **Velocidade > perfeição**. Cada tela tem 1 decisão. Nada de formulário longo.
+2. **Vídeo é o coração**. Quem grava vídeo = lead qualificado. Treat it as the
+   north-star metric do funil.
+3. **WhatsApp é o canal**. O envio final abre `wa.me/?text=...` com mensagem pronta
+   + link `/v/:slug`. Não construir inbox interno.
+4. **Confiança visível**. Cada tela reforça "grátis, sem taxa, sem agenciador".
 
-**Bundle / frontend:**
-- **Nenhum `React.lazy` ou `createLazyFileRoute`** no projeto.
-- `recharts` e `@react-pdf/renderer` (libs pesadas, ~200kb+ cada gzip) são importados estaticamente por rotas como `admin.seo`, `app.auditoria`, `app.curriculo`, `app.video`, `app.visto`. Quem entra em `/` paga por isso.
-- Arquivos enormes: `app.auditoria.tsx` (1.471 linhas), `app.ingles.$module.$lesson.tsx` (1.021), `app.vagas.tsx` (900) — chunks gordos.
+## Fluxo (telas)
 
-**SSR / hidratação:**
-- Console mostra **hydration mismatch** em `<html style="color-scheme:light">` — algum provider/tema está injetando atributo só no cliente. Bloqueia o React de patchear a árvore e causa re-render completo.
-
----
-
-## O que vou fazer
-
-### Fase 1 — Banco (maior ROI, baixíssimo risco)
-Migração com índices nos campos das queries mais lentas. Tudo `CREATE INDEX` simples (sem `CONCURRENTLY` — migrations rodam em transação).
-
-```sql
-CREATE INDEX IF NOT EXISTS idx_jobs_imported_at      ON public.jobs (imported_at DESC);
-CREATE INDEX IF NOT EXISTS idx_jobs_posted_date      ON public.jobs (posted_date DESC NULLS LAST);
-CREATE INDEX IF NOT EXISTS idx_apps_owner_sent       ON public.applications (owner_id, sent_at DESC);
-CREATE INDEX IF NOT EXISTS idx_apps_owner_responded  ON public.applications (owner_id, responded_at) WHERE responded_at IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_apps_owner_followup   ON public.applications (owner_id, follow_up_due_at) WHERE responded_at IS NULL;
-CREATE INDEX IF NOT EXISTS idx_apps_thread           ON public.applications (owner_id, gmail_thread_id) WHERE gmail_thread_id IS NOT NULL;
-CREATE INDEX IF NOT EXISTS idx_saved_jobs_owner      ON public.saved_jobs (owner_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_visa_items_owner_sort ON public.visa_checklist_items (owner_id, sort_order);
+```
+Landing → /auth (Google/email)
+       ↓
+/app/onboarding/welcome      (tela 1: posicionamento — 1 botão)
+       ↓
+/app/onboarding/explica      (tela 2: o que vai acontecer — 1 botão)
+       ↓
+/app/onboarding/dados        (tela 3.1: nome, idade, cidade/estado, WhatsApp)
+       ↓
+/app/onboarding/experiencia  (tela 3.2: checklist plantio/colheita/máquinas/irrigação/outros)
+       ↓
+/app/onboarding/fisico       (tela 3.3: checklist peso/calor-frio/longas jornadas)
+       ↓
+/app/onboarding/video        (tela 3.4: gravação 60s — script visível, botão único)
+       ↓
+/app/onboarding/pronto       (tela 4: "perfil pronto ✅" — link + 2 CTAs)
+       ↓
+[Envio] wa.me deep-link OU copiar link `/v/:slug`
+       ↓
+/app/perfil (estado pós-envio: dicas, "melhorar perfil", "gravar novo vídeo")
 ```
 
-Espero ~5× a 50× nas queries acima (count em índice vs scan).
+## Tarefas técnicas
 
-### Fase 2 — Padrão canônico de fetching (4–6 rotas mais visitadas)
-Migrar das mais visitadas primeiro: `app.index`, `app.vagas`, `app.candidaturas`, `app.curriculo`. Para cada uma:
+### 1. Rotas e shell
+- Criar layout `src/routes/_authenticated/app.onboarding.tsx` (Outlet + progress
+  bar 1/6, sticky bottom CTA, skip discreto).
+- Criar 7 rotas filhas: `welcome`, `explica`, `dados`, `experiencia`, `fisico`,
+  `video`, `pronto`.
+- Cada rota: 1 pergunta, 1 botão primário ("Continuar"), 1 secundário ("Pular").
+- Auto-redirect: se `profile.onboarding_completed_at` existir, manda pra `/app/perfil`.
 
-1. Extrair fetch para um `queryOptions` reusável.
-2. `loader: ({ context }) => context.queryClient.ensureQueryData(opts)` no route.
-3. Trocar `useQuery` por `useSuspenseQuery` no componente (some o `isLoading`, vira `<Suspense>`).
-4. `staleTime` adequado por entidade (60s para perfil, 30s para listas, 0 para feed de empregos).
+### 2. Schema (migration)
+Adicionar em `profiles` (se não existirem):
+- `onboarding_step` (smallint default 0)
+- `onboarding_completed_at` (timestamptz)
+- `field_experience` (text[] — plantio/colheita/maquinas/irrigacao/outros)
+- `physical_ok` (jsonb — { lift: bool, weather: bool, long_hours: bool })
 
-Deixo as rotas raras (`admin.*`, `auditoria`) no padrão atual nessa fase pra não inflar o diff.
+RLS já cobre `profiles`. Adicionar GRANT só se coluna nova precisar.
 
-### Fase 3 — Code-splitting de libs pesadas
-- Converter imports de `@react-pdf/renderer`, `recharts` e os componentes `*Pdf.tsx` para **import dinâmico** (`await import(...)`) acionado por evento (botão "Baixar PDF" / abrir gráfico).
-- Resultado: rotas que só *podem* gerar PDF não carregam a lib até o usuário clicar.
-- Aplicar `loading="lazy"` e `decoding="async"` em `<img>` fora do viewport inicial; manter eager + `fetchpriority="high"` no LCP da home.
-- Preload do hero da `/` via `head().links` da route raiz da home.
+### 3. Componentes reutilizáveis
+- `OnboardingShell` (progress bar, header, footer sticky).
+- `CheckboxGrid` (cards selecionáveis grandes, mobile-first).
+- `VideoRecorder` (já existe? Se sim, reaproveitar; se não, MediaRecorder
+  API + upload Supabase Storage bucket `intro-videos`, max 60s, mp4/webm).
 
-### Fase 4 — Hidratação
-- Localizar o setter de `style="color-scheme"` em `<html>` (provável `next-themes` / theme-provider rodando antes da hidratação).
-- Mover para `useEffect` no cliente OU pré-renderizar o atributo no servidor (`__root.tsx` head/html attrs) pra bater dos dois lados.
-- Remove o erro do console e elimina o re-render que invalida toda a árvore.
+### 4. Servidor (server functions)
+- `saveOnboardingStep({ step, payload })` em `src/lib/onboarding.functions.ts`
+  com `requireSupabaseAuth` — valida com Zod, faz upsert parcial em `profiles`.
+- `completeOnboarding()` — seta `onboarding_completed_at`, dispara
+  `public_page_enabled = true`, gera `public_slug` se vazio.
 
-### Fase 5 — Defaults do QueryClient
-Já está com `defaultPreloadStaleTime: 0` (correto). Vou afinar:
-- `retry: 1` com backoff só pra rede/5xx (já feito no error-handling anterior — confirmo).
-- `refetchOnWindowFocus: false` em listas que mudam pouco (perfil, vagas salvas).
-- `gcTime` maior em queries de referência (módulos de inglês).
+### 5. Envio (tela "pronto")
+- Botão `[Enviar via WhatsApp]` abre:
+  ```
+  https://wa.me/?text=Olá%2C%20sou%20trabalhador%20agrícola%20brasileiro%20
+  com%20interesse%20em%20vagas%20H-2A.%20Segue%20meu%20perfil%3A%20{link}
+  ```
+- Botão `[Copiar link]` copia `https://vplusa.com/v/{slug}` com toast.
+- Bônus: lista 3 contatos sugeridos (recruiters do `recruiters` table — se
+  existir tabela; senão, fica pra v2).
 
----
+### 6. Retenção (pós-envio)
+- Em `/app/perfil`, banner condicional se `onboarding_completed_at` < 24h:
+  "Agora aguarde o contato. Enquanto isso: [melhorar perfil] [gravar novo
+  vídeo] [ver dicas H-2A]".
+- Email/notificação D+3 se sem update: "Perfis com vídeo têm 3x mais chances"
+  (usar fluxo de email existente).
 
-## Detalhes técnicos
+## Métricas a instrumentar
 
-**Risco / reversibilidade**
-- Índices: zero risco, baixo custo, sempre reversíveis (`DROP INDEX`).
-- Migração de loader/Suspense: precisa de `errorComponent` + `pendingComponent` em cada rota tocada (já existem defaults no router via `defaultErrorComponent`/`defaultNotFoundComponent`, mas adiciono `pendingComponent` por rota onde fizer sentido).
-- Import dinâmico de PDF/recharts: adiciona um pequeno delay no primeiro clique do botão; visualmente compenso com um spinner inline.
+- Taxa de conclusão por tela (drop-off por step).
+- Tempo total welcome → pronto (alvo: P50 < 90s).
+- % usuários que gravam vídeo.
+- % que clicam "Enviar via WhatsApp" vs "Copiar link".
 
-**Não vou fazer agora (fica em backlog se quiser depois)**
-- Quebrar `app.auditoria.tsx` (1.471 linhas) em componentes menores — refactor estético, não tem ganho de runtime relevante depois do code-split.
-- Migrar para Cloudflare Image Resizing — exige configuração de domínio e é fora do escopo.
-- Mexer no compute do Lovable Cloud — só recomendo se os índices não resolverem; me parece prematuro.
+## Estimativa
 
-**O que vou medir depois**
-- Re-rodar `slow_queries` após Fase 1 — espero ver `jobs imported_at` cair pra <1ms médio.
-- Network tab nas 4 rotas migradas — confirmar 1 request paralelo no loader (e não cascata).
-- Tamanho do chunk inicial — espero queda de >30% após Fase 3.
+- Schema + rotas + shell: 1h
+- Telas 1-3 (estáticas + form simples): 1h
+- VideoRecorder + upload: 1h30 (se não existir)
+- Tela pronto + integração wa.me: 30min
+- Pós-envio (banner + dicas): 30min
+- QA mobile (iOS Safari + Android Chrome): 30min
+- **Total: ~5h**
 
----
+## Não-escopo (v2)
 
-Posso seguir nessa ordem (banco → fetching → bundle → hidratação)? Se quiser pular alguma fase ou priorizar diferente, me diga antes de eu começar.
----
-
-## Fase 2 aplicada (parcial, seguro)
-
-- `app.vagas`: o `load()` manual (7 queries em paralelo via `useEffect`) virou `useQuery(["vagas-bundle"], …, staleTime: 60s)`. Voltar à página agora usa cache → sem refetch e sem flicker dentro de 60s. Mutações continuam fazendo `invalidateQueries(["vagas-bundle"])` via `load()`.
-- `app.index` (dashboard): `staleTime` 30s → 120s, `gcTime` 5min. Reduz refetches em troca de tela inicial → menus → tela inicial.
-
-### Adiado (exige refactor por rota, não single-shot)
-Migrar todas as rotas autenticadas para `loader: ensureQueryData` + `useSuspenseQuery` exige reescrever o modelo de estado de cada página (vagas tem ~20 `useState` que mutam após o fetch). Fica para passadas focadas, uma rota por vez, quando houver sintoma específico de lentidão.
+- WhatsApp OTP como login (precisa Twilio/MessageBird, custo recorrente).
+- Inbox interno de mensagens com recrutador.
+- Match algorítmico perfil ↔ vaga.
+- Notificações push.
