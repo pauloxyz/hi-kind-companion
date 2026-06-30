@@ -14,6 +14,7 @@ import {
   Stamp, Mic, PartyPopper, Sparkles, RefreshCw,
 } from "lucide-react";
 import { InlineQueryError } from "@/components/query-state";
+import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/_authenticated/app/")({ component: Dashboard });
 
