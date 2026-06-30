@@ -236,8 +236,8 @@ jobs:
           RUN_LABEL: smoke
           RUN_PHASE: run1
           RUN_ATTEMPT: ${{ github.run_attempt }}
-          AGGREGATE_OUT_JSON: /tmp/aggregate-smoke.json
-          AGGREGATE_OUT_CSV: /tmp/aggregate-smoke.csv
+          AGGREGATE_OUT_JSON: aggregate-stats/aggregate-smoke.json
+          AGGREGATE_OUT_CSV: aggregate-stats/aggregate-smoke.csv
         run: |
           {
             echo "### 🔎 Playwright — smoke (attempt ${ATTEMPT})"
@@ -255,13 +255,13 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload aggregate stats (smoke)
-        if: ${{ !cancelled() && hashFiles('/tmp/aggregate-smoke.json') != '' }}
+        if: ${{ !cancelled() && hashFiles('aggregate-stats/aggregate-smoke.json') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-aggregate-stats-smoke-attempt-${{ github.run_attempt }}
           path: |
-            /tmp/aggregate-smoke.json
-            /tmp/aggregate-smoke.csv
+            aggregate-stats/aggregate-smoke.json
+            aggregate-stats/aggregate-smoke.csv
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
@@ -363,8 +363,8 @@ jobs:
           RUN_LABEL: targeted
           RUN_PHASE: run1
           RUN_ATTEMPT: ${{ github.run_attempt }}
-          AGGREGATE_OUT_JSON: /tmp/aggregate-targeted.json
-          AGGREGATE_OUT_CSV: /tmp/aggregate-targeted.csv
+          AGGREGATE_OUT_JSON: aggregate-stats/aggregate-targeted.json
+          AGGREGATE_OUT_CSV: aggregate-stats/aggregate-targeted.csv
         run: |
           {
             echo "### 🔎 Playwright — targeted regression (attempt ${ATTEMPT})"
@@ -380,13 +380,13 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload aggregate stats (targeted)
-        if: ${{ !cancelled() && hashFiles('/tmp/aggregate-targeted.json') != '' }}
+        if: ${{ !cancelled() && hashFiles('aggregate-stats/aggregate-targeted.json') != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-aggregate-stats-targeted-attempt-${{ github.run_attempt }}
           path: |
-            /tmp/aggregate-targeted.json
-            /tmp/aggregate-targeted.csv
+            aggregate-stats/aggregate-targeted.json
+            aggregate-stats/aggregate-targeted.csv
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
@@ -486,8 +486,8 @@ jobs:
           RUN_LABEL: full-shard-${{ matrix.shard }}
           RUN_PHASE: run1
           RUN_ATTEMPT: ${{ github.run_attempt }}
-          AGGREGATE_OUT_JSON: /tmp/aggregate-full-${{ matrix.shard }}-run1.json
-          AGGREGATE_OUT_CSV: /tmp/aggregate-full-${{ matrix.shard }}-run1.csv
+          AGGREGATE_OUT_JSON: aggregate-stats/aggregate-full-${{ matrix.shard }}-run1.json
+          AGGREGATE_OUT_CSV: aggregate-stats/aggregate-full-${{ matrix.shard }}-run1.csv
         run: |
           {
             echo "### 🔎 Playwright — full shard ${SHARD}/4 (run 1, attempt ${ATTEMPT})"
@@ -503,13 +503,13 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Upload aggregate stats (full shard ${{ matrix.shard }} run1)
-        if: ${{ !cancelled() && hashFiles(format('/tmp/aggregate-full-{0}-run1.json', matrix.shard)) != '' }}
+        if: ${{ !cancelled() && hashFiles(format('aggregate-stats/aggregate-full-{0}-run1.json', matrix.shard)) != '' }}
         uses: actions/upload-artifact@v4
         with:
           name: playwright-aggregate-stats-full-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-run1
           path: |
-            /tmp/aggregate-full-${{ matrix.shard }}-run1.json
-            /tmp/aggregate-full-${{ matrix.shard }}-run1.csv
+            aggregate-stats/aggregate-full-${{ matrix.shard }}-run1.json
+            aggregate-stats/aggregate-full-${{ matrix.shard }}-run1.csv
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
