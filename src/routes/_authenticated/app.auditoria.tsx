@@ -48,7 +48,7 @@ import { getAuditStats, getDeniedAdminSummary, listAuditEvents, type AuditEvent,
 import { getSpikeAlertStatus, bootstrapSpikeAlertConfig, sendSpikeAlertTest } from "@/lib/spike-alert.functions";
 import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.functions";
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
-import { SecurityAuditPdf } from "@/components/SecurityAuditPdf";
+// SecurityAuditPdf is dynamic-imported alongside @react-pdf/renderer below.
 import { UptimePanel } from "@/components/UptimePanel";
 
 const EVENT_TYPES = [
