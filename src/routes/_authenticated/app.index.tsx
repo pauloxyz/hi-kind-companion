@@ -13,6 +13,7 @@ import {
   ArrowRight, AlertCircle, CheckCircle2, FileText, Send,
   Stamp, Mic, PartyPopper, Sparkles, RefreshCw,
 } from "lucide-react";
+import { InlineQueryError } from "@/components/query-state";
 
 export const Route = createFileRoute("/_authenticated/app/")({ component: Dashboard });
 
