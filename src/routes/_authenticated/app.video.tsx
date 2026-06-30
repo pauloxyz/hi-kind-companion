@@ -597,7 +597,13 @@ function Page() {
             </Button>
           </div>
 
-          <AiErrorBanner action="meta" onRetry={handleGenerateMeta} busy={genMeta} />
+          <AiErrorBanner
+            error={aiError?.action === "meta" ? aiError : null}
+            secondsLeft={Math.max(0, Math.ceil(((aiError?.retryAt ?? 0) - nowTs) / 1000))}
+            onRetry={handleGenerateMeta}
+            onDismiss={() => setAiError(null)}
+            busy={genMeta}
+          />
 
           {!hasScript && (
             <p className="text-xs text-amber-700 dark:text-amber-400">Gere o roteiro no Passo 1 primeiro.</p>
