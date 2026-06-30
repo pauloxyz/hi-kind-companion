@@ -304,12 +304,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
         onClick={() => setOpen(false)}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
+          "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary before:transition-all before:duration-200",
           active
-            ? "bg-sidebar-accent text-sidebar-accent-foreground border border-sidebar-border shadow-inner"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground before:opacity-100 before:shadow-[0_0_8px_color-mix(in_oklab,var(--sidebar-primary)_60%,transparent)]"
             : it.highlight
-              ? "bg-sidebar-primary/15 text-sidebar-primary font-semibold hover:bg-sidebar-primary/25"
-              : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60",
+              ? "bg-sidebar-primary/15 text-sidebar-primary font-semibold hover:bg-sidebar-primary/25 before:opacity-0"
+              : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 before:opacity-0",
         )}
       >
         <Icon
