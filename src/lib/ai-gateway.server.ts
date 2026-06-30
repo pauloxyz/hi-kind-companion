@@ -37,11 +37,12 @@ function extractRetryAfter(msg: string): number {
  */
 export async function callJsonAI<T = unknown>(
   prompt: string,
-  opts?: { model?: string; errorLabel?: string },
+  opts?: { model?: string; errorLabel?: string; correlationId?: string },
 ): Promise<T> {
   const key = process.env.LOVABLE_API_KEY;
   if (!key) throw aiErr("other", "Configuração da IA ausente. Avise o suporte.");
   const label = opts?.errorLabel ?? "resposta";
+  const correlationId = opts?.correlationId ?? "";
   const { generateText } = await import("ai");
   const gateway = createLovableAiGatewayProvider(key);
 
@@ -57,10 +58,7 @@ export async function callJsonAI<T = unknown>(
     if (msg.includes("429")) {
       const retryAfter = extractRetryAfter(msg);
       console.warn("[ai-gateway]", {
-        code: "rate_limited",
-        status: 429,
-        label,
-        retryAfter,
+        code: "rate_limited", status: 429, label, retryAfter, correlationId,
         at: new Date().toISOString(),
       });
       throw aiErr(
@@ -71,9 +69,7 @@ export async function callJsonAI<T = unknown>(
     }
     if (msg.includes("402")) {
       console.warn("[ai-gateway]", {
-        code: "no_credits",
-        status: 402,
-        label,
+        code: "no_credits", status: 402, label, correlationId,
         at: new Date().toISOString(),
       });
       throw aiErr(
@@ -81,7 +77,7 @@ export async function callJsonAI<T = unknown>(
         "Os créditos de IA acabaram. Avise o administrador para recarregar — quando reabrir a página, é só clicar em Gerar de novo.",
       );
     }
-    console.error("[ai-gateway]", { code: "other", label, msg, at: new Date().toISOString() });
+    console.error("[ai-gateway]", { code: "other", label, msg, correlationId, at: new Date().toISOString() });
     throw aiErr("other", `Falha ao gerar ${label}. Tente novamente em instantes.`);
   }
 
@@ -93,3 +89,4 @@ export async function callJsonAI<T = unknown>(
     throw aiErr("bad_json", `Não foi possível interpretar a ${label}. Tente gerar de novo.`);
   }
 }
+
