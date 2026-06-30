@@ -244,6 +244,13 @@ function VistoPage() {
   const total = items.length;
   const pct = total ? Math.round((done / total) * 100) : 0;
 
+  // Mantém Jornada (sidebar/painel) em sync com o checklist: enquanto o
+  // contrato não estiver marcado, bloqueamos a marcação das etapas
+  // consulares para que `Fase · DS-160` nunca apareça antes da hora.
+  const contractSigned = items.some(
+    (i) => i.step_key === "hired_by_employer" && i.is_completed === true,
+  );
+
   const reminders = useMemo(() => {
     return items
       .map((i) => ({ item: i, days: daysFromToday(i.due_at) }))
@@ -264,6 +271,11 @@ function VistoPage() {
 
   const toggle = async (item: Item) => {
     const next = !item.is_completed;
+    if (!canCompleteStep({ stepKey: item.step_key, contractSigned, willComplete: next })) {
+      toast.error(CONTRACT_GATE_BLOCKED_MESSAGE);
+      announce(CONTRACT_GATE_BLOCKED_MESSAGE);
+      return;
+    }
     await supabase
       .from("visa_checklist_items")
       .update({ is_completed: next, completed_at: next ? new Date().toISOString() : null })
