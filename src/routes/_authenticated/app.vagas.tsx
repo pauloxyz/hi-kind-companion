@@ -197,8 +197,9 @@ function Page() {
   }, [bundle.data]);
 
   useEffect(() => {
-    if (bundle.error) toast.error("Erro ao carregar vagas: " + (bundle.error as Error).message);
+    if (bundle.error) toastError(bundle.error, { title: "Erro ao carregar vagas" });
   }, [bundle.error]);
+
 
   async function load() {
     await qc.invalidateQueries({ queryKey: ["vagas-bundle"] });
