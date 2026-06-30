@@ -47,6 +47,7 @@ const groups: NavGroup[] = [
     items: [
       { to: "/app/perfil", labelKey: "profile", icon: User },
       { to: "/app/curriculo", labelKey: "resume", icon: FileText, requiresOnboarding: true },
+      { to: "/app/curriculos", labelKey: "Múltiplos currículos", icon: FileText, requiresOnboarding: true },
       { to: "/app/midia", labelKey: "media", icon: ImageIcon, requiresOnboarding: true },
       { to: "/app/video", labelKey: "intro_video", icon: Video, requiresOnboarding: true },
       { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap, requiresOnboarding: true },
@@ -534,6 +535,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
               {renderItem({ to: "/admin/seo", labelKey: "SEO scans", icon: Search })}
               {renderItem({ to: "/admin/security", labelKey: "Security scans", icon: Shield })}
               {renderItem({ to: "/admin/onboarding", labelKey: "Funil onboarding", icon: Sparkles })}
+              {renderItem({ to: "/admin/pro-features", labelKey: "Features Pro", icon: Lock })}
               {renderItem({ to: "/app/admin/emails", labelKey: "E-mails", icon: Mail })}
             </div>
           </section>

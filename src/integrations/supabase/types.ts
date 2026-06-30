@@ -791,6 +791,128 @@ export type Database = {
         }
         Relationships: []
       }
+      pro_feature_overrides: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          feature_key: string
+          note: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          enabled: boolean
+          feature_key: string
+          note?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          feature_key?: string
+          note?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pro_feature_overrides_feature_key_fkey"
+            columns: ["feature_key"]
+            isOneToOne: false
+            referencedRelation: "pro_features"
+            referencedColumns: ["feature_key"]
+          },
+        ]
+      }
+      pro_features: {
+        Row: {
+          created_at: string
+          description: string | null
+          enabled_for_pro: boolean
+          feature_key: string
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          enabled_for_pro?: boolean
+          feature_key: string
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          enabled_for_pro?: boolean
+          feature_key?: string
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      profile_variants: {
+        Row: {
+          created_at: string
+          highlighted_experience_ids: Json
+          id: string
+          is_active: boolean
+          job_title_en: string | null
+          job_title_pt: string | null
+          label: string | null
+          name: string
+          owner_id: string
+          pdf_filename: string | null
+          pdf_path: string | null
+          skills: Json
+          sort_order: number
+          source: string
+          summary_en: string | null
+          summary_pt: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          highlighted_experience_ids?: Json
+          id?: string
+          is_active?: boolean
+          job_title_en?: string | null
+          job_title_pt?: string | null
+          label?: string | null
+          name: string
+          owner_id: string
+          pdf_filename?: string | null
+          pdf_path?: string | null
+          skills?: Json
+          sort_order?: number
+          source?: string
+          summary_en?: string | null
+          summary_pt?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          highlighted_experience_ids?: Json
+          id?: string
+          is_active?: boolean
+          job_title_en?: string | null
+          job_title_pt?: string | null
+          label?: string | null
+          name?: string
+          owner_id?: string
+          pdf_filename?: string | null
+          pdf_path?: string | null
+          skills?: Json
+          sort_order?: number
+          source?: string
+          summary_en?: string | null
+          summary_pt?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       profile_views: {
         Row: {
           id: string
@@ -1590,6 +1712,10 @@ export type Database = {
         Returns: boolean
       }
       is_pro: { Args: { _user_id: string }; Returns: boolean }
+      is_pro_feature_enabled: {
+        Args: { _feature_key: string; _user_id: string }
+        Returns: boolean
+      }
       move_to_dlq: {
         Args: {
           dlq_name: string
