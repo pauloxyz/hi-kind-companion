@@ -68,6 +68,20 @@ function Page() {
   const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
   const [genMeta, setGenMeta] = useState(false);
 
+  type AiErrorInfo = {
+    action: "script" | "meta";
+    code: "rate_limited" | "no_credits" | "bad_json" | "other";
+    msg: string;
+    retryAt: number; // epoch ms; 0 = retry immediately
+  };
+  const [aiError, setAiError] = useState<AiErrorInfo | null>(null);
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!aiError || aiError.retryAt <= Date.now()) return;
+    const id = window.setInterval(() => setNowTs(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, [aiError]);
+
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [playingAll, setPlayingAll] = useState(false);
