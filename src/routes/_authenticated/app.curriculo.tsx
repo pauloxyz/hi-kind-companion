@@ -13,7 +13,9 @@ import { toastError } from "@/lib/toast-error";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
 import { importResumeFromPdf } from "@/lib/resume-import.functions";
-import { listResumePhotos } from "@/lib/resume-photos.functions";
+// listResumePhotos removido — fotos vivem na página pública /v/:slug,
+// não no PDF (ATS-friendly = texto puro).
+
 // `@react-pdf/renderer` + ResumePdfDocument are dynamic-imported inside the
 // download handler to keep them out of the initial route chunk (~250kb gzip).
 import type { ResumePdfData } from "@/components/ResumePdfDocument";
@@ -79,7 +81,7 @@ function Page() {
   const [importing, setImporting] = useState(false);
   const translateFn = useServerFn(translateToEnglish);
   const importFn = useServerFn(importResumeFromPdf);
-  const photosFn = useServerFn(listResumePhotos);
+  
 
   useEffect(() => {
     void (async () => {
