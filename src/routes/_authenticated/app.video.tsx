@@ -50,23 +50,6 @@ function saveTtsCache(cache: Map<number, string>) {
   } catch { /* quota — ignore */ }
 }
 
-function Page() {
-  const genFn = useServerFn(generateVideoScript);
-  const ttsFn = useServerFn(speakText);
-  const ytMetaFn = useServerFn(generateYoutubeMeta);
-
-  const [scriptPt, setScriptPt] = useState("");
-  const [scriptEn, setScriptEn] = useState("");
-  const [blocks, setBlocks] = useState<ScriptBlock[]>([]);
-  const [youtubeUrl, setYoutubeUrl] = useState("");
-  const [normalizedUrl, setNormalizedUrl] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [generating, setGenerating] = useState(false);
-  const [savingUrl, setSavingUrl] = useState(false);
-  const [exporting, setExporting] = useState(false);
-
-  const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
-  const [genMeta, setGenMeta] = useState(false);
 
 type AiErrorInfo = {
   action: "script" | "meta";
