@@ -236,7 +236,11 @@ jobs:
                 echo "<details><summary>Specs with recorded artifacts (${SPEC_COUNT})</summary>"
                 echo
                 while IFS= read -r t; do
-                  echo "- \`${t}\`"
+                  # Each spec links to the SAME shard+attempt artifact
+                  # (GitHub artifacts are zipped per upload — there is no
+                  # per-file public URL — so the artifact bundle is the
+                  # finest-grained debug link the platform exposes).
+                  echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"
                 done < /tmp/spec-titles-smoke.txt
                 echo
                 echo "</details>"
