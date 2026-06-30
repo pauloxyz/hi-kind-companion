@@ -2,13 +2,13 @@
 # Renders the per-spec section of a Playwright job's GitHub Actions
 # summary from a TSV produced by collect-spec-artifacts.sh.
 #
-# Expected TSV columns (tab-separated), schema v2+:
+# Expected TSV columns (tab-separated), schema v3:
 #   slug  has_trace  has_video  has_screenshot  has_report  attempt  \
 #         trace_size  video_size  trace_reason  video_reason
 #
 # Older TSVs without the last six columns are still accepted — the
 # missing fields default to sane values so the renderer stays
-# backward-compatible during the v1 → v2 transition.
+# backward-compatible with the v1 4-column format.
 #
 # Output structure (Markdown, written to STDOUT):
 #   1. "Run summary" aggregate table: ok / below_min / empty / absent
@@ -111,6 +111,12 @@ if [ "$((trace_below + video_below + trace_empty + video_empty))" -gt 0 ]; then
 fi
 
 # --- Top problem specs ranking --------------------------------------
+# Sort by deficit DESC then slug ASC, then take the top N.
+# We pipe through `awk` instead of `sort | head | while read` because
+# `head` closes its stdin early, which makes `sort` exit with SIGPIPE
+# (141) and, under `set -euo pipefail`, aborts the whole renderer just
+# as we're about to emit the per-spec block. `awk 'NR<=N'` reads the
+# whole stream, so no upstream writer ever sees a broken pipe.
 if [ -n "$ranking_lines" ]; then
   echo
   echo "**Top problem specs** (most missing / truncated artifacts)"
@@ -119,10 +125,7 @@ if [ -n "$ranking_lines" ]; then
   echo "|---|---|---|---:|"
   printf '%s' "$ranking_lines" \
     | sort -t$'\t' -k1,1nr -k2,2 \
-    | head -n "$TOP_PROBLEM_LIMIT" \
-    | while IFS=$'\t' read -r d slug tr vr; do
-        echo "| \`${slug}\` | ${tr} | ${vr} | ${d} |"
-      done
+    | awk -F'\t' -v n="$TOP_PROBLEM_LIMIT" 'NR<=n { printf "| `%s` | %s | %s | %s |\n", $2, $3, $4, $1 }'
 fi
 
 echo
@@ -183,12 +186,47 @@ echo "</details>"
 # JSON sidecar — single object, schema_version pinned so consumers can
 # detect format drift. Always emitted when AGGREGATE_OUT_JSON is set,
 # even on a "100% green" run (the counters are still informative).
+# Escape an arbitrary string for safe embedding inside a JSON string
+# literal (per RFC 8259 §7). Handles backslash, double-quote, and the
+# control characters that would otherwise produce invalid JSON.
+json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"     # backslash → \\
+  s="${s//\"/\\\"}"     # "        → \"
+  s="${s//$'\n'/\\n}"   # LF
+  s="${s//$'\r'/\\r}"   # CR
+  s="${s//$'\t'/\\t}"   # TAB
+  printf '%s' "$s"
+}
+
+# Quote a CSV field per RFC 4180: only when it contains `,`, `"`, CR,
+# or LF — and in that case double any embedded `"`. Plain values pass
+# through unchanged so existing trend files stay diff-friendly.
+csv_escape() {
+  local s="$1"
+  case "$s" in
+    *,*|*\"*|*$'\n'*|*$'\r'*)
+      s="${s//\"/\"\"}"
+      printf '"%s"' "$s"
+      ;;
+    *)
+      printf '%s' "$s"
+      ;;
+  esac
+}
+
 if [ -n "${AGGREGATE_OUT_JSON:-}" ]; then
+  # Ensure the parent directory exists — the workflow points these
+  # paths at workspace-relative subdirs (e.g. `aggregate-stats/...`)
+  # so that GitHub Actions' hashFiles() can resolve them.
+  mkdir -p "$(dirname "$AGGREGATE_OUT_JSON")"
+  _label_json="$(json_escape "${RUN_LABEL:-${label}}")"
+  _phase_json="$(json_escape "${RUN_PHASE:-run1}")"
   cat > "$AGGREGATE_OUT_JSON" <<JSON
 {
   "schema_version": 1,
-  "label": "${RUN_LABEL:-${label}}",
-  "phase": "${RUN_PHASE:-run1}",
+  "label": "${_label_json}",
+  "phase": "${_phase_json}",
   "attempt": ${RUN_ATTEMPT:-1},
   "total_specs": ${total},
   "trace": {"ok": ${trace_ok}, "below_min": ${trace_below}, "empty": ${trace_empty}, "absent": ${trace_absent}},
@@ -200,15 +238,15 @@ if [ -n "${AGGREGATE_OUT_JSON:-}" ]; then
 JSON
 fi
 
-# CSV sidecar — flat row, easy to append to a long-running stats file
-# across many workflow runs / shards. Header is emitted only when the
-# target file does not exist yet, so subsequent appends stay clean.
 if [ -n "${AGGREGATE_OUT_CSV:-}" ]; then
+  mkdir -p "$(dirname "$AGGREGATE_OUT_CSV")"
   if [ ! -f "$AGGREGATE_OUT_CSV" ]; then
     echo "label,phase,attempt,total_specs,trace_ok,trace_below_min,trace_empty,trace_absent,video_ok,video_below_min,video_empty,video_absent,reports_found,screenshots,min_trace_bytes,min_video_bytes" > "$AGGREGATE_OUT_CSV"
   fi
   printf '%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s\n' \
-    "${RUN_LABEL:-${label}}" "${RUN_PHASE:-run1}" "${RUN_ATTEMPT:-1}" \
+    "$(csv_escape "${RUN_LABEL:-${label}}")" \
+    "$(csv_escape "${RUN_PHASE:-run1}")" \
+    "${RUN_ATTEMPT:-1}" \
     "$total" \
     "$trace_ok" "$trace_below" "$trace_empty" "$trace_absent" \
     "$video_ok" "$video_below" "$video_empty" "$video_absent" \
