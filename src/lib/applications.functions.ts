@@ -154,12 +154,12 @@ ${expLines || "(no prior experience listed)"}
 
     const finalText = footer.length ? `${letter}\n\n---\nReferences:\n${footer.join("\n")}` : letter;
     return { text: finalText, job, attachedMediaIds, attachedVideoId };
-  });
+  }));
 
 export const recordApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RecordApplicationInput.parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(withServerErrors("applications.record", async ({ data, context }) => {
     const { supabase, userId } = context;
     const followUp = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -186,7 +186,11 @@ export const recordApplication = createServerFn({ method: "POST" })
       gmail_message_id: data.gmailMessageId ?? null,
     }).select("id").single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Let `toAppError` map Postgrest code (e.g. 23505 → conflict) to a
+      // friendly PT-BR message; the raw DB text never reaches the client.
+      throw error;
+    }
 
     // Auto-complete onboarding the moment the first application is recorded.
     await supabase.from("my_profile")
@@ -195,7 +199,8 @@ export const recordApplication = createServerFn({ method: "POST" })
       .is("onboarding_completed_at", null);
 
     return { id: app.id, followUpDueAt: followUp };
-  });
+  }));
+
 
 // Check Gmail threads for any inbound reply on the user's pending applications.
 // Marks responded_at when a thread has a message NOT sent by the user (i.e. inbound).
