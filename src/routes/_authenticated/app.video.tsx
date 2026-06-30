@@ -68,6 +68,20 @@ function Page() {
   const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
   const [genMeta, setGenMeta] = useState(false);
 
+  type AiErrorInfo = {
+    action: "script" | "meta";
+    code: "rate_limited" | "no_credits" | "bad_json" | "other";
+    msg: string;
+    retryAt: number; // epoch ms; 0 = retry immediately
+  };
+  const [aiError, setAiError] = useState<AiErrorInfo | null>(null);
+  const [nowTs, setNowTs] = useState(() => Date.now());
+  useEffect(() => {
+    if (!aiError || aiError.retryAt <= Date.now()) return;
+    const id = window.setInterval(() => setNowTs(Date.now()), 500);
+    return () => window.clearInterval(id);
+  }, [aiError]);
+
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
   const [playingAll, setPlayingAll] = useState(false);
@@ -88,7 +102,7 @@ function Page() {
     void (async () => {
       const { data: prof } = await supabase
         .from("my_profile")
-        .select("full_name, youtube_video_url, video_script_pt, video_script_en, video_script_blocks")
+        .select("full_name, youtube_video_url, video_script_pt, video_script_en, video_script_blocks, video_youtube_meta")
         .maybeSingle();
       if (prof) {
         setName(prof.full_name ?? "");
@@ -98,6 +112,12 @@ function Page() {
         if (Array.isArray(stored) && stored.length > 0) setBlocks(stored as unknown as ScriptBlock[]);
         setYoutubeUrl(prof.youtube_video_url ?? "");
         if (prof.youtube_video_url) setNormalizedUrl(normalizeYouTubeUrl(prof.youtube_video_url));
+        // Persisted meta (server) wins over sessionStorage cache
+        const savedMeta = prof.video_youtube_meta as YoutubeMeta | null;
+        if (savedMeta && typeof savedMeta === "object" && "title" in savedMeta) {
+          setYtMeta(savedMeta);
+          try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(savedMeta)); } catch { /* ignore */ }
+        }
       }
     })();
   }, []);
@@ -172,8 +192,24 @@ function Page() {
     setActiveIdx(null);
   }
 
+  function handleAiError(action: "script" | "meta", e: unknown) {
+    const raw = e instanceof Error ? e.message : String(e);
+    const m = raw.match(/^AI_ERR\|(\w+)\|(\d+)\|(.+)$/s);
+    if (m) {
+      const code = m[1] as AiErrorInfo["code"];
+      const retryAfter = parseInt(m[2], 10) || 0;
+      const msg = m[3];
+      setAiError({ action, code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
+      toast.error(msg);
+    } else {
+      setAiError({ action, code: "other", msg: raw || "Erro inesperado.", retryAt: 0 });
+      toast.error(raw || "Erro");
+    }
+  }
+
   async function handleGenerate() {
     setGenerating(true);
+    setAiError((e) => (e?.action === "script" ? null : e));
     try {
       const r = await genFn();
       setScriptPt(r.pt);
@@ -184,9 +220,10 @@ function Page() {
       // Invalidate cached metadata — script changed
       setYtMeta(null);
       try { sessionStorage.removeItem(META_CACHE_KEY); } catch { /* ignore */ }
+      setAiError(null);
       toast.success("Roteiro + pronúncia gerados ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro");
+      handleAiError("script", e);
     } finally {
       setGenerating(false);
     }
@@ -255,13 +292,15 @@ function Page() {
   async function handleGenerateMeta() {
     if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
     setGenMeta(true);
+    setAiError((e) => (e?.action === "meta" ? null : e));
     try {
       const r = await ytMetaFn();
       setYtMeta(r);
       try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(r)); } catch { /* ignore */ }
+      setAiError(null);
       toast.success("Conteúdo do YouTube gerado ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro");
+      handleAiError("meta", e);
     } finally {
       setGenMeta(false);
     }
@@ -288,6 +327,60 @@ function Page() {
   const ytId = normalizedUrl?.split("/").pop();
   const totalSec = Math.round(blocks.length * secondsPerBlock);
 
+  function AiErrorBanner({ action, onRetry, busy }: {
+    action: "script" | "meta";
+    onRetry: () => void;
+    busy: boolean;
+  }) {
+    if (!aiError || aiError.action !== action) return null;
+    const secondsLeft = Math.max(0, Math.ceil((aiError.retryAt - nowTs) / 1000));
+    const blocked = aiError.code === "no_credits";
+    const waiting = aiError.code === "rate_limited" && secondsLeft > 0;
+    const palette = blocked
+      ? "border-destructive/40 bg-destructive/10 text-destructive"
+      : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200";
+    const title = blocked
+      ? "Créditos de IA esgotados"
+      : aiError.code === "rate_limited"
+      ? "Limite temporário atingido"
+      : aiError.code === "bad_json"
+      ? "Resposta inesperada da IA"
+      : "Falha na geração";
+    return (
+      <div className={`flex items-start gap-2 text-xs rounded-md border p-3 ${palette}`}>
+        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+        <div className="flex-1 space-y-2">
+          <div>
+            <div className="font-semibold">{title}</div>
+            <div>{aiError.msg}</div>
+            <div className="text-[11px] opacity-80 mt-1">
+              Nada do que você já fez foi perdido — o roteiro, áudios e link continuam salvos.
+            </div>
+          </div>
+          {!blocked && (
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={onRetry}
+                disabled={busy || waiting}
+                className="h-7"
+              >
+                {busy ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                  : <RotateCcw className="h-3.5 w-3.5 mr-1" />}
+                {waiting ? `Tentar de novo em ${secondsLeft}s` : "Tentar de novo"}
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7" onClick={() => setAiError(null)}>
+                Dispensar
+              </Button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div className="space-y-4 max-w-4xl">
       <div>
@@ -313,6 +406,8 @@ function Page() {
             {generating ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Sparkles className="h-4 w-4 mr-2" />}
             {hasScript ? "Gerar de novo" : "Gerar meu roteiro"}
           </Button>
+
+          <AiErrorBanner action="script" onRetry={handleGenerate} busy={generating} />
 
           {needsRegenForBlocks && (
             <div className="flex items-start gap-2 text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2.5 text-amber-900 dark:text-amber-200">
@@ -486,6 +581,8 @@ function Page() {
               <Download className="h-3.5 w-3.5 mr-2" /> Legenda PT (.srt)
             </Button>
           </div>
+
+          <AiErrorBanner action="meta" onRetry={handleGenerateMeta} busy={genMeta} />
 
           {!hasScript && (
             <p className="text-xs text-amber-700 dark:text-amber-400">Gere o roteiro no Passo 1 primeiro.</p>
