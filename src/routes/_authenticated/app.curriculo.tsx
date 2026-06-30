@@ -425,19 +425,15 @@ function Page() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:gap-4">
-        <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-[2.625rem] font-bold leading-[1.05] tracking-tight text-balance">
-            Currículo <span className="text-muted-foreground font-medium">(H-2A)</span>
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-            Escreva em português; a IA traduz para inglês. O PDF é em inglês, estilo trabalho manual americano (ATS-friendly).
-          </p>
-        </div>
-        <Badge variant={completion >= 80 ? "default" : "secondary"} className="shrink-0 self-start tabular-nums">
-          {completion}% completo
-        </Badge>
-      </header>
+      <PageHeader
+        title={<>Currículo <span className="text-muted-foreground font-medium">(H-2A)</span></>}
+        description="Escreva em português; a IA traduz para inglês. O PDF é em inglês, estilo trabalho manual americano (ATS-friendly)."
+        actions={
+          <Badge variant={completion >= 80 ? "default" : "secondary"} className="tabular-nums">
+            {completion}% completo
+          </Badge>
+        }
+      />
 
       <Card className="border-dashed">
         <CardHeader>
