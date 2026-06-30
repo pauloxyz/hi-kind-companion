@@ -290,3 +290,31 @@ if [ -n "${AGGREGATE_OUT_CSV:-}" ]; then
     "$MIN_TRACE_BYTES" "$MIN_VIDEO_BYTES" \
     >> "$AGGREGATE_OUT_CSV"
 fi
+
+# --- Verbose CI log: top N skipped specs + thresholds ---------------
+# Only emitted when we ALSO wrote an aggregate sidecar — that's the
+# signal that this invocation is the "official" one whose stats will
+# be persisted across runs and therefore deserves a loud companion
+# entry in the raw job log. Goes to STDERR so the Markdown on STDOUT
+# stays clean and `bash render-spec-summary.sh ... > summary.md` still
+# captures only the summary.
+if [ -n "${AGGREGATE_OUT_JSON:-}${AGGREGATE_OUT_CSV:-}" ]; then
+  {
+    echo "::group::Playwright artifact skip log (label=${RUN_LABEL:-${label}}, phase=${RUN_PHASE:-run1}, attempt=${RUN_ATTEMPT:-1})"
+    echo "Thresholds: min_trace_bytes=${MIN_TRACE_BYTES} min_video_bytes=${MIN_VIDEO_BYTES}"
+    echo "Counts: trace ok=${trace_ok} below_min=${trace_below} empty=${trace_empty} absent=${trace_absent}"
+    echo "Counts: video ok=${video_ok} below_min=${video_below} empty=${video_empty} absent=${video_absent}"
+    echo "Reports found=${reports} screenshots=${screenshots} total_specs=${total}"
+    if [ -n "$skipped_log_lines" ]; then
+      echo "Top ${TOP_SKIPPED_LOG_LIMIT} skipped specs (deficit desc, then slug):"
+      printf '%s' "$skipped_log_lines" \
+        | sort -t$'\t' -k1,1nr -k2,2 \
+        | awk -F'\t' -v n="$TOP_SKIPPED_LOG_LIMIT" \
+            'NR<=n { printf "  - %s  trace=%s(%sB)  video=%s(%sB)  deficit=%s\n", $2, $3, $4, $5, $6, $1 }'
+    else
+      echo "No skipped specs — all artifacts within thresholds."
+    fi
+    echo "::endgroup::"
+  } >&2
+fi
+
