@@ -727,7 +727,7 @@ function Step5Done({ form }: { form: FormState }) {
   };
 
   const handleSendWhatsApp = () => {
-    track("onboarding_whatsapp_send_clicked", { has_url: !!publicUrl });
+    mirror("onboarding_whatsapp_send_clicked", undefined, undefined, { has_url: !!publicUrl });
     setSent(true);
   };
 
