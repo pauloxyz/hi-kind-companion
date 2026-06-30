@@ -272,6 +272,10 @@ function Page() {
     try {
       const practiceUrl = `${window.location.origin}/app/video?mode=practice`;
       const qrDataUrl = await QRCode.toDataURL(practiceUrl, { margin: 1, width: 300 });
+      const [{ pdf }, { VideoScriptPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/VideoScriptPdf"),
+      ]);
       const blob = await pdf(
         <VideoScriptPdf
           pt={scriptPt} en={scriptEn} blocks={pdfBlocks}
