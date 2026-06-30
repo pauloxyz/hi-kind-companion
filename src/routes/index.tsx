@@ -298,7 +298,7 @@ function Landing() {
                 Produtores iniciam a seleção com antecedência.{" "}
                 <strong className="text-foreground">Quem se posiciona primeiro, sai na frente.</strong>
               </p>
-              <Link to="/auth" className="inline-block mt-5">
+              <Link to="/auth" search={{ mode: "signup" }} className="inline-block mt-5">
                 <Button className="h-11 px-6">
                   Criar meu perfil agora <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
