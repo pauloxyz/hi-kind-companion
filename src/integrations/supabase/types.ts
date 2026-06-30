@@ -666,6 +666,7 @@ export type Database = {
           video_script_en: string | null
           video_script_generated_at: string | null
           video_script_pt: string | null
+          video_youtube_meta: Json | null
           youtube_video_url: string | null
         }
         Insert: {
@@ -689,6 +690,7 @@ export type Database = {
           video_script_en?: string | null
           video_script_generated_at?: string | null
           video_script_pt?: string | null
+          video_youtube_meta?: Json | null
           youtube_video_url?: string | null
         }
         Update: {
@@ -712,6 +714,7 @@ export type Database = {
           video_script_en?: string | null
           video_script_generated_at?: string | null
           video_script_pt?: string | null
+          video_youtube_meta?: Json | null
           youtube_video_url?: string | null
         }
         Relationships: []

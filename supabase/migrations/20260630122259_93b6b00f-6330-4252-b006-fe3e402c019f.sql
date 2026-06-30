@@ -1,0 +1,1 @@
+ALTER TABLE public.my_profile ADD COLUMN IF NOT EXISTS video_youtube_meta JSONB;
