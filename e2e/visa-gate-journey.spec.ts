@@ -249,75 +249,69 @@ for (const vp of VIEWPORTS) {
       page,
     }) => {
       // Throttle do GET de visa_checklist_items para forçar uma janela
-      // observável de "loading". O AppShell faz esse fetch quando navega
-      // para /app, então atrasamos a resposta em ~1200ms.
+      // observável de "loading". Atrasamos ~1500ms para dar tempo de
+      // amostrar bounding box e ausência de "Fase · X" antes do response.
+      const DELAY_MS = 1500;
       await page.route("**/rest/v1/visa_checklist_items*", async (route) => {
         if (route.request().method() !== "GET") return route.continue();
-        await new Promise((r) => setTimeout(r, 1200));
+        await new Promise((r) => setTimeout(r, DELAY_MS));
         return route.continue();
       });
 
-      // Vai para qualquer rota dentro do AppShell — usamos /app/perfil porque
-      // não depende de visa_checklist_items para renderizar a página em si,
-      // então só o card da Jornada fica em loading.
+      // /app/perfil renderiza sem depender de visa_checklist_items, então
+      // apenas o card da Jornada na sidebar fica em loading.
       await page.goto("/app/perfil", { waitUntil: "commit" });
       await expect(page.getByTestId("app-main")).toBeVisible({ timeout: 15_000 });
 
-      // Abre drawer no mobile para o card ficar visível.
       if (vp.name === "mobile") {
         await page.getByTestId("drawer-trigger").click();
         await expect(page.locator('[role="dialog"]')).toBeVisible();
       }
 
-      const card = page
-        .locator('[aria-busy="true"]')
-        .filter({ has: page.getByRole("progressbar", { name: /Progresso da jornada h-2a/i }) })
-        .first();
-      await expect(card, "card da Jornada deveria estar em aria-busy").toBeVisible();
+      const card = journeyCard(page);
+      await expect(card).toBeVisible();
 
-      // (a) Durante o loading, NÃO existe "Fase · <stage>" — só o skeleton.
-      // O texto "Fase ·" também não aparece, pois o slot inteiro vira span.
-      const phaseDuringLoad = await page.locator("text=/^Fase\\s+·/").count();
-      expect(phaseDuringLoad, "não deve renderizar 'Fase · X' enquanto carrega").toBe(0);
+      // (a) Card começa em aria-busy="true".
+      await expect(card).toHaveAttribute("aria-busy", "true");
 
-      // (b) Progressbar tem aria-valuenow indefinido durante o loading
-      //     (use aria-valuetext="carregando") — nunca um número falso.
-      const pb = page
-        .getByRole("progressbar", { name: /Carregando progresso da jornada/i })
-        .filter({ visible: true })
-        .first();
+      // (b) Durante o loading NÃO existe "Fase · X" no card — só skeleton.
+      const phasesVisible = await card.locator("text=/^Fase\\s+·/").count();
+      expect(phasesVisible, "card não deve renderizar 'Fase · X' enquanto carrega").toBe(0);
+
+      // (c) Progressbar interno expõe aria-valuetext="carregando" e
+      //     aria-valuenow ausente — nunca um número falso (ex.: 0% ou 20%).
+      const pb = card.getByRole("progressbar").first();
       await expect(pb).toBeVisible();
-      const loadingValueNow = await pb.getAttribute("aria-valuenow");
-      expect(loadingValueNow, "aria-valuenow deve ser nulo durante loading").toBeNull();
+      expect(await pb.getAttribute("aria-valuetext")).toBe("carregando");
+      expect(await pb.getAttribute("aria-valuenow")).toBeNull();
 
-      // (c) Snapshot da altura ANTES da resposta.
+      // (d) Snapshot da altura ANTES da resposta.
       const boxLoading = await card.boundingBox();
-      expect(boxLoading).not.toBeNull();
+      expect(boxLoading, "card precisa ter bounding box durante o loading").not.toBeNull();
+      expect(boxLoading!.height).toBeGreaterThan(0);
 
-      // (d) Aguarda o fim do loading (aria-busy desaparece quando todos os
-      //     queries do journey terminam).
-      await expect(card).not.toHaveAttribute("aria-busy", "true", { timeout: 8_000 });
+      // (e) Aguarda o fim do loading lendo aria-busy direto, sem trocar de
+      //     locator (o testid é estável). Usamos `expect.poll` em vez de
+      //     `not.toHaveAttribute` para permanecer no mesmo nó do DOM.
+      await expect
+        .poll(() => card.getAttribute("aria-busy"), { timeout: 8_000 })
+        .toBe("false");
 
-      // (e) Após o load, "Fase · X" aparece com um stage real.
+      // (f) Depois do load, "Fase · X" aparece com um stage REAL — nunca
+      //     DS-160 antes do contrato. Estado inicial determinístico.
       const phaseAfter = await readPhaseLabel(page);
-      expect(phaseAfter).toMatch(/^Fase\s+·\s+\S+/);
-      // Como acabamos de resetar (contractSigned=false, onboarding=true),
-      // a fase tem que ser exatamente "Contrato" — comprovando que o estado
-      // inicial é determinístico e nunca DS-160.
+      expect(phaseAfter, `fase após load: ${phaseAfter}`).toMatch(/^Fase\s+·\s+\S+/);
       expect(phaseAfter).toMatch(/Contrato/i);
       expect(phaseAfter).not.toMatch(/DS-?160/i);
 
-      // (f) Sem layout shift: altura do card permanece idêntica (±2px de
-      //     subpixel rounding). O card preserva min-h em todos os slots.
-      const cardAfter = page
-        .locator('[role="progressbar"][aria-label*="Progresso da jornada"]')
-        .filter({ visible: true })
-        .first()
-        .locator("xpath=ancestor::div[contains(@class,'rounded-2xl')][1]");
-      const boxAfter = await cardAfter.boundingBox();
+      // (g) Sem layout shift: altura/largura permanecem ±2px (subpixel).
+      const boxAfter = await card.boundingBox();
       expect(boxAfter).not.toBeNull();
-      expect(Math.abs((boxAfter!.height ?? 0) - (boxLoading!.height ?? 0))).toBeLessThanOrEqual(2);
-      expect(Math.abs((boxAfter!.width ?? 0) - (boxLoading!.width ?? 0))).toBeLessThanOrEqual(2);
+      const dh = Math.abs(boxAfter!.height - boxLoading!.height);
+      const dw = Math.abs(boxAfter!.width - boxLoading!.width);
+      expect(dh, `Δheight ${dh}px (antes=${boxLoading!.height}, depois=${boxAfter!.height})`).toBeLessThanOrEqual(2);
+      expect(dw, `Δwidth ${dw}px`).toBeLessThanOrEqual(2);
     });
   });
 }
+
