@@ -153,7 +153,7 @@ function Page() {
         toast.message(`Verificado ${r.checked} candidatura(s) — nenhuma resposta nova ainda.`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao verificar respostas");
+      toastError(e, { title: "Erro ao verificar respostas" });
     } finally { setChecking(false); }
   }
 
