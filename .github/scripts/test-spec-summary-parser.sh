@@ -114,9 +114,11 @@ cat > "$tmp/agg.tsv" <<EOF
 specA	1	0	1	1	2	4096	0	ok	below_min
 specB	0	1	0	1	2	0	16384	absent	ok
 EOF
-env_prefix="env RUN_LABEL=\"full shard 2/4\" RUN_PHASE=rerun RUN_ATTEMPT=3 AGGREGATE_OUT_JSON=$tmp/agg.json AGGREGATE_OUT_CSV=$tmp/agg.csv"
-AGGREGATE_OUT_JSON="$tmp/agg.json" AGGREGATE_OUT_CSV="$tmp/agg.csv" \
-  bash "$renderer" "$tmp/agg.tsv" "https://example.com/agg" "Agg" >/dev/null
+# Use `env` to actually export — bash assignment-prefixes don't
+# propagate into command substitutions or assignment targets.
+env RUN_LABEL="full shard 2/4" RUN_PHASE=rerun RUN_ATTEMPT=3 \
+    AGGREGATE_OUT_JSON="$tmp/agg.json" AGGREGATE_OUT_CSV="$tmp/agg.csv" \
+    bash "$renderer" "$tmp/agg.tsv" "https://example.com/agg" "Agg" >/dev/null
 if [ -f "$tmp/agg.json" ]; then
   pass=$((pass + 1)); echo "  ok    aggregate: JSON file created"
 else
@@ -130,19 +132,17 @@ assert_contains "$json" '"total_specs": 2'                         "aggregate.js
 assert_contains "$json" '"trace": {"ok": 1, "below_min": 0, "empty": 0, "absent": 1}' "aggregate.json: trace counters"
 assert_contains "$json" '"video": {"ok": 1, "below_min": 1, "empty": 0, "absent": 0}' "aggregate.json: video counters"
 assert_contains "$json" '"reports_found": 2'                       "aggregate.json: reports"
-# Re-parse as JSON to confirm syntactic validity.
 if node -e "JSON.parse(require('fs').readFileSync('$tmp/agg.json','utf8'))" 2>/dev/null; then
   pass=$((pass + 1)); echo "  ok    aggregate.json: parses as JSON"
 else
   fail=$((fail + 1)); echo "  FAIL  aggregate.json: not valid JSON"
 fi
-# CSV: header present, one data row, correct column count.
 csv_header="$(head -1 "$tmp/agg.csv")"
 csv_row="$(sed -n '2p' "$tmp/agg.csv")"
 assert_contains "$csv_header" 'label,phase,attempt,total_specs,trace_ok' "aggregate.csv: header line"
 assert_contains "$csv_row" 'full shard 2/4,rerun,3,2,1,0,0,1,1,1,0,0,2,1' "aggregate.csv: data row matches"
-# Run renderer again — CSV must append (header not re-emitted).
-bash "$renderer" "$tmp/agg.tsv" "" "Agg2" >/dev/null
+# Second invocation appends without re-emitting the header.
+env AGGREGATE_OUT_CSV="$tmp/agg.csv" bash "$renderer" "$tmp/agg.tsv" "" "Agg2" >/dev/null
 csv_lines="$(wc -l < "$tmp/agg.csv" | tr -d ' ')"
 if [ "$csv_lines" = "3" ]; then
   pass=$((pass + 1)); echo "  ok    aggregate.csv: appends without duplicate header"
