@@ -26,18 +26,21 @@ describe("newCorrelationId — format & uniqueness", () => {
   });
 
   it("falls back to cid_* when crypto.randomUUID is absent", () => {
-    const original = globalThis.crypto;
     // Simulate a runtime without randomUUID (e.g. older webviews).
+    // crypto on globalThis is a non-writable getter — patch the method directly.
+    const original = globalThis.crypto?.randomUUID;
     // @ts-expect-error — narrow override for the test only.
-    globalThis.crypto = undefined;
+    globalThis.crypto.randomUUID = undefined;
     try {
       const id = newCorrelationId();
       expect(id).toMatch(/^cid_[0-9a-z]+_[0-9a-z]+$/);
     } finally {
-      globalThis.crypto = original;
+      // @ts-expect-error — restore original.
+      globalThis.crypto.randomUUID = original;
     }
   });
 });
+
 
 describe("correlationId propagation through runAiAttempt", () => {
   // The orchestrator must never mutate, regenerate, or partially attach the
