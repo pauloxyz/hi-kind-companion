@@ -2,13 +2,13 @@
 # Renders the per-spec section of a Playwright job's GitHub Actions
 # summary from a TSV produced by collect-spec-artifacts.sh.
 #
-# Expected TSV columns (tab-separated), schema v2+:
+# Expected TSV columns (tab-separated), schema v3:
 #   slug  has_trace  has_video  has_screenshot  has_report  attempt  \
 #         trace_size  video_size  trace_reason  video_reason
 #
 # Older TSVs without the last six columns are still accepted — the
 # missing fields default to sane values so the renderer stays
-# backward-compatible during the v1 → v2 transition.
+# backward-compatible with the v1 4-column format.
 #
 # Output structure (Markdown, written to STDOUT):
 #   1. "Run summary" aggregate table: ok / below_min / empty / absent
