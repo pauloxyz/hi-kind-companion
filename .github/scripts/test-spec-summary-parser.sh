@@ -158,7 +158,7 @@ assert_contains "$out" 'unknown (weird)'                           "messy: unkno
 
 # --- Fixture 8: empty TSV → no output, no aggregate files -----------
 : > "$tmp/empty-file.tsv"
-AGGREGATE_OUT_JSON="$tmp/empty-agg.json" out="$(bash "$renderer" "$tmp/empty-file.tsv" "" "Nothing")"
+out="$(env AGGREGATE_OUT_JSON="$tmp/empty-agg.json" bash "$renderer" "$tmp/empty-file.tsv" "" "Nothing")"
 if [ -z "$out" ] && [ ! -f "$tmp/empty-agg.json" ]; then
   pass=$((pass + 1)); echo "  ok    empty TSV: no output, no aggregate"
 else
