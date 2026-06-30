@@ -25,6 +25,7 @@ import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/scor
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Database } from "@/integrations/supabase/types";
 import { InlineQueryError } from "@/components/query-state";
+import { PageHeader } from "@/components/page-header";
 import { toastError } from "@/lib/toast-error";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"];
