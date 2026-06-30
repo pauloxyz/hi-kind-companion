@@ -130,15 +130,32 @@ jobs:
           CI: "1"
 
       - name: Upload Playwright artifacts on failure
+        id: upload_smoke
         if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-smoke-artifacts
+          name: playwright-smoke-artifacts-attempt-${{ github.run_attempt }}
           path: |
-            test-results/**
+            test-results/**/*.png
+            test-results/**/*.webm
+            test-results/**/*.zip
+            test-results/**/error-context.md
             playwright-report/**
-          retention-days: 14
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
+
+      - name: Link smoke artifact in job summary
+        if: ${{ failure() && steps.upload_smoke.outputs.artifact-url != '' }}
+        run: |
+          {
+            echo "### 🔎 Playwright — smoke"
+            echo
+            echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report for the failing smoke run:"
+            echo
+            echo "- [Download \`${{ steps.upload_smoke.outputs.artifact-name || 'playwright-smoke-artifacts' }}\`](${{ steps.upload_smoke.outputs.artifact-url }})"
+            echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
+            echo "- Artifact retention: **${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }} days** (auto-cleaned by GitHub)."
+          } >> "$GITHUB_STEP_SUMMARY"
 
   # Targeted regression guard: the 4 specs we have historically had to
   # stabilize (shift-tab, keyboard-only, journey-progression, shortcuts
