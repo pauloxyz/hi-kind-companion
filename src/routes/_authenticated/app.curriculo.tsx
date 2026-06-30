@@ -18,6 +18,7 @@ import { listResumePhotos } from "@/lib/resume-photos.functions";
 // download handler to keep them out of the initial route chunk (~250kb gzip).
 import type { ResumePdfData } from "@/components/ResumePdfDocument";
 import { ResumePhotosCard } from "@/components/ResumePhotosCard";
+import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/_authenticated/app/curriculo")({ component: Page });
 
