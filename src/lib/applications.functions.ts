@@ -29,7 +29,12 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
         supabase.from("resume_experiences").select("*").eq("owner_id", userId).order("sort_order", { ascending: true }),
       ]);
 
-    if (!job) throw new Error("Vaga não encontrada");
+    if (!job) {
+      throw new AppError("Não encontramos essa vaga. Atualize a página e tente novamente.", {
+        kind: "not_found",
+        code: "applications.cover_letter.job_not_found",
+      });
+    }
 
     const profileLines = [
       profile?.full_name && `Name: ${profile.full_name}`,
