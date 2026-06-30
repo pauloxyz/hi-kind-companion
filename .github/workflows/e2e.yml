@@ -511,8 +511,14 @@ jobs:
         if: ${{ !cancelled() }}
         run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-full-${{ matrix.shard }}-run1.tsv /tmp/spec-titles-full-${{ matrix.shard }}-run1.json
 
+      - name: Preflight Playwright bundle layout (shard ${{ matrix.shard }} run1)
+        id: preflight_full_run1
+        if: ${{ !cancelled() }}
+        run: bash .github/scripts/preflight-bundle.sh
+
       - name: Upload Playwright artifacts (shard ${{ matrix.shard }} run1)
         id: upload_full_run1
+
         if: ${{ !cancelled() && failure() }}
         uses: actions/upload-artifact@v4
         with:
