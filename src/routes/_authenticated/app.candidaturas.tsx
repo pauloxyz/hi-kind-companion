@@ -126,7 +126,7 @@ function Page() {
   async function markResponded(id: string) {
     const nowIso = new Date().toISOString();
     const { error } = await supabase.from("applications").update({ responded_at: nowIso, status: "responded" }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toastError(error, { title: "Falha ao atualizar" }); return; }
     updateLocal(id, { responded_at: nowIso, status: "responded" });
   }
 
