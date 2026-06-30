@@ -19,6 +19,7 @@ import { signOutEverywhere } from "@/lib/account-sessions.functions";
 import { exportMyData } from "@/lib/account-export.functions";
 import { useQueryClient } from "@tanstack/react-query";
 import { MfaCard } from "@/components/MfaCard";
+import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/_authenticated/app/configuracoes")({
   component: ConfiguracoesPage,
@@ -205,13 +206,11 @@ function ConfiguracoesPage() {
   }
 
   return (
-    <div className="space-y-6 max-w-3xl">
-      <div>
-        <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-sm text-muted-foreground">
-          Gerencie sua conta, preferências e segurança.
-        </p>
-      </div>
+    <div className="space-y-6 sm:space-y-8 max-w-3xl">
+      <PageHeader
+        title="Configurações"
+        description="Gerencie sua conta, preferências e segurança."
+      />
 
       {/* Conta */}
       <Card>

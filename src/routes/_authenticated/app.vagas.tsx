@@ -25,6 +25,7 @@ import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/scor
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Database } from "@/integrations/supabase/types";
 import { InlineQueryError } from "@/components/query-state";
+import { PageHeader } from "@/components/page-header";
 import { toastError } from "@/lib/toast-error";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"];
@@ -471,16 +472,11 @@ function Page() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
-        <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-3xl sm:text-4xl lg:text-[2.625rem] font-bold leading-[1.05] tracking-tight text-balance">
-            Vagas H-2A
-          </h1>
-          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
-            Explore, compare e candidate-se em poucos cliques.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2 justify-end">
+      <PageHeader
+        title="Vagas H-2A"
+        description="Explore, compare e candidate-se em poucos cliques."
+      />
+      <div className="flex flex-wrap gap-2 -mt-3 sm:-mt-4 justify-end">
           <Button variant="outline" size="sm" onClick={() => setAlertsOpen(true)} className="relative">
             <Bell className="mr-2 h-4 w-4" />
             Alertas
@@ -523,8 +519,7 @@ function Page() {
             {importing === "daily" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
             🔄 Buscar agora
           </Button>
-        </div>
-      </header>
+      </div>
 
       <Card>
         <CardContent className="pt-4 space-y-3">

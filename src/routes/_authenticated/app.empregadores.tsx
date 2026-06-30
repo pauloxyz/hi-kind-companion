@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/page-header";
 import { AlertTriangle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/empregadores")({ component: Page });
@@ -27,9 +28,11 @@ function Page() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Empregadores</h1>
-      <p className="text-sm text-muted-foreground">Empregadores são criados automaticamente quando você se candidata. Use esta tela para anotar histórico e marcar suspeitos.</p>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Empregadores"
+        description="Empregadores são criados automaticamente quando você se candidata. Use esta tela para anotar histórico e marcar suspeitos."
+      />
 
       {isPending && (
         <div className="grid gap-3" aria-busy="true" aria-label="Carregando empregadores">

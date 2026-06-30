@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/page-header";
 import {
   Sparkles, Briefcase, Plane, Tractor, BookOpen, Lock, CheckCircle2,
   LifeBuoy, Home, Scale, Mic, Award, Clock,
@@ -43,13 +44,11 @@ function InglesIndex() {
   });
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold">Inglês para o H-2A</h1>
-        <p className="text-muted-foreground mt-1">
-          Curso completo em 3 níveis. Cada lição traz chunks com pronúncia escrita em português, diálogo real, gramática em contexto, armadilhas e cultura — além de áudio nativo e tutor IA pra praticar.
-        </p>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Inglês para o H-2A"
+        description="Curso completo em 3 níveis. Cada lição traz chunks com pronúncia escrita em português, diálogo real, gramática em contexto, armadilhas e cultura — além de áudio nativo e tutor IA pra praticar."
+      />
 
       {LEVELS.map((level) => {
         const levelModules = (modules ?? []).filter((m) => m.level === level.key);

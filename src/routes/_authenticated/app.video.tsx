@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 // `@react-pdf/renderer` + VideoScriptPdf are dynamic-imported in the export handler.
 import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
+import { PageHeader } from "@/components/page-header";
 import { track, newCorrelationId } from "@/lib/telemetry";
 import { captureAiError, initSentry, setCorrelationId, addAiBreadcrumb } from "@/lib/sentry";
 import { runAiAttempt, type AiSinks } from "@/lib/ai-retry";
@@ -376,13 +377,11 @@ function Page() {
 
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold">Vídeo de Apresentação</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Empregadores H-2A confiam mais em quem mostra a cara. Grave ~60s em inglês, suba como "Não listado" no YouTube e cole o link.
-        </p>
-      </div>
+    <div className="space-y-6 sm:space-y-8 max-w-4xl">
+      <PageHeader
+        title="Vídeo de Apresentação"
+        description='Empregadores H-2A confiam mais em quem mostra a cara. Grave ~60s em inglês, suba como "Não listado" no YouTube e cole o link.'
+      />
 
       {/* PASSO 1 — Gerar roteiro */}
       <Card>

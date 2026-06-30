@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { PageHeader } from "@/components/page-header";
 import { X, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
@@ -124,8 +125,11 @@ function PerfilPage() {
   const usedCodes = new Set(parsedLangs.map((l) => l.code));
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Meu Perfil</h1>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Meu Perfil"
+        description="Mantenha seus dados atualizados — eles preenchem o currículo e a candidatura automaticamente."
+      />
       <Card>
         <CardHeader><CardTitle>Dados pessoais</CardTitle></CardHeader>
         <CardContent className="space-y-3">

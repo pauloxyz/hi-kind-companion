@@ -50,6 +50,7 @@ import { ackAlert, listAlertAcks, unackAlert } from "@/lib/security-alerts.funct
 import { listRetentionPolicies, upsertRetentionPolicy, type RetentionPolicy } from "@/lib/security-retention.functions";
 // SecurityAuditPdf is dynamic-imported alongside @react-pdf/renderer below.
 import { UptimePanel } from "@/components/UptimePanel";
+import { PageHeader } from "@/components/page-header";
 
 const EVENT_TYPES = [
   { v: "", label: "Todos os tipos" },
@@ -350,43 +351,43 @@ function AuditPanel() {
     : 0;
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="size-6" aria-hidden="true" /> {tr("audit_title")}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {tr("audit_window")}: {sinceDays} {tr("audit_days")} · {tr("audit_retention")}: 180 {tr("audit_days")}
-          </p>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            variant="outline"
-            onClick={handleExportCsv}
-            disabled={!filteredEvents.length}
-            aria-label={tr("audit_export_csv")}
-          >
-            <FileSpreadsheet className="size-4" aria-hidden="true" /> {tr("audit_export_csv")}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={handleExportJson}
-            disabled={!filteredEvents.length}
-            aria-label="Exportar JSON"
-          >
-            <Download className="size-4" aria-hidden="true" /> JSON
-          </Button>
-          <Button
-            onClick={handleExport}
-            disabled={exporting || !stats.data || !filteredEvents.length}
-            aria-label={tr("audit_export_pdf")}
-          >
-            <Download className="size-4" aria-hidden="true" />{" "}
-            {exporting ? tr("audit_generating") : tr("audit_export_pdf")}
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        icon={<Shield className="size-7" aria-hidden="true" />}
+        title={tr("audit_title")}
+        description={`${tr("audit_window")}: ${sinceDays} ${tr("audit_days")} · ${tr("audit_retention")}: 180 ${tr("audit_days")}`}
+        actions={
+          <>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportCsv}
+              disabled={!filteredEvents.length}
+              aria-label={tr("audit_export_csv")}
+            >
+              <FileSpreadsheet className="size-4 mr-1" aria-hidden="true" /> {tr("audit_export_csv")}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleExportJson}
+              disabled={!filteredEvents.length}
+              aria-label="Exportar JSON"
+            >
+              <Download className="size-4 mr-1" aria-hidden="true" /> JSON
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleExport}
+              disabled={exporting || !stats.data || !filteredEvents.length}
+              aria-label={tr("audit_export_pdf")}
+            >
+              <Download className="size-4 mr-1" aria-hidden="true" />
+              {exporting ? tr("audit_generating") : tr("audit_export_pdf")}
+            </Button>
+          </>
+        }
+      />
 
       {highAlerts.length > 0 && (
         <Card className="border-destructive bg-destructive/5" role="alert">

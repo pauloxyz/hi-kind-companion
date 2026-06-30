@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Mail, Calendar, Download, RefreshCw, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { checkApplicationReplies } from "@/lib/applications.functions";
 import { InlineQueryError } from "@/components/query-state";
+import { PageHeader } from "@/components/page-header";
 import { toastError } from "@/lib/toast-error";
 
 export const Route = createFileRoute("/_authenticated/app/candidaturas")({ component: Page });
@@ -188,19 +189,22 @@ function Page() {
   );
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">Candidaturas</h1>
-        <div className="flex gap-2">
-          <Button size="sm" variant="outline" onClick={handleCheckReplies} disabled={checking || pending === 0}>
-            {checking ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
-            Verificar respostas no Gmail
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => exportCsv(rows)} disabled={!rows.length}>
-            <Download className="h-4 w-4 mr-1" /> Exportar CSV
-          </Button>
-        </div>
-      </div>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Candidaturas"
+        description="Acompanhe respostas, marque entrevistas e exporte seu histórico."
+        actions={
+          <>
+            <Button size="sm" variant="outline" onClick={handleCheckReplies} disabled={checking || pending === 0}>
+              {checking ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <RefreshCw className="h-4 w-4 mr-1" />}
+              Verificar respostas no Gmail
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => exportCsv(rows)} disabled={!rows.length}>
+              <Download className="h-4 w-4 mr-1" /> Exportar CSV
+            </Button>
+          </>
+        }
+      />
 
       <div className="flex flex-wrap gap-2">
         {chip("all", "Todas", total)}
