@@ -25,7 +25,7 @@ import {
   History,
 } from "lucide-react";
 import { toast } from "sonner";
-import { VisaChecklistPdf, type VisaPdfData } from "@/components/VisaChecklistPdf";
+import type { VisaPdfData } from "@/components/VisaChecklistPdf";
 import { VisaAttachmentViewer, type ViewerAttachment } from "@/components/VisaAttachmentViewer";
 
 export const Route = createFileRoute("/_authenticated/app/visto")({
