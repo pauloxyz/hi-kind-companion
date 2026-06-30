@@ -369,61 +369,6 @@ function Landing() {
   );
 }
 
-function ProfilePreview() {
-  return (
-    <aside aria-label="Pré-visualização de perfil" className="relative">
-      <div className="absolute -inset-4 bg-primary/5 rounded-3xl rotate-2" aria-hidden />
-      <div className="relative rounded-2xl border-2 border-primary/20 bg-card p-5 sm:p-6 shadow-elevated">
-        <div className="flex items-center gap-2 mb-5">
-          <span className="inline-flex h-2 w-2 rounded-full bg-success animate-pulse" aria-hidden />
-          <span className="text-[10px] uppercase tracking-[0.18em] font-bold text-muted-foreground">
-            Perfil ativo · visível para recrutadores
-          </span>
-        </div>
-
-        <div className="flex items-center gap-3 mb-5">
-          <div className="h-14 w-14 rounded-full bg-primary text-primary-foreground flex items-center justify-center font-black text-lg">
-            JS
-          </div>
-          <div className="min-w-0">
-            <p className="font-bold leading-tight">Joelson S., 34</p>
-            <p className="text-xs text-muted-foreground">Minas Gerais · Disponível ago/2026</p>
-          </div>
-        </div>
-
-        {/* Video preview */}
-        <div className="relative aspect-video rounded-lg bg-foreground/90 mb-4 overflow-hidden flex items-center justify-center group cursor-pointer">
-          <div className="absolute inset-0 bg-gradient-to-tr from-primary/30 to-accent-red/20" />
-          <div className="relative h-12 w-12 rounded-full bg-white/95 flex items-center justify-center shadow-lg group-hover:scale-110 transition-transform">
-            <Video className="h-5 w-5 text-primary translate-x-0.5" />
-          </div>
-          <span className="absolute bottom-2 right-2 text-[10px] font-bold text-white bg-black/50 px-1.5 py-0.5 rounded">
-            0:58
-          </span>
-        </div>
-
-        <div className="space-y-2 mb-5">
-          <p className="text-[10px] uppercase tracking-wider font-bold text-muted-foreground">Experiência</p>
-          <div className="flex flex-wrap gap-1.5">
-            {["Colheita laranja", "Trator", "Irrigação", "Plantio"].map((tag) => (
-              <span key={tag} className="text-xs px-2 py-1 rounded-md bg-primary/10 text-primary font-semibold">
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-
-        <div className="pt-4 border-t flex items-center gap-2">
-          <MessageCircle className="h-4 w-4 text-success shrink-0" />
-          <p className="text-xs">
-            <strong>Enviado para 3 recrutadores</strong>{" "}
-            <span className="text-muted-foreground">via WhatsApp</span>
-          </p>
-        </div>
-      </div>
-    </aside>
-  );
-}
 
 const AVATAR_STACK = [
   { initials: "JS", bg: "bg-primary" },
