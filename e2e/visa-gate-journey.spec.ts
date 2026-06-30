@@ -321,6 +321,147 @@ for (const vp of VIEWPORTS) {
       expect(dh, `Δheight ${dh}px (antes=${boxLoading!.height}, depois=${boxAfter!.height})`).toBeLessThanOrEqual(2);
       expect(dw, `Δwidth ${dw}px`).toBeLessThanOrEqual(2);
     });
+
+    /* --------------------------------------------------------------------- */
+    /* 4) RE-LOCK: desmarcar o contrato re-bloqueia DS-160 e volta a Jornada */
+    /* --------------------------------------------------------------------- */
+
+    test("desmarcar 'Oferta aceita' após liberar DS-160 volta para Contrato e re-bloqueia", async ({
+      page,
+    }) => {
+      await gotoVisto(page);
+
+      const ds160 = rowByStepKey(page, "ds160");
+      const hired = rowByStepKey(page, "hired_by_employer");
+      const hiredCheckbox = hired.getByRole("checkbox", { name: /Marcar etapa:/i });
+
+      // Pré-condição: gate ativo.
+      await expect(ds160).toHaveAttribute("data-gate-blocked", "true");
+
+      // 1) Marca contrato → DS-160 libera.
+      await hiredCheckbox.click();
+      await expect(ds160).not.toHaveAttribute("data-gate-blocked", "true", {
+        timeout: 10_000,
+      });
+      await expect(ds160.locator('[id^="gate-"]')).toHaveCount(0);
+
+      // 2) Desmarca contrato (sem ter completado DS-160).
+      await expect(hiredCheckbox).toBeChecked();
+      await hiredCheckbox.click();
+      await expect(hiredCheckbox).not.toBeChecked();
+
+      // 3) Gate volta: data-attr, banner e checkbox desabilitado.
+      await expect(ds160).toHaveAttribute("data-gate-blocked", "true", {
+        timeout: 10_000,
+      });
+      const banner = ds160.locator('[id^="gate-"]');
+      await expect(banner).toBeVisible();
+      await expect(banner).toContainText(/Oferta de trabalho aceita/i);
+      await expect(ds160.getByRole("checkbox", { name: /Marcar etapa:/i })).toBeDisabled();
+
+      // 4) Jornada da sidebar volta para Contrato (nunca DS-160).
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+      }
+      await expect
+        .poll(() => readPhaseLabel(page), { timeout: 10_000 })
+        .toMatch(/Contrato/i);
+      const phase = await readPhaseLabel(page);
+      expect(phase, `fase final: ${phase}`).not.toMatch(/DS-?160/i);
+    });
+
+    /* --------------------------------------------------------------------- */
+    /* 5) INCONSISTENT: DS-160 marcado mas contrato false → UI corrige       */
+    /* --------------------------------------------------------------------- */
+
+    test("dado inconsistente (DS-160=true, contrato=false) → sidebar fica em Contrato, banner aparece, checkbox disabled", async ({
+      page,
+      request,
+    }) => {
+      // Estado inconsistente injetado direto via PostgREST (simula DB drift).
+      await patchStep(request, session.session.access_token, "hired_by_employer", false);
+      await patchStep(request, session.session.access_token, "ds160", true);
+
+      await gotoVisto(page);
+
+      const ds160 = rowByStepKey(page, "ds160");
+
+      // (a) Row está bloqueada mesmo com is_completed=true.
+      await expect(ds160).toHaveAttribute("data-gate-blocked", "true");
+
+      // (b) Checkbox aparece marcado (espelha o DB) mas desabilitado —
+      //     usuário não pode mexer aqui; precisa marcar o contrato.
+      const checkbox = ds160.getByRole("checkbox", { name: /Marcar etapa:/i });
+      await expect(checkbox).toBeChecked();
+      await expect(checkbox).toBeDisabled();
+
+      // (c) Banner visível e com o texto correto.
+      const banner = ds160.locator('[id^="gate-"]');
+      await expect(banner).toBeVisible();
+      await expect(banner).toContainText(/Oferta de trabalho aceita/i);
+
+      // (d) Sidebar Jornada NUNCA mostra DS-160 nesse estado.
+      if (vp.name === "mobile") {
+        await page.getByTestId("drawer-trigger").click();
+        await expect(page.locator('[role="dialog"]')).toBeVisible();
+      }
+      const phase = await readPhaseLabel(page);
+      expect(phase, `fase: ${phase}`).not.toMatch(/DS-?160/i);
+      expect(phase).toMatch(/Contrato/i);
+    });
+
+    /* --------------------------------------------------------------------- */
+    /* 6) A11Y: banner de bloqueio                                           */
+    /* --------------------------------------------------------------------- */
+
+    test("banner de bloqueio é acessível, persistente e aparece ANTES do clique no DS-160", async ({
+      page,
+    }) => {
+      await gotoVisto(page);
+
+      const ds160 = rowByStepKey(page, "ds160");
+      const banner = ds160.locator('[id^="gate-"]');
+      const checkbox = ds160.getByRole("checkbox", { name: /Marcar etapa:/i });
+
+      // (a) Banner está no DOM e visível ANTES de qualquer interação.
+      await expect(banner).toBeVisible();
+      await expect(banner).toContainText(
+        /Dispon[íi]vel depois que voc[êe] marcar.*Oferta de trabalho aceita e contrato assinado/i,
+      );
+
+      // (b) Banner tem id estável e o checkbox o referencia via
+      //     aria-describedby — leitores de tela leem a explicação ao focar
+      //     o checkbox bloqueado, sem precisar de clique.
+      const bannerId = await banner.getAttribute("id");
+      expect(bannerId, "banner precisa ter id estável").toMatch(/^gate-/);
+      await expect(checkbox).toHaveAttribute("aria-describedby", bannerId!);
+
+      // (c) Ícone do banner é puramente decorativo (aria-hidden).
+      await expect(banner.locator("svg[aria-hidden]").first()).toBeAttached();
+
+      // (d) Live region polite existe na página para anúncios dinâmicos.
+      const live = page.locator('[role="status"][aria-live="polite"]').first();
+      await expect(live).toBeAttached();
+
+      // (e) Tentativa de clique forçada NÃO progride e o banner permanece.
+      await checkbox.click({ force: true }).catch(() => {});
+      await expect(checkbox).not.toBeChecked();
+      await expect(banner).toBeVisible();
+      await expect(banner).toContainText(/Oferta de trabalho aceita/i);
+
+      // (f) Persistência: o banner sobrevive a um reload da página.
+      await page.reload({ waitUntil: "commit" });
+      await expect(page.getByTestId("app-main")).toBeVisible({ timeout: 15_000 });
+      const ds160After = rowByStepKey(page, "ds160");
+      const bannerAfter = ds160After.locator('[id^="gate-"]');
+      await expect(bannerAfter).toBeVisible();
+      await expect(bannerAfter).toContainText(/Oferta de trabalho aceita/i);
+      await expect(
+        ds160After.getByRole("checkbox", { name: /Marcar etapa:/i }),
+      ).toBeDisabled();
+    });
   });
 }
+
 

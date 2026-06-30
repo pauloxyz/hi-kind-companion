@@ -488,10 +488,14 @@ function VistoPage() {
             <Card>
               <CardContent className="p-0 divide-y">
                 {phase.items.map((it) => {
+                  // Bloqueamos sempre que o passo for gated e o contrato
+                  // ainda não estiver assinado — inclusive quando o passo
+                  // está marcado como concluído (estado inconsistente: ex.
+                  // DS-160 = true sem hired_by_employer). Nesses casos o
+                  // banner aparece e o checkbox fica desabilitado, forçando
+                  // o usuário a corrigir marcando o contrato primeiro.
                   const gateBlocked =
-                    !it.is_completed &&
-                    !contractSigned &&
-                    isContractGatedStep(it.step_key);
+                    !contractSigned && isContractGatedStep(it.step_key);
                   return (
                     <ChecklistRow
                       key={it.id}
