@@ -76,6 +76,9 @@ function Page() {
   const [genMeta, setGenMeta] = useState(false);
 
   const [aiError, setAiError] = useState<AiErrorInfo | null>(null);
+  // Epoch ms when the banner transitioned to "ready" — used to compute
+  // waitedPastUnlockMs (banner-ready → retry-click latency) for telemetry.
+  const readyAtRef = useRef(0);
   const [nowTs, setNowTs] = useState(() => Date.now());
   useEffect(() => {
     if (!aiError || aiError.retryAt <= Date.now()) return;
@@ -86,6 +89,16 @@ function Page() {
     }, 500);
     return () => window.clearInterval(id);
   }, [aiError]);
+
+  // Shared sinks for runAiAttempt — same instance per action so breadcrumb
+  // and telemetry callsites all converge on the same Sentry/console writers.
+  const sinks = useMemo<AiSinks>(() => ({
+    track,
+    breadcrumb: addAiBreadcrumb,
+    capture: (err, tags, extra) => captureAiError(err, tags, extra),
+    now: () => Date.now(),
+  }), []);
+
 
 
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
