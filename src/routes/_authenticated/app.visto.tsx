@@ -28,6 +28,11 @@ import { toast } from "sonner";
 import type { VisaPdfData } from "@/components/VisaChecklistPdf";
 import { VisaAttachmentViewer, type ViewerAttachment } from "@/components/VisaAttachmentViewer";
 import { PageHeader } from "@/components/page-header";
+import {
+  CONTRACT_GATE_BLOCKED_MESSAGE,
+  canCompleteStep,
+  isContractGatedStep,
+} from "@/lib/h2a-journey-gate";
 
 export const Route = createFileRoute("/_authenticated/app/visto")({
   component: VistoPage,
