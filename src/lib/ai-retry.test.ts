@@ -331,3 +331,223 @@ describe("runAiAttempt — bannerReady guard", () => {
   });
 });
 
+describe("runAiAttempt — 402 → successful retry sequence", () => {
+  it("preserves correlationId, computes waitedPastUnlockMs, and emits events in expected order", async () => {
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    // Attempt 1: click=0, start=0, end=150 → latency=150 (402).
+    // Attempt 2: click=20_000, start=20_000, end=20_400 → latency=400.
+    const stream = [0, 0, 150, 20_000, 20_000, 20_400];
+    const now = vi.fn(() => stream.shift() ?? 20_400);
+    const sinks: AiSinks = { track, breadcrumb, capture, now };
+
+    const r1 = await runAiAttempt({
+      action: "meta", isRetry: false, correlationId: CID, readyAt: 0,
+      generator: () => Promise.reject(new Error("AI_ERR|no_credits|0|Sem créditos.")),
+      sinks,
+    });
+    expect(r1.ok).toBe(false);
+
+    // After admin recharges, user clicks retry. readyAt mirrors the moment
+    // the banner re-enabled — for no_credits the page stamps readyAt on
+    // mount/error (here 19_500).
+    const r2 = await runAiAttempt({
+      action: "meta", isRetry: true, correlationId: CID, readyAt: 19_500,
+      previousCode: "no_credits", bannerReady: true,
+      generator: () => Promise.resolve({ title: "ok" }),
+      sinks,
+    });
+    expect(r2.ok).toBe(true);
+
+    const events = track.mock.calls.map((c) => c[0]);
+    expect(events).toEqual([
+      "ai_generate_click",
+      "ai_error",
+      "ai_retry_click",
+      "ai_retry_success",
+    ]);
+    for (const call of track.mock.calls) {
+      expect(call[1]).toMatchObject({ correlationId: CID });
+    }
+    expect(track).toHaveBeenCalledWith("ai_error", {
+      action: "meta", code: "no_credits", retryAfter: 0,
+      latencyMs: 150, correlationId: CID,
+    });
+    // waitedPastUnlockMs = clickAt(20_000) - readyAt(19_500) = 500.
+    expect(track).toHaveBeenCalledWith("ai_retry_click", {
+      action: "meta", code: "no_credits", correlationId: CID, waitedPastUnlockMs: 500,
+    });
+    expect(track).toHaveBeenCalledWith("ai_retry_success", expect.objectContaining({
+      action: "meta", latencyMs: 400, correlationId: CID,
+    }));
+
+    // Breadcrumb trail across both attempts joins on the same correlationId.
+    const crumbs = breadcrumb.mock.calls.map((c) => c[0]);
+    expect(crumbs).toEqual(["generate-click", "ai-error", "retry-click", "retry-success"]);
+    for (const call of breadcrumb.mock.calls) {
+      expect(call[1]).toMatchObject({ correlationId: CID });
+    }
+    // 402 escalates to "error" breadcrumb level.
+    expect(breadcrumb.mock.calls.find((c) => c[0] === "ai-error")?.[2]).toBe("error");
+  });
+});
+
+describe("runAiAttempt — waitedPastUnlockMs clock-skew clamp", () => {
+  it("clamps to 0 when clickAt < readyAt (negative skew)", async () => {
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    // clickAt=4_900, readyAt=5_000 → raw diff -100, clamped to 0.
+    const stream = [4_900, 4_900, 4_950];
+    const now = vi.fn(() => stream.shift() ?? 4_950);
+    await runAiAttempt({
+      action: "script", isRetry: true, correlationId: CID,
+      readyAt: 5_000, previousCode: "rate_limited", bannerReady: true,
+      generator: () => Promise.resolve({}),
+      sinks: { track, breadcrumb, capture, now },
+    });
+    const click = track.mock.calls.find((c) => c[0] === "ai_retry_click");
+    expect(click?.[1]).toMatchObject({ waitedPastUnlockMs: 0 });
+    // Never emits a negative metric — dashboards depend on this invariant.
+    expect((click?.[1] as { waitedPastUnlockMs: number }).waitedPastUnlockMs)
+      .toBeGreaterThanOrEqual(0);
+  });
+
+  it("preserves large positive values (well above retryAfter) without truncating", async () => {
+    // The orchestrator does NOT cap on the upper bound — analytics need the
+    // raw 'user took a long time' signal. retryAfter is server policy;
+    // wait time is user behaviour.
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    // retryAfter was 30s (30_000ms); user waited 5 minutes (300_000ms).
+    const stream = [305_000, 305_000, 305_100];
+    const now = vi.fn(() => stream.shift() ?? 305_100);
+    await runAiAttempt({
+      action: "script", isRetry: true, correlationId: CID,
+      readyAt: 5_000, previousCode: "rate_limited", bannerReady: true,
+      generator: () => Promise.resolve({}),
+      sinks: { track, breadcrumb, capture, now },
+    });
+    expect(track).toHaveBeenCalledWith("ai_retry_click", expect.objectContaining({
+      waitedPastUnlockMs: 300_000,
+    }));
+  });
+});
+
+describe("runAiAttempt — ai_error payload by error type", () => {
+  it("rate_limited carries retryAfter>0 and a 'warning' breadcrumb level", async () => {
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    const stream = [1_000, 1_000, 1_250];
+    const now = vi.fn(() => stream.shift() ?? 1_250);
+    await runAiAttempt({
+      action: "script", isRetry: false, correlationId: CID, readyAt: 0,
+      generator: () => Promise.reject(new Error("AI_ERR|rate_limited|45|slow down")),
+      sinks: { track, breadcrumb, capture, now },
+    });
+    expect(track).toHaveBeenCalledWith("ai_error", {
+      action: "script", code: "rate_limited",
+      retryAfter: 45, latencyMs: 250, correlationId: CID,
+    });
+    expect(breadcrumb.mock.calls.find((c) => c[0] === "ai-error")?.[2]).toBe("warning");
+  });
+
+  it("no_credits carries retryAfter=0 and an 'error' breadcrumb level, same correlationId", async () => {
+    const track = vi.fn();
+    const breadcrumb = vi.fn();
+    const capture = vi.fn();
+    const stream = [2_000, 2_000, 2_180];
+    const now = vi.fn(() => stream.shift() ?? 2_180);
+    await runAiAttempt({
+      action: "meta", isRetry: false, correlationId: CID, readyAt: 0,
+      generator: () => Promise.reject(new Error("AI_ERR|no_credits|0|Sem créditos.")),
+      sinks: { track, breadcrumb, capture, now },
+    });
+    expect(track).toHaveBeenCalledWith("ai_error", {
+      action: "meta", code: "no_credits",
+      retryAfter: 0, latencyMs: 180, correlationId: CID,
+    });
+    const aiError = breadcrumb.mock.calls.find((c) => c[0] === "ai-error");
+    expect(aiError?.[1]).toMatchObject({ correlationId: CID, code: "no_credits", retryAfter: 0 });
+    expect(aiError?.[2]).toBe("error");
+  });
+});
+
+describe("runAiAttempt — automatic retry without user click", () => {
+  it("does NOT emit ai_retry_click or retry-click breadcrumb when isRetry=false", async () => {
+    // Programmatic regeneration (e.g. auto-trigger after countdown completes
+    // without user interaction) MUST be modelled as isRetry=false so the
+    // dashboards don't count a user click that never happened.
+    const { sinks, track, breadcrumb } = makeSinks();
+    await runAiAttempt({
+      action: "script", isRetry: false, correlationId: CID, readyAt: 0,
+      generator: () => Promise.resolve({ ok: 1 }),
+      sinks,
+    });
+    const events = track.mock.calls.map((c) => c[0]);
+    expect(events).not.toContain("ai_retry_click");
+    const crumbs = breadcrumb.mock.calls.map((c) => c[0]);
+    expect(crumbs).not.toContain("retry-click");
+    // It records as a normal generate flow instead.
+    expect(events).toEqual(["ai_generate_click", "ai_generate_success"]);
+    expect(crumbs).toEqual(["generate-click", "generate-success"]);
+  });
+});
+
+describe("runAiAttempt — retry-click-suppressed breadcrumb", () => {
+  it("only appears when bannerReady=false and never when bannerReady=true", async () => {
+    // bannerReady=true → no suppression breadcrumb at all.
+    const { sinks: okSinks, breadcrumb: okBreadcrumb } = makeSinks();
+    await runAiAttempt({
+      action: "script", isRetry: true, correlationId: CID, readyAt: 1_000,
+      previousCode: "rate_limited", bannerReady: true,
+      generator: () => Promise.resolve({}),
+      sinks: okSinks,
+    });
+    expect(okBreadcrumb.mock.calls.map((c) => c[0]))
+      .not.toContain("retry-click-suppressed");
+
+    // bannerReady=false → exactly one suppression breadcrumb, no duplicates.
+    const { sinks: blockSinks, breadcrumb: blockBreadcrumb, track: blockTrack } = makeSinks();
+    const generator = vi.fn(() => Promise.resolve({}));
+    await runAiAttempt({
+      action: "script", isRetry: true, correlationId: CID, readyAt: 0,
+      previousCode: "rate_limited", bannerReady: false,
+      generator, sinks: blockSinks,
+    });
+    const suppressed = blockBreadcrumb.mock.calls.filter(
+      (c) => c[0] === "retry-click-suppressed",
+    );
+    expect(suppressed).toHaveLength(1);
+    expect(generator).not.toHaveBeenCalled();
+    expect(blockTrack.mock.calls.map((c) => c[0])).not.toContain("ai_retry_click");
+  });
+
+  it("each call emits exactly one suppression breadcrumb (no amplification on repeats)", async () => {
+    // Simulates repeated user clicks / re-renders during the countdown.
+    // Each call is independent and must produce one — and only one —
+    // suppression breadcrumb, never a stale or amplified trail.
+    const { sinks, breadcrumb } = makeSinks();
+    const generator = vi.fn(() => Promise.resolve({}));
+    for (let i = 0; i < 3; i++) {
+      await runAiAttempt({
+        action: "script", isRetry: true, correlationId: CID, readyAt: 0,
+        previousCode: "rate_limited", bannerReady: false,
+        generator, sinks,
+      });
+    }
+    const suppressed = breadcrumb.mock.calls.filter(
+      (c) => c[0] === "retry-click-suppressed",
+    );
+    expect(suppressed).toHaveLength(3); // one per call, never amplified
+    // And no other breadcrumb types leaked in.
+    const kinds = new Set(breadcrumb.mock.calls.map((c) => c[0]));
+    expect(kinds).toEqual(new Set(["retry-click-suppressed"]));
+    expect(generator).not.toHaveBeenCalled();
+  });
+});
+
+
