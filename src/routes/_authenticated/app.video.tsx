@@ -313,29 +313,29 @@ function Page() {
     const isRetry = aiError?.action === "meta";
     const correlationId = newCorrelationId();
     setCorrelationId(correlationId);
-    if (isRetry) {
-      const waitedPastUnlockMs = aiError?.retryAt ? Date.now() - aiError.retryAt : 0;
-      console.info("[ai-retry]", { action: "meta", code: aiError?.code, waitedPastUnlockMs, correlationId });
-      track("ai_retry_click", { action: "meta", code: aiError?.code, waitedPastUnlockMs, correlationId });
-    } else {
-      track("ai_generate_click", { action: "meta", correlationId });
-    }
-    const startedAt = Date.now();
     setGenMeta(true);
     setAiError((e) => (e?.action === "meta" ? null : e));
-    try {
-      const r = await ytMetaFn({ data: { correlationId } });
-      setYtMeta(r);
-      try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(r)); } catch { /* ignore */ }
+    const result = await runAiAttempt({
+      action: "meta",
+      isRetry,
+      correlationId,
+      readyAt: readyAtRef.current,
+      previousCode: aiError?.code,
+      generator: () => ytMetaFn({ data: { correlationId } }),
+      sinks,
+    });
+    setGenMeta(false);
+    if (result.ok) {
+      setYtMeta(result.value);
+      try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(result.value)); } catch { /* ignore */ }
       setAiError(null);
-      const latencyMs = Date.now() - startedAt;
-      track(isRetry ? "ai_retry_success" : "ai_generate_success", { action: "meta", latencyMs, correlationId });
+      readyAtRef.current = 0;
       toast.success("Conteúdo do YouTube gerado ✓");
-    } catch (e) {
-      if (isRetry) track("ai_retry_failure", { action: "meta", correlationId });
-      handleAiError("meta", e, startedAt, correlationId);
-    } finally {
-      setGenMeta(false);
+    } else {
+      const { code, retryAfter, msg } = result.error;
+      setAiError({ action: "meta", code, msg, retryAt: retryAfter > 0 ? Date.now() + retryAfter * 1000 : 0 });
+      readyAtRef.current = 0;
+      toast.error(msg);
     }
   }
 
