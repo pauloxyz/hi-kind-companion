@@ -56,7 +56,7 @@ function ModulePage() {
       <Link to="/app/ingles" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-4 w-4" /> Voltar
       </Link>
-      <div>
+      
       <PageHeader
         eyebrow={<Badge variant="outline" className="text-[10px] uppercase">{mod.level}</Badge>}
         title={mod.title_pt}
