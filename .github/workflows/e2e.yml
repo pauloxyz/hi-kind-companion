@@ -230,6 +230,14 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload_smoke.outputs.artifact-url }}
           SPEC_COUNT: ${{ steps.spec_titles_smoke.outputs.count }}
           ATTEMPT: ${{ github.run_attempt }}
+          # Aggregate stats sidecars — render writes them when these
+          # env vars are set, then we ship them as a small separate
+          # artifact so trends are queryable across runs/shards.
+          RUN_LABEL: smoke
+          RUN_PHASE: run1
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGGREGATE_OUT_JSON: /tmp/aggregate-smoke.json
+          AGGREGATE_OUT_CSV: /tmp/aggregate-smoke.csv
         run: |
           {
             echo "### 🔎 Playwright — smoke (attempt ${ATTEMPT})"
@@ -245,6 +253,17 @@ jobs:
               echo "⚠️ No Playwright artifacts were produced (job likely failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate stats (smoke)
+        if: ${{ !cancelled() && hashFiles('/tmp/aggregate-smoke.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-aggregate-stats-smoke-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/aggregate-smoke.json
+            /tmp/aggregate-smoke.csv
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: ignore
 
   # Targeted regression guard: the 4 specs we have historically had to
   # stabilize (shift-tab, keyboard-only, journey-progression, shortcuts
@@ -341,6 +360,11 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload_targeted.outputs.artifact-url }}
           SPEC_COUNT: ${{ steps.spec_titles_targeted.outputs.count }}
           ATTEMPT: ${{ github.run_attempt }}
+          RUN_LABEL: targeted
+          RUN_PHASE: run1
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGGREGATE_OUT_JSON: /tmp/aggregate-targeted.json
+          AGGREGATE_OUT_CSV: /tmp/aggregate-targeted.csv
         run: |
           {
             echo "### 🔎 Playwright — targeted regression (attempt ${ATTEMPT})"
@@ -354,6 +378,17 @@ jobs:
               echo "⚠️ No Playwright artifacts were produced (job failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate stats (targeted)
+        if: ${{ !cancelled() && hashFiles('/tmp/aggregate-targeted.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-aggregate-stats-targeted-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/aggregate-targeted.json
+            /tmp/aggregate-targeted.csv
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: ignore
 
 
   # Full e2e suite sharded across 4 parallel runners. Each shard runs a
@@ -448,6 +483,11 @@ jobs:
           SPEC_COUNT: ${{ steps.spec_titles_full_run1.outputs.count }}
           SHARD: ${{ matrix.shard }}
           ATTEMPT: ${{ github.run_attempt }}
+          RUN_LABEL: full-shard-${{ matrix.shard }}
+          RUN_PHASE: run1
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGGREGATE_OUT_JSON: /tmp/aggregate-full-${{ matrix.shard }}-run1.json
+          AGGREGATE_OUT_CSV: /tmp/aggregate-full-${{ matrix.shard }}-run1.csv
         run: |
           {
             echo "### 🔎 Playwright — full shard ${SHARD}/4 (run 1, attempt ${ATTEMPT})"
@@ -461,6 +501,17 @@ jobs:
               echo "⚠️ No Playwright artifacts were produced (shard ${SHARD}/4 failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate stats (full shard ${{ matrix.shard }} run1)
+        if: ${{ !cancelled() && hashFiles(format('/tmp/aggregate-full-{0}-run1.json', matrix.shard)) != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-aggregate-stats-full-shard-${{ matrix.shard }}-attempt-${{ github.run_attempt }}-run1
+          path: |
+            /tmp/aggregate-full-${{ matrix.shard }}-run1.json
+            /tmp/aggregate-full-${{ matrix.shard }}-run1.csv
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: ignore
 
 
       # Snapshot the first-run artifacts so the rerun step below can start

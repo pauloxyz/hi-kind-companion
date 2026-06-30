@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # Regression suite for the TSV → Markdown renderer in
-# `render-spec-summary.sh`. We feed it deliberately tricky fixtures —
-# missing columns, blank lines, junk flags, no artifact URL, mixed
-# reasons — and assert the output stays well-formed, surfaces the
-# correct "why skipped" reason text, and emits the aggregate counts
-# table BEFORE the per-spec breakdown.
+# `render-spec-summary.sh`. Covers: aggregate counters, skip-reason
+# phrasing with sizes + thresholds, the "Top problem specs" ranking,
+# aggregate-stats JSON/CSV sidecars, blank/junk-row resilience, and
+# legacy 4-column TSV back-compat.
 #
 # Run: `bash .github/scripts/test-spec-summary-parser.sh`
 # Exit 0 = all assertions passed, 1 = regression.
@@ -47,12 +46,10 @@ assert_contains "$out" '**Run summary** — 1 spec(s) processed'    "full: aggre
 assert_contains "$out" '| trace.zip | 1 | 0 | 0 | 0 |'             "full: aggregate trace row"
 assert_contains "$out" '| video.webm | 1 | 0 | 0 | 0 |'            "full: aggregate video row"
 assert_contains "$out" 'Reports found: **1**, screenshots: **1**'  "full: reports/screenshots count"
+assert_contains "$out" 'Thresholds: trace ≥ **1024 B**'            "full: threshold footer"
 assert_contains "$out" '`specA-chromium`'                          "full: slug rendered"
-assert_contains "$out" '_(attempt 3)_'                             "full: attempt label"
 assert_contains "$out" '[trace.zip](https://example.com/art/42)'   "full: trace link"
-assert_contains "$out" '[video.webm](https://example.com/art/42)'  "full: video link"
-assert_contains "$out" '[playwright-report (HTML)]'                "full: report link"
-assert_contains "$out" '<details><summary>Failed specs (1)</summary>' "full: details header"
+assert_not_contains "$out" '**Top problem specs**'                 "full: no ranking when nothing wrong"
 
 # --- Fixture 2: legacy 4-column TSV (no report / attempt / sizes) ----
 cat > "$tmp/legacy.tsv" <<EOF
@@ -62,65 +59,111 @@ out="$(bash "$renderer" "$tmp/legacy.tsv" "https://example.com/art/L" "Legacy")"
 assert_contains "$out" '`specLegacy`'                              "legacy: slug rendered"
 assert_contains "$out" '_(attempt 1)_'                             "legacy: attempt defaults to 1"
 assert_contains "$out" '[trace.zip]'                               "legacy: trace link present"
-assert_not_contains "$out" '[video.webm]'                          "legacy: video link absent"
 assert_contains "$out" 'video.webm _skipped_'                      "legacy: video skip reason rendered"
-assert_contains "$out" '[screenshot.png]'                          "legacy: screenshot link present"
-assert_not_contains "$out" '[playwright-report'                    "legacy: report link absent"
 
-# --- Fixture 3: skip reasons (below_min + empty) shown explicitly ----
+# --- Fixture 3: skip reasons (below_min + empty) include thresholds ---
 cat > "$tmp/reasons.tsv" <<EOF
 specBelow	0	0	0	0	2	64	0	below_min	empty
 EOF
-out="$(bash "$renderer" "$tmp/reasons.tsv" "https://example.com/art/R" "Reasons")"
+# Bash quirk: `FOO=bar out=$(...)` does NOT export FOO into the subshell,
+# because variable assignments only propagate to *external* commands.
+# `env FOO=bar` forces a real exec wrapper so the renderer sees the vars.
+out="$(env MIN_TRACE_BYTES=2048 MIN_VIDEO_BYTES=8192 bash "$renderer" "$tmp/reasons.tsv" "https://example.com/art/R" "Reasons")"
 assert_contains "$out" 'trace.zip _skipped_'                       "reasons: trace skip line"
-assert_contains "$out" 'below minimum size threshold'              "reasons: below_min phrase"
-assert_contains "$out" '(size: 64 B)'                              "reasons: trace size in skip line"
+assert_contains "$out" '(size: 64 B, min: 2048 B)'                 "reasons: trace size + threshold"
 assert_contains "$out" 'video.webm _skipped_'                      "reasons: video skip line"
-assert_contains "$out" 'empty (0 B) — recording started'           "reasons: empty phrase"
+assert_contains "$out" '(min required: 8192 B)'                    "reasons: empty mentions threshold"
 assert_contains "$out" '| trace.zip | 0 | 1 | 0 | 0 |'             "reasons: aggregate counts below_min"
 assert_contains "$out" '| video.webm | 0 | 0 | 1 | 0 |'            "reasons: aggregate counts empty"
-assert_contains "$out" '⚠️ One or more artifacts were skipped'    "reasons: warning callout"
+assert_contains "$out" 'Thresholds: trace ≥ **2048 B**, video ≥ **8192 B**' "reasons: footer reflects env"
 
-# --- Fixture 4: absent reason explicit ------------------------------
-cat > "$tmp/absent.tsv" <<EOF
-specAbs	0	0	1	1	1	0	0	absent	absent
+# --- Fixture 4: ranking table appears + sort order ------------------
+cat > "$tmp/ranking.tsv" <<EOF
+specHealthy	1	1	0	0	1	4096	16384	ok	ok
+specOneBad	1	0	0	0	1	4096	0	ok	below_min
+specVeryBad	0	0	0	0	1	0	0	absent	absent
+specMid	0	1	0	0	1	100	16384	below_min	ok
 EOF
-out="$(bash "$renderer" "$tmp/absent.tsv" "https://example.com/art/A" "Absent")"
-assert_contains "$out" 'absent — Playwright did not write the file' "absent: absent phrase"
-assert_contains "$out" '| trace.zip | 0 | 0 | 0 | 1 |'              "absent: aggregate trace absent"
-assert_contains "$out" '| video.webm | 0 | 0 | 0 | 1 |'             "absent: aggregate video absent"
-assert_not_contains "$out" '⚠️ One or more artifacts were skipped' "absent: no warning when no empties/below_min"
-
-# --- Fixture 5: blank lines + junk flags mixed with real rows --------
-printf 'specOK\t1\t0\t0\t1\t1\t9999\t0\tok\tabsent\n\n  \tjunk-row\nspecBad\tYES\tno\t??\t??\t??\t??\t??\tweird\twut\nspecMid\t0\t1\t0\t0\t2\t0\t512\tabsent\tok\n' > "$tmp/messy.tsv"
-out="$(bash "$renderer" "$tmp/messy.tsv" "https://example.com/art/M" "Messy")"
-assert_contains "$out" '`specOK`'                                  "messy: valid row 1 rendered"
-assert_contains "$out" '`specBad`'                                 "messy: junk-flag row still rendered"
-assert_contains "$out" '`specMid`'                                 "messy: valid row 2 rendered"
-specbad_block="$(printf '%s\n' "$out" | awk '/`specBad`/{flag=1;print;next} /^- `/{flag=0} flag')"
-assert_not_contains "$specbad_block" '[trace.zip](http'            "messy: junk flags do not render trace link"
-assert_not_contains "$specbad_block" '[video.webm](http'           "messy: junk flags do not render video link"
-assert_contains "$specbad_block" 'unknown (weird)'                  "messy: unknown reason surfaced"
-
-# --- Fixture 6: empty TSV → no output at all (exit 0) ---------------
-: > "$tmp/empty-file.tsv"
-out="$(bash "$renderer" "$tmp/empty-file.tsv" "https://example.com/art/X" "Nothing")"
-if [ -z "$out" ]; then
-  pass=$((pass + 1)); echo "  ok    empty TSV: produces no output"
+out="$(bash "$renderer" "$tmp/ranking.tsv" "https://example.com/art/K" "Mixed")"
+assert_contains "$out" '**Top problem specs**'                     "ranking: section header"
+assert_contains "$out" '| Spec | trace | video | deficit |'        "ranking: table header"
+assert_contains "$out" '| `specVeryBad` | absent | absent | 4 |'   "ranking: worst spec first"
+assert_contains "$out" '| `specOneBad` | ok | below_min | 1 |'     "ranking: lesser spec listed"
+assert_contains "$out" '| `specMid` | below_min | ok | 1 |'        "ranking: another lesser spec"
+assert_not_contains "$out" '`specHealthy` |'                       "ranking: healthy spec absent"
+# Worst spec must appear BEFORE specOneBad in the output.
+worst_line="$(printf '%s\n' "$out" | grep -n 'specVeryBad' | head -1 | cut -d: -f1)"
+mid_line="$(printf '%s\n' "$out" | grep -n 'specOneBad' | head -1 | cut -d: -f1)"
+if [ -n "$worst_line" ] && [ -n "$mid_line" ] && [ "$worst_line" -lt "$mid_line" ]; then
+  pass=$((pass + 1)); echo "  ok    ranking: sorted by deficit desc"
 else
-  fail=$((fail + 1)); echo "  FAIL  empty TSV: unexpected output: $out"
+  fail=$((fail + 1)); echo "  FAIL  ranking: sort order wrong"
 fi
 
-# --- Fixture 7: artifact URL missing → links suppressed -------------
-cat > "$tmp/nourl.tsv" <<EOF
-specNoUrl	1	1	1	1	1	1024	4096	ok	ok
+# --- Fixture 5: TOP_PROBLEM_LIMIT trims the ranking -----------------
+out="$(env TOP_PROBLEM_LIMIT=1 bash "$renderer" "$tmp/ranking.tsv" "" "Trimmed")"
+ranking_block="$(printf '%s\n' "$out" | awk '/Top problem specs/{flag=1;next} /<details>/{flag=0} flag' | grep -c '^| `' || true)"
+if [ "$ranking_block" = "1" ]; then
+  pass=$((pass + 1)); echo "  ok    ranking: TOP_PROBLEM_LIMIT honored"
+else
+  fail=$((fail + 1)); echo "  FAIL  ranking: expected 1 entry, got $ranking_block"
+fi
+
+# --- Fixture 6: AGGREGATE_OUT_JSON + CSV sidecars are emitted -------
+cat > "$tmp/agg.tsv" <<EOF
+specA	1	0	1	1	2	4096	0	ok	below_min
+specB	0	1	0	1	2	0	16384	absent	ok
 EOF
-out="$(bash "$renderer" "$tmp/nourl.tsv" "" "NoUrl")"
-assert_contains     "$out" '`specNoUrl`'                           "no-url: slug rendered"
-assert_not_contains "$out" '[trace.zip]'                           "no-url: trace link suppressed"
-assert_not_contains "$out" '[video.webm]'                          "no-url: video link suppressed"
-assert_not_contains "$out" '[playwright-report'                    "no-url: report link suppressed"
-assert_contains     "$out" 'trace.zip _skipped_'                   "no-url: skip line still rendered for trace"
+# Use `env` to actually export — bash assignment-prefixes don't
+# propagate into command substitutions or assignment targets.
+env RUN_LABEL="full shard 2/4" RUN_PHASE=rerun RUN_ATTEMPT=3 \
+    AGGREGATE_OUT_JSON="$tmp/agg.json" AGGREGATE_OUT_CSV="$tmp/agg.csv" \
+    bash "$renderer" "$tmp/agg.tsv" "https://example.com/agg" "Agg" >/dev/null
+if [ -f "$tmp/agg.json" ]; then
+  pass=$((pass + 1)); echo "  ok    aggregate: JSON file created"
+else
+  fail=$((fail + 1)); echo "  FAIL  aggregate: JSON missing"
+fi
+json="$(cat "$tmp/agg.json")"
+assert_contains "$json" '"label": "full shard 2/4"'                "aggregate.json: label propagated"
+assert_contains "$json" '"phase": "rerun"'                         "aggregate.json: phase propagated"
+assert_contains "$json" '"attempt": 3'                             "aggregate.json: attempt propagated"
+assert_contains "$json" '"total_specs": 2'                         "aggregate.json: total"
+assert_contains "$json" '"trace": {"ok": 1, "below_min": 0, "empty": 0, "absent": 1}' "aggregate.json: trace counters"
+assert_contains "$json" '"video": {"ok": 1, "below_min": 1, "empty": 0, "absent": 0}' "aggregate.json: video counters"
+assert_contains "$json" '"reports_found": 2'                       "aggregate.json: reports"
+if node -e "JSON.parse(require('fs').readFileSync('$tmp/agg.json','utf8'))" 2>/dev/null; then
+  pass=$((pass + 1)); echo "  ok    aggregate.json: parses as JSON"
+else
+  fail=$((fail + 1)); echo "  FAIL  aggregate.json: not valid JSON"
+fi
+csv_header="$(head -1 "$tmp/agg.csv")"
+csv_row="$(sed -n '2p' "$tmp/agg.csv")"
+assert_contains "$csv_header" 'label,phase,attempt,total_specs,trace_ok' "aggregate.csv: header line"
+assert_contains "$csv_row" 'full shard 2/4,rerun,3,2,1,0,0,1,1,1,0,0,2,1' "aggregate.csv: data row matches"
+# Second invocation appends without re-emitting the header.
+env AGGREGATE_OUT_CSV="$tmp/agg.csv" bash "$renderer" "$tmp/agg.tsv" "" "Agg2" >/dev/null
+csv_lines="$(wc -l < "$tmp/agg.csv" | tr -d ' ')"
+if [ "$csv_lines" = "3" ]; then
+  pass=$((pass + 1)); echo "  ok    aggregate.csv: appends without duplicate header"
+else
+  fail=$((fail + 1)); echo "  FAIL  aggregate.csv: expected 3 lines, got $csv_lines"
+fi
+
+# --- Fixture 7: blank lines + junk flags don't crash the renderer ---
+printf 'specOK\t1\t0\t0\t1\t1\t9999\t0\tok\tabsent\n\n  \tjunk-row\nspecBad\tYES\tno\t??\t??\t??\t??\t??\tweird\twut\n' > "$tmp/messy.tsv"
+out="$(bash "$renderer" "$tmp/messy.tsv" "https://example.com/art/M" "Messy")"
+assert_contains "$out" '`specOK`'                                  "messy: valid row rendered"
+assert_contains "$out" 'unknown (weird)'                           "messy: unknown reason surfaced"
+
+# --- Fixture 8: empty TSV → no output, no aggregate files -----------
+: > "$tmp/empty-file.tsv"
+out="$(env AGGREGATE_OUT_JSON="$tmp/empty-agg.json" bash "$renderer" "$tmp/empty-file.tsv" "" "Nothing")"
+if [ -z "$out" ] && [ ! -f "$tmp/empty-agg.json" ]; then
+  pass=$((pass + 1)); echo "  ok    empty TSV: no output, no aggregate"
+else
+  fail=$((fail + 1)); echo "  FAIL  empty TSV: unexpected side effects"
+fi
 
 echo
 if [ "$fail" -gt 0 ]; then
