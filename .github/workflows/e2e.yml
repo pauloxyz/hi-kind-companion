@@ -545,6 +545,11 @@ jobs:
           RUN_ATTEMPT: ${{ github.run_attempt }}
           AGGREGATE_OUT_JSON: aggregate-stats/aggregate-full-${{ matrix.shard }}-run1.json
           AGGREGATE_OUT_CSV: aggregate-stats/aggregate-full-${{ matrix.shard }}-run1.csv
+          MANIFEST_JSON: /tmp/spec-titles-full-${{ matrix.shard }}-run1.json
+          EXPECTED_MANIFEST_SCHEMA: "3"
+          HAS_REPORT_HTML: ${{ steps.preflight_full_run1.outputs.has_report_html }}
+          BUNDLE_OK: ${{ steps.preflight_full_run1.outputs.bundle_ok }}
+
         run: |
           {
             echo "### 🔎 Playwright — full shard ${SHARD}/4 (run 1, attempt ${ATTEMPT})"
