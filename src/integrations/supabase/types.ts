@@ -648,19 +648,24 @@ export type Database = {
         Row: {
           application_quality_score: number | null
           birth_date: string | null
+          city: string | null
           country: string | null
+          field_experience: string[]
           full_name: string | null
           has_prior_h2_experience: boolean | null
           id: string
           languages: string[] | null
           onboarding_completed_at: string | null
+          onboarding_step: number
           owner_id: string
           phone: string | null
           photo_url: string | null
+          physical_conditions: string[]
           public_headline: string | null
           public_page_enabled: boolean
           public_slug: string | null
           resume_completion_pct: number | null
+          state: string | null
           updated_at: string | null
           video_script_blocks: Json | null
           video_script_en: string | null
@@ -672,19 +677,24 @@ export type Database = {
         Insert: {
           application_quality_score?: number | null
           birth_date?: string | null
+          city?: string | null
           country?: string | null
+          field_experience?: string[]
           full_name?: string | null
           has_prior_h2_experience?: boolean | null
           id?: string
           languages?: string[] | null
           onboarding_completed_at?: string | null
+          onboarding_step?: number
           owner_id: string
           phone?: string | null
           photo_url?: string | null
+          physical_conditions?: string[]
           public_headline?: string | null
           public_page_enabled?: boolean
           public_slug?: string | null
           resume_completion_pct?: number | null
+          state?: string | null
           updated_at?: string | null
           video_script_blocks?: Json | null
           video_script_en?: string | null
@@ -696,19 +706,24 @@ export type Database = {
         Update: {
           application_quality_score?: number | null
           birth_date?: string | null
+          city?: string | null
           country?: string | null
+          field_experience?: string[]
           full_name?: string | null
           has_prior_h2_experience?: boolean | null
           id?: string
           languages?: string[] | null
           onboarding_completed_at?: string | null
+          onboarding_step?: number
           owner_id?: string
           phone?: string | null
           photo_url?: string | null
+          physical_conditions?: string[]
           public_headline?: string | null
           public_page_enabled?: boolean
           public_slug?: string | null
           resume_completion_pct?: number | null
+          state?: string | null
           updated_at?: string | null
           video_script_blocks?: Json | null
           video_script_en?: string | null
