@@ -62,7 +62,9 @@ function PerfilPage() {
     full_name: "", phone: "", country: "Brazil", birth_date: "",
     has_prior_h2_experience: false, languages: ["pt"] as string[],
     public_slug: "", public_headline: "", public_page_enabled: true,
+    youtube_video_url: "",
   });
+
   const [viewCount, setViewCount] = useState<number | null>(null);
   const [langInput, setLangInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -89,7 +91,9 @@ function PerfilPage() {
     langInput: useId(),
     slug: useId(),
     headline: useId(),
+    youtube: useId(),
   };
+
 
   const handleGenerateHeadline = async () => {
     setGeneratingHeadline(true);
