@@ -95,7 +95,7 @@ function Page() {
   const sinks = useMemo<AiSinks>(() => ({
     track,
     breadcrumb: addAiBreadcrumb,
-    capture: (err, tags, extra) => captureAiError(err, tags, extra),
+    capture: (err, tags, extra) => captureAiError(err, tags as Record<string, string | number | boolean | undefined>, extra),
     now: () => Date.now(),
   }), []);
 
