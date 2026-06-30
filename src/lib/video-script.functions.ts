@@ -19,8 +19,11 @@ export type ScriptBlock = {
  */
 export const generateVideoScript = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: { correlationId?: string } | undefined) => input ?? {})
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const correlationId = data?.correlationId ?? "";
+    console.info("[video-script]", { action: "script", correlationId, userId, at: new Date().toISOString() });
 
     const [{ data: profile }, { data: experiences }, { data: skills }] = await Promise.all([
       supabase.from("my_profile").select("*").eq("owner_id", userId).maybeSingle(),
@@ -98,7 +101,7 @@ ${expLines || "(no experience listed — use generic farm worker phrasing, but m
     const { callJsonAI } = await import("./ai-gateway.server");
     const parsed = await callJsonAI<{ pt?: string; en?: string; blocks?: ScriptBlock[] }>(
       prompt,
-      { errorLabel: "roteiro" },
+      { errorLabel: "roteiro", correlationId },
     );
     const pt = (parsed.pt ?? "").trim();
     const en = (parsed.en ?? "").trim();
