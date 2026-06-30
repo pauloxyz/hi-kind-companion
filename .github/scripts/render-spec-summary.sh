@@ -110,6 +110,8 @@ deficit_for() {
   esac
 }
 
+skipped_log_lines=""
+
 while IFS=$'\t' read -r slug has_trace has_video has_screenshot has_report attempt trace_size video_size trace_reason video_reason _rest; do
   [ -z "${slug:-}" ] && continue
   total=$((total + 1))
@@ -123,8 +125,12 @@ while IFS=$'\t' read -r slug has_trace has_video has_screenshot has_report attem
   deficit=$(( $(deficit_for "$trace_reason") + $(deficit_for "$video_reason") ))
   if [ "$deficit" -gt 0 ]; then
     ranking_lines="${ranking_lines}${deficit}"$'\t'"${slug}"$'\t'"${trace_reason}"$'\t'"${video_reason}"$'\n'
+    # Tracked separately for the CI log dump emitted alongside the
+    # aggregate sidecars. Format: <deficit>\t<slug>\t<trace_reason>\t<trace_size>\t<video_reason>\t<video_size>
+    skipped_log_lines="${skipped_log_lines}${deficit}"$'\t'"${slug}"$'\t'"${trace_reason}"$'\t'"${trace_size:-0}"$'\t'"${video_reason}"$'\t'"${video_size:-0}"$'\n'
   fi
 done < "$tsv"
+
 
 echo
 echo "**Run summary** — ${total} spec(s) processed"
