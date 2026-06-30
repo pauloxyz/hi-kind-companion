@@ -532,6 +532,8 @@ export function AppShell({ children }: { children?: ReactNode }) {
             <div className="space-y-0.5">
               {renderItem({ to: "/app/auditoria", labelKey: "Auditoria", icon: Shield })}
               {renderItem({ to: "/admin/seo", labelKey: "SEO scans", icon: Search })}
+              {renderItem({ to: "/admin/security", labelKey: "Security scans", icon: Shield })}
+              {renderItem({ to: "/admin/onboarding", labelKey: "Funil onboarding", icon: Sparkles })}
               {renderItem({ to: "/app/admin/emails", labelKey: "E-mails", icon: Mail })}
             </div>
           </section>
