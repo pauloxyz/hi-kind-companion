@@ -1,330 +1,765 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { PageHeader } from "@/components/page-header";
+import { toastError } from "@/lib/toast-error";
+import { ProfilePreview } from "@/components/ProfilePreview";
 import {
-  CheckCircle2, Circle, ArrowRight, Sparkles, FileText, Video, Send,
-  Shield, Globe2, Zap,
+  ArrowRight, ArrowLeft, Sparkles, Tractor, HeartPulse, Send,
+  Copy, Check, MessageCircle, ClipboardList,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/comecar")({
   component: OnboardingPage,
 });
 
-const STEPS = [
-  { key: "profile", label: "Perfil", desc: "Quem é você" },
-  { key: "experience", label: "Experiência", desc: "Onde já trabalhou" },
-  { key: "video", label: "Vídeo / mídia", desc: "Apresente-se" },
-  { key: "first-apply", label: "Primeira vaga", desc: "Aplique agora" },
+/* -------- model -------- */
+
+const FIELD_OPTIONS = [
+  { key: "plantio", label: "Plantio" },
+  { key: "colheita", label: "Colheita" },
+  { key: "maquinas", label: "Operação de máquinas" },
+  { key: "irrigacao", label: "Irrigação" },
+  { key: "outros", label: "Outros" },
 ] as const;
 
-type StepKey = (typeof STEPS)[number]["key"];
+const PHYSICAL_OPTIONS = [
+  { key: "lift", label: "Posso levantar peso" },
+  { key: "weather", label: "Trabalho bem no calor / frio" },
+  { key: "long_hours", label: "Aguento longas jornadas" },
+] as const;
+
+const LABEL_FOR_FIELD: Record<string, string> = {
+  plantio: "Plantio",
+  colheita: "Colheita",
+  maquinas: "Máquinas",
+  irrigacao: "Irrigação",
+  outros: "Outros",
+};
+
+type FormState = {
+  full_name: string;
+  age: string;        // string só pra controlar o input
+  city: string;
+  state: string;
+  phone: string;
+  field_experience: string[];
+  physical_conditions: string[];
+  public_slug: string | null;
+};
+
+const EMPTY: FormState = {
+  full_name: "", age: "", city: "", state: "", phone: "",
+  field_experience: [], physical_conditions: [], public_slug: null,
+};
+
+/* -------- screen config -------- */
+
+const TOTAL_STEPS = 6;
+const STEP_LABELS = [
+  "Boas-vindas",
+  "Como funciona",
+  "Dados básicos",
+  "Experiência no campo",
+  "Condições físicas",
+  "Tudo pronto",
+];
 
 function OnboardingPage() {
   const navigate = useNavigate();
-  // step = -1 → welcome / intro screen. 0..3 → real steps.
-  const [step, setStep] = useState<number>(-1);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
-  const [firstName, setFirstName] = useState<string>("");
+  const [form, setForm] = useState<FormState>(EMPTY);
 
-  const [profile, setProfile] = useState({
-    full_name: "", phone: "", country: "Brazil",
-    has_prior_h2_experience: false, languages: ["pt"] as string[],
-  });
-  const [completed, setCompleted] = useState<Record<StepKey, boolean>>({
-    profile: false, experience: false, video: false, "first-apply": false,
-  });
-
+  /* hidrata estado a partir do banco */
   useEffect(() => {
     (async () => {
       const { data: u } = await supabase.auth.getUser();
       if (!u.user) return;
       setUserId(u.user.id);
-      const email = u.user.email ?? "";
-      setFirstName(email.split("@")[0].split(/[._-]/)[0] || "");
 
-      const [{ data: p }, { data: exps }, { data: video }, { data: media }, { data: apps }] = await Promise.all([
-        supabase.from("my_profile").select("*").maybeSingle(),
-        supabase.from("resume_experiences").select("id").limit(1),
-        supabase.from("intro_video").select("id").eq("is_active", true).limit(1).maybeSingle(),
-        supabase.from("work_media").select("id").limit(1),
-        supabase.from("applications").select("id").limit(1),
-      ]);
+      const { data: p } = await supabase
+        .from("my_profile")
+        .select("*")
+        .maybeSingle();
 
-      if (p) setProfile({
-        full_name: p.full_name ?? "", phone: p.phone ?? "", country: p.country ?? "Brazil",
-        has_prior_h2_experience: !!p.has_prior_h2_experience, languages: p.languages ?? ["pt"],
-      });
-      const done = {
-        profile: !!(p?.full_name && p?.phone),
-        experience: (exps?.length ?? 0) > 0,
-        video: !!video || (media?.length ?? 0) > 0,
-        "first-apply": (apps?.length ?? 0) > 0,
-      };
-      setCompleted(done);
-      // If user already has all 4 done, mark onboarding complete and send to dashboard
-      if (p?.onboarding_completed_at && Object.values(done).every(Boolean)) {
-        navigate({ to: "/app", replace: true });
-        return;
-      }
-      // Returning user with something already done: skip welcome, go to first pending step
-      const hasAny = Object.values(done).some(Boolean);
-      if (hasAny) {
-        const firstIncomplete = STEPS.findIndex((s) => !done[s.key]);
-        setStep(firstIncomplete === -1 ? 3 : firstIncomplete);
-      } else {
-        setStep(-1); // brand new → welcome
+      if (p) {
+        if (p.onboarding_completed_at) {
+          navigate({ to: "/app/perfil", replace: true });
+          return;
+        }
+        const birth = (p.birth_date ?? "") as string;
+        const age = birth
+          ? String(Math.max(0, new Date().getFullYear() - new Date(birth).getFullYear()))
+          : "";
+        setForm({
+          full_name: p.full_name ?? "",
+          age,
+          // novas colunas — ainda podem não estar nos types regenerados
+          city: (p as unknown as { city?: string }).city ?? "",
+          state: (p as unknown as { state?: string }).state ?? "",
+          phone: p.phone ?? "",
+          field_experience:
+            ((p as unknown as { field_experience?: string[] }).field_experience) ?? [],
+          physical_conditions:
+            ((p as unknown as { physical_conditions?: string[] }).physical_conditions) ?? [],
+          public_slug: p.public_slug ?? null,
+        });
+        const saved = (p as unknown as { onboarding_step?: number }).onboarding_step ?? 0;
+        setStep(Math.min(Math.max(saved, 0), TOTAL_STEPS - 1));
       }
       setLoading(false);
     })();
   }, [navigate]);
 
-  const saveProfile = async () => {
-    if (!userId) return;
-    if (!profile.full_name.trim() || !profile.phone.trim()) {
-      toast.error("Preencha nome e telefone para continuar");
+  /* persiste a tela atual */
+  const persist = async (patch: Partial<FormState>, nextStep: number) => {
+    if (!userId) return false;
+    setSaving(true);
+    try {
+      const merged = { ...form, ...patch };
+      const birthYear = merged.age ? new Date().getFullYear() - Number(merged.age) : null;
+      const birth_date =
+        birthYear && Number.isFinite(birthYear) ? `${birthYear}-01-01` : null;
+
+      const payload: Record<string, unknown> = {
+        owner_id: userId,
+        full_name: merged.full_name || null,
+        phone: merged.phone || null,
+        city: merged.city || null,
+        state: merged.state || null,
+        field_experience: merged.field_experience,
+        physical_conditions: merged.physical_conditions,
+        onboarding_step: nextStep,
+        updated_at: new Date().toISOString(),
+      };
+      if (birth_date) payload.birth_date = birth_date;
+      if (nextStep >= TOTAL_STEPS - 1) {
+        payload.onboarding_completed_at = new Date().toISOString();
+        payload.public_page_enabled = true;
+      }
+
+      const { error } = await supabase
+        .from("my_profile")
+        .upsert(payload as never, { onConflict: "owner_id" });
+      if (error) throw error;
+      setForm(merged);
+      setStep(nextStep);
+      return true;
+    } catch (e) {
+      toastError(e);
+      return false;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
+  }
+
+  return (
+    <div className="max-w-2xl mx-auto px-4 sm:px-0">
+      <ProgressBar step={step} />
+      <div className="mt-6">
+        {step === 0 && <Step0Welcome onNext={() => setStep(1)} />}
+        {step === 1 && (
+          <Step1HowItWorks onBack={() => setStep(0)} onNext={() => setStep(2)} />
+        )}
+        {step === 2 && (
+          <Step2Basics
+            form={form}
+            saving={saving}
+            onBack={() => setStep(1)}
+            onSubmit={(patch) => persist(patch, 3)}
+          />
+        )}
+        {step === 3 && (
+          <Step3Experience
+            value={form.field_experience}
+            saving={saving}
+            onBack={() => setStep(2)}
+            onSubmit={(field_experience) => persist({ field_experience }, 4)}
+          />
+        )}
+        {step === 4 && (
+          <Step4Physical
+            value={form.physical_conditions}
+            saving={saving}
+            onBack={() => setStep(3)}
+            onSubmit={(physical_conditions) => persist({ physical_conditions }, 5)}
+          />
+        )}
+        {step === 5 && <Step5Done form={form} />}
+      </div>
+    </div>
+  );
+}
+
+/* -------- progress bar -------- */
+
+function ProgressBar({ step }: { step: number }) {
+  const pct = ((step + 1) / TOTAL_STEPS) * 100;
+  return (
+    <div className="pt-2 space-y-2">
+      <div className="flex justify-between text-xs text-muted-foreground">
+        <span>
+          Passo {step + 1} de {TOTAL_STEPS}
+        </span>
+        <span className="font-semibold text-foreground">{STEP_LABELS[step]}</span>
+      </div>
+      <Progress value={pct} className="h-1.5" />
+    </div>
+  );
+}
+
+/* -------- step 0: posicionamento -------- */
+
+function Step0Welcome({ onNext }: { onNext: () => void }) {
+  return (
+    <Card>
+      <CardContent className="p-8 sm:p-10 text-center space-y-6">
+        <div className="inline-flex items-center justify-center h-16 w-16 rounded-2xl bg-primary/10 text-primary mx-auto">
+          <Sparkles className="h-7 w-7" />
+        </div>
+        <div className="space-y-3">
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-balance">
+            Você quer trabalhar no <span className="text-primary">agro dos EUA</span>?
+          </h1>
+          <p className="text-muted-foreground leading-relaxed max-w-md mx-auto">
+            Em menos de 2 minutos seu perfil estará pronto pra ser visto por
+            recrutadores do programa H-2A.
+          </p>
+        </div>
+        <Button size="lg" className="w-full sm:w-auto h-12 px-8" onClick={onNext}>
+          Sim, continuar <ArrowRight className="ml-2 h-4 w-4" />
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------- step 1: explicação -------- */
+
+function Step1HowItWorks({
+  onBack,
+  onNext,
+}: {
+  onBack: () => void;
+  onNext: () => void;
+}) {
+  const blocks = [
+    { icon: ClipboardList, t: "Conte sua experiência", d: "Marca o que já fez no campo — sem texto longo." },
+    { icon: HeartPulse, t: "Diga o que aguenta", d: "Peso, calor, longas jornadas. Ajuda o recrutador a achar a vaga certa." },
+    { icon: Send, t: "Envia pro recrutador", d: "Você recebe um link e manda direto no WhatsApp." },
+  ];
+  return (
+    <Card>
+      <CardContent className="p-6 sm:p-8 space-y-6">
+        <div className="text-center space-y-2">
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">Como vai funcionar</h2>
+          <p className="text-sm text-muted-foreground">
+            Você vai criar um perfil profissional e enviar para recrutadores. Direto e sem complicação.
+          </p>
+        </div>
+        <div className="space-y-3">
+          {blocks.map((b) => (
+            <div
+              key={b.t}
+              className="flex items-start gap-3 rounded-lg border bg-card p-4"
+            >
+              <div className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 text-primary shrink-0">
+                <b.icon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-sm">{b.t}</p>
+                <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">{b.d}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+        <NavButtons onBack={onBack} onNext={onNext} nextLabel="Começar" />
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------- step 2: dados básicos -------- */
+
+function Step2Basics({
+  form,
+  saving,
+  onBack,
+  onSubmit,
+}: {
+  form: FormState;
+  saving: boolean;
+  onBack: () => void;
+  onSubmit: (patch: Partial<FormState>) => Promise<boolean>;
+}) {
+  const [local, setLocal] = useState({
+    full_name: form.full_name,
+    age: form.age,
+    city: form.city,
+    state: form.state,
+    phone: form.phone,
+  });
+
+  const valid =
+    local.full_name.trim().length > 1 &&
+    local.phone.trim().length >= 8 &&
+    local.city.trim().length > 0;
+
+  const submit = async () => {
+    if (!valid) {
+      toast.error("Preencha nome, cidade e WhatsApp para continuar.");
       return;
     }
-    const { error } = await supabase.from("my_profile").upsert(
-      { owner_id: userId, ...profile, updated_at: new Date().toISOString() },
-      { onConflict: "owner_id" },
-    );
-    if (error) { toast.error(error.message); return; }
-    setCompleted({ ...completed, profile: true });
-    setStep(1);
+    await onSubmit(local);
   };
 
-  const finish = async () => {
-    if (!userId) return;
-    await supabase.from("my_profile").upsert(
-      { owner_id: userId, onboarding_completed_at: new Date().toISOString() },
-      { onConflict: "owner_id" },
-    );
-    toast.success("Tudo pronto! Bem-vindo ao VaiPraLá 🇧🇷→🇺🇸");
-    navigate({ to: "/app", replace: true });
-  };
-
-  if (loading) return <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
-
-  // ---------- WELCOME SCREEN ----------
-  if (step === -1) {
-    return (
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="text-center space-y-3 py-4">
-          <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 text-primary px-3 py-1 text-xs font-medium">
-            <Sparkles className="h-3.5 w-3.5" /> Bem-vindo{firstName ? `, ${firstName}` : ""}!
-          </div>
-          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight">
-            Sua jornada para trabalhar legalmente nos EUA começa aqui 🇺🇸
-          </h1>
-          <p className="text-base text-muted-foreground max-w-2xl mx-auto">
-            O VaiPraLá conecta você a vagas H-2A reais (visto de trabalho agrícola sazonal), escreve sua
-            carta de apresentação em inglês com IA e envia direto do seu Gmail para o empregador.
+  return (
+    <Card>
+      <CardContent className="p-6 sm:p-8 space-y-5">
+        <div className="space-y-1">
+          <h2 className="text-2xl font-bold tracking-tight">Seus dados básicos</h2>
+          <p className="text-sm text-muted-foreground">
+            Só o essencial pra o recrutador entrar em contato.
           </p>
         </div>
 
-        <div className="grid gap-3 sm:grid-cols-3">
-          <FeatureCard icon={Globe2} title="Vagas oficiais"
-            desc="Importadas direto do Departamento do Trabalho dos EUA (DOL). Sem intermediários, sem fraude." />
-          <FeatureCard icon={Zap} title="Carta com IA em inglês"
-            desc="Não precisa falar inglês. A IA escreve uma carta profissional baseada na sua experiência." />
-          <FeatureCard icon={Shield} title="Anti-fraude embutido"
-            desc="Avisamos se a vaga tem sinais suspeitos. Nunca pague para conseguir uma H-2A." />
+        <div className="space-y-3">
+          <Field id="full_name" label="Nome completo">
+            <Input
+              id="full_name"
+              value={local.full_name}
+              onChange={(e) => setLocal({ ...local, full_name: e.target.value })}
+              placeholder="João da Silva"
+              autoComplete="name"
+            />
+          </Field>
+
+          <div className="grid sm:grid-cols-2 gap-3">
+            <Field id="age" label="Idade">
+              <Input
+                id="age"
+                type="number"
+                inputMode="numeric"
+                min={16}
+                max={80}
+                value={local.age}
+                onChange={(e) => setLocal({ ...local, age: e.target.value })}
+                placeholder="32"
+              />
+            </Field>
+            <Field id="phone" label="WhatsApp">
+              <Input
+                id="phone"
+                type="tel"
+                inputMode="tel"
+                value={local.phone}
+                onChange={(e) => setLocal({ ...local, phone: e.target.value })}
+                placeholder="+55 11 90000-0000"
+                autoComplete="tel"
+              />
+            </Field>
+          </div>
+
+          <div className="grid sm:grid-cols-[1fr_120px] gap-3">
+            <Field id="city" label="Cidade">
+              <Input
+                id="city"
+                value={local.city}
+                onChange={(e) => setLocal({ ...local, city: e.target.value })}
+                placeholder="Patos de Minas"
+                autoComplete="address-level2"
+              />
+            </Field>
+            <Field id="state" label="Estado">
+              <Input
+                id="state"
+                value={local.state}
+                onChange={(e) =>
+                  setLocal({ ...local, state: e.target.value.toUpperCase().slice(0, 2) })
+                }
+                placeholder="MG"
+                maxLength={2}
+                autoComplete="address-level1"
+              />
+            </Field>
+          </div>
         </div>
 
-        <Card className="border-primary/30">
-          <CardHeader>
-            <CardTitle className="text-lg">Como vai funcionar agora</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2.5 text-sm">
-            <Stepline n={1} icon={Sparkles} title="Conte quem você é" desc="Nome, contato, país (1 minuto)." />
-            <Stepline n={2} icon={FileText} title="Liste sua experiência" desc="Roça, café, gado, máquinas — vale tudo. Mesmo informal." />
-            <Stepline n={3} icon={Video} title="Grave um vídeo curto (opcional)" desc="Candidatos com vídeo recebem até 3x mais respostas." />
-            <Stepline n={4} icon={Send} title="Aplique na sua primeira vaga" desc="Você escolhe a vaga, a IA escreve, o Gmail envia." />
-          </CardContent>
-        </Card>
+        <NavButtons
+          onBack={onBack}
+          onNext={submit}
+          nextLabel="Continuar"
+          nextDisabled={!valid || saving}
+          saving={saving}
+        />
+      </CardContent>
+    </Card>
+  );
+}
 
-        <div className="flex flex-col sm:flex-row gap-2">
-          <Button size="lg" className="flex-1" onClick={() => setStep(0)}>
-            Vamos começar <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
-          <Button size="lg" variant="ghost" onClick={finish}>
-            Já conheço, ir direto ao app
-          </Button>
-        </div>
-        <p className="text-xs text-center text-muted-foreground">
-          Leva uns 5 minutos. Você pode pausar e voltar a qualquer momento — seu progresso fica salvo.
-        </p>
-      </div>
-    );
-  }
+function Field({
+  id,
+  label,
+  children,
+}: {
+  id: string;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id} className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+        {label}
+      </Label>
+      {children}
+    </div>
+  );
+}
 
-  // ---------- STEP-BY-STEP ----------
-  const completedCount = Object.values(completed).filter(Boolean).length;
-  const progressPct = (completedCount / STEPS.length) * 100;
+/* -------- step 3: experiência -------- */
+
+function Step3Experience({
+  value,
+  saving,
+  onBack,
+  onSubmit,
+}: {
+  value: string[];
+  saving: boolean;
+  onBack: () => void;
+  onSubmit: (selection: string[]) => Promise<boolean>;
+}) {
+  const [selected, setSelected] = useState<string[]>(value);
+
+  const toggle = (key: string) =>
+    setSelected((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div className="space-y-3">
-        <PageHeader
-          title="Vamos preparar seu perfil 🌽"
-          description="4 passos rápidos. Quanto mais completo seu perfil, maior a chance de o empregador responder."
-        />
-        <div className="space-y-1.5 pt-2">
-          <div className="flex justify-between text-xs text-muted-foreground">
-            <span>Passo {step + 1} de {STEPS.length}: {STEPS[step].label}</span>
-            <span>{completedCount}/{STEPS.length} completo</span>
+    <Card>
+      <CardContent className="p-6 sm:p-8 space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10 text-primary shrink-0">
+            <Tractor className="h-5 w-5" />
           </div>
-          <Progress value={progressPct} className="h-2" />
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight">Sua experiência no campo</h2>
+            <p className="text-sm text-muted-foreground">
+              Marque tudo que você já fez. Pode marcar mais de um.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div className="grid grid-cols-4 gap-2">
-        {STEPS.map((s, i) => (
+        <CheckCardGrid
+          options={FIELD_OPTIONS as unknown as ReadonlyArray<{ key: string; label: string }>}
+          selected={selected}
+          onToggle={toggle}
+        />
+
+        <NavButtons
+          onBack={onBack}
+          onNext={() => onSubmit(selected)}
+          nextLabel={selected.length === 0 ? "Pular" : "Continuar"}
+          nextDisabled={saving}
+          saving={saving}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------- step 4: condições físicas -------- */
+
+function Step4Physical({
+  value,
+  saving,
+  onBack,
+  onSubmit,
+}: {
+  value: string[];
+  saving: boolean;
+  onBack: () => void;
+  onSubmit: (selection: string[]) => Promise<boolean>;
+}) {
+  const [selected, setSelected] = useState<string[]>(value);
+
+  const toggle = (key: string) =>
+    setSelected((s) => (s.includes(key) ? s.filter((k) => k !== key) : [...s, key]));
+
+  return (
+    <Card>
+      <CardContent className="p-6 sm:p-8 space-y-5">
+        <div className="flex items-start gap-3">
+          <div className="inline-flex items-center justify-center h-10 w-10 rounded-lg bg-accent-red/10 text-accent-red shrink-0">
+            <HeartPulse className="h-5 w-5" />
+          </div>
+          <div className="space-y-1">
+            <h2 className="text-2xl font-bold tracking-tight">Condições físicas</h2>
+            <p className="text-sm text-muted-foreground">
+              O H-2A pede resistência física. Marque o que você tolera bem — isso aumenta muito a taxa de match.
+            </p>
+          </div>
+        </div>
+
+        <CheckCardGrid
+          options={PHYSICAL_OPTIONS as unknown as ReadonlyArray<{ key: string; label: string }>}
+          selected={selected}
+          onToggle={toggle}
+          columns={1}
+        />
+
+        <NavButtons
+          onBack={onBack}
+          onNext={() => onSubmit(selected)}
+          nextLabel="Finalizar perfil"
+          nextDisabled={saving}
+          saving={saving}
+        />
+      </CardContent>
+    </Card>
+  );
+}
+
+/* -------- step 5: pronto -------- */
+
+function Step5Done({ form }: { form: FormState }) {
+  const [copied, setCopied] = useState(false);
+
+  const tags = useMemo(
+    () => form.field_experience.map((k) => LABEL_FOR_FIELD[k] ?? k),
+    [form.field_experience],
+  );
+  const initials = useMemo(() => {
+    const parts = form.full_name.trim().split(/\s+/);
+    return ((parts[0]?.[0] ?? "") + (parts[parts.length - 1]?.[0] ?? "")).toUpperCase() || "??";
+  }, [form.full_name]);
+  const firstName = form.full_name.split(" ")[0] || form.full_name;
+  const ageStr = form.age ? `, ${form.age}` : "";
+  const loc = [form.city, form.state].filter(Boolean).join(" / ");
+
+  const publicUrl =
+    typeof window !== "undefined" && form.public_slug
+      ? `${window.location.origin}/v/${form.public_slug}`
+      : null;
+
+  const waMessage = publicUrl
+    ? `Olá, sou trabalhador agrícola brasileiro com interesse em vagas H-2A. Segue meu perfil: ${publicUrl}`
+    : "";
+
+  const copyLink = async () => {
+    if (!publicUrl) return;
+    try {
+      await navigator.clipboard.writeText(publicUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast.success("Link copiado!");
+    } catch {
+      toast.error("Não consegui copiar — selecione e copie manualmente.");
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardContent className="p-6 sm:p-8 text-center space-y-3">
+          <div className="inline-flex items-center justify-center h-14 w-14 rounded-full bg-success/15 text-success mx-auto">
+            <Check className="h-7 w-7" />
+          </div>
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
+            Seu perfil está pronto ✅
+          </h2>
+          <p className="text-muted-foreground">
+            Agora é hora de enviar para os recrutadores que estão contratando.
+          </p>
+        </CardContent>
+      </Card>
+
+      <div className="grid lg:grid-cols-[1fr_1.1fr] gap-6 items-start">
+        <ProfilePreview
+          initials={initials}
+          name={`${firstName}${ageStr}`}
+          location={loc || "—"}
+          tags={tags}
+          showVideo={false}
+          statusText={
+            <>
+              <strong>Pronto pra enviar.</strong>{" "}
+              <span className="text-muted-foreground">
+                Compartilhe o link no WhatsApp.
+              </span>
+            </>
+          }
+        />
+
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <div className="space-y-1">
+              <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Envio
+              </p>
+              <h3 className="text-lg font-bold">Mande seu perfil agora</h3>
+            </div>
+
+            {publicUrl ? (
+              <>
+                <a
+                  href={`https://wa.me/?text=${encodeURIComponent(waMessage)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block"
+                >
+                  <Button className="w-full h-12 bg-[#25D366] hover:bg-[#1ebe5a] text-white">
+                    <MessageCircle className="mr-2 h-4 w-4" />
+                    Enviar via WhatsApp
+                  </Button>
+                </a>
+
+                <Button
+                  variant="outline"
+                  className="w-full h-11"
+                  onClick={copyLink}
+                >
+                  {copied ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" /> Copiado!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="mr-2 h-4 w-4" /> Copiar link do perfil
+                    </>
+                  )}
+                </Button>
+
+                <div className="rounded-md border bg-muted/40 p-3 text-xs text-muted-foreground break-all font-mono">
+                  {publicUrl}
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Preciso configurar o link público antes de enviar.{" "}
+                <Link to="/app/perfil" className="text-primary font-semibold underline">
+                  Definir agora
+                </Link>
+              </p>
+            )}
+
+            <div className="pt-3 border-t flex flex-wrap gap-2">
+              <Link to="/app/perfil">
+                <Button variant="ghost" size="sm">
+                  Melhorar perfil
+                </Button>
+              </Link>
+              <Link to="/app">
+                <Button variant="ghost" size="sm">
+                  Ir para o painel <ArrowRight className="ml-1.5 h-3.5 w-3.5" />
+                </Button>
+              </Link>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
+}
+
+/* -------- shared bits -------- */
+
+function CheckCardGrid({
+  options,
+  selected,
+  onToggle,
+  columns = 2,
+}: {
+  options: ReadonlyArray<{ key: string; label: string }>;
+  selected: string[];
+  onToggle: (key: string) => void;
+  columns?: 1 | 2;
+}) {
+  return (
+    <div
+      className={
+        columns === 1 ? "grid gap-2" : "grid grid-cols-1 sm:grid-cols-2 gap-2"
+      }
+    >
+      {options.map((opt) => {
+        const on = selected.includes(opt.key);
+        return (
           <button
-            key={s.key}
+            key={opt.key}
             type="button"
-            onClick={() => setStep(i)}
-            className={`text-left rounded-lg border p-3 transition-colors ${
-              i === step ? "border-primary bg-primary/5" : "hover:bg-muted/50"
+            onClick={() => onToggle(opt.key)}
+            aria-pressed={on}
+            className={`group relative text-left rounded-lg border-2 p-4 transition-all ${
+              on
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/40 hover:bg-muted/40"
             }`}
           >
-            <div className="flex items-center gap-1.5 mb-1">
-              {completed[s.key] ? (
-                <CheckCircle2 className="h-4 w-4 text-primary" />
-              ) : (
-                <Circle className="h-4 w-4 text-muted-foreground" />
-              )}
-              <span className="text-xs font-semibold truncate">{s.label}</span>
-            </div>
-            <div className="text-[10px] text-muted-foreground truncate">{s.desc}</div>
+            <span
+              className={`absolute right-3 top-3 inline-flex h-5 w-5 items-center justify-center rounded-full border-2 transition-colors ${
+                on
+                  ? "border-primary bg-primary text-primary-foreground"
+                  : "border-muted-foreground/30"
+              }`}
+              aria-hidden
+            >
+              {on && <Check className="h-3 w-3" />}
+            </span>
+            <p className="font-semibold pr-7 text-sm">{opt.label}</p>
           </button>
-        ))}
-      </div>
-
-      {step === 0 && (
-        <Card>
-          <CardHeader><CardTitle>Quem é você?</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1">
-              <Label>Nome completo (como no passaporte)</Label>
-              <Input value={profile.full_name} onChange={(e) => setProfile({ ...profile, full_name: e.target.value })} placeholder="João da Silva" />
-            </div>
-            <div className="grid sm:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>WhatsApp (+55...)</Label>
-                <Input value={profile.phone} onChange={(e) => setProfile({ ...profile, phone: e.target.value })} placeholder="+55 11 90000-0000" />
-              </div>
-              <div className="space-y-1">
-                <Label>País</Label>
-                <Input value={profile.country} onChange={(e) => setProfile({ ...profile, country: e.target.value })} />
-              </div>
-            </div>
-            <div className="flex items-center justify-between rounded-md border p-3">
-              <div>
-                <Label>Já participei de programa H-2 antes</Label>
-                <p className="text-xs text-muted-foreground">Conta muito para o empregador.</p>
-              </div>
-              <Switch checked={profile.has_prior_h2_experience} onCheckedChange={(v) => setProfile({ ...profile, has_prior_h2_experience: v })} />
-            </div>
-            <Button onClick={saveProfile} className="w-full">Salvar e continuar <ArrowRight className="ml-2 h-4 w-4" /></Button>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 1 && (
-        <Card>
-          <CardHeader><CardTitle>Cadastre sua experiência</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Adicione pelo menos 1 experiência (mesmo informal — café, frutas, criação de gado, máquinas).
-              Isso aparece na sua carta de candidatura.
-            </p>
-            <div className="flex gap-2">
-              <Link to="/app/curriculo" className="flex-1">
-                <Button variant="outline" className="w-full">Abrir currículo →</Button>
-              </Link>
-              <Button onClick={() => { setCompleted({ ...completed, experience: true }); setStep(2); }}>
-                Já fiz, próximo
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 2 && (
-        <Card>
-          <CardHeader><CardTitle>Apresente-se em vídeo (opcional, mas recomendado)</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Candidatos com vídeo recebem <strong>3x mais respostas</strong>. 90 segundos em inglês simples bastam.
-              Você também pode subir fotos do trabalho.
-            </p>
-            <p className="text-xs text-muted-foreground">
-              💡 Na aba <strong>Mídia</strong>, marque suas melhores fotos com ⭐ — só as destacadas aparecem no link enviado ao empregador.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link to="/app/video"><Button variant="outline">Gravar vídeo</Button></Link>
-              <Link to="/app/midia"><Button variant="outline">Subir fotos</Button></Link>
-              <Button onClick={() => { setCompleted({ ...completed, video: true }); setStep(3); }}>Pular por enquanto</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-
-      {step === 3 && (
-        <Card>
-          <CardHeader><CardTitle>Sua primeira candidatura 🚀</CardTitle></CardHeader>
-          <CardContent className="space-y-3">
-            <p className="text-sm text-muted-foreground">
-              Tudo pronto! Vá para vagas, escolha uma que combine com você, e a IA escreve a carta em inglês automaticamente.
-              Depois é só revisar e enviar.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <Link to="/app/vagas" className="flex-1">
-                <Button className="w-full">Ver vagas disponíveis <ArrowRight className="ml-2 h-4 w-4" /></Button>
-              </Link>
-              <Button variant="outline" onClick={finish}>Concluir onboarding</Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+        );
+      })}
     </div>
   );
 }
 
-function FeatureCard({ icon: Icon, title, desc }: { icon: typeof Sparkles; title: string; desc: string }) {
+function NavButtons({
+  onBack,
+  onNext,
+  nextLabel,
+  nextDisabled,
+  saving,
+}: {
+  onBack?: () => void;
+  onNext: () => void;
+  nextLabel: string;
+  nextDisabled?: boolean;
+  saving?: boolean;
+}) {
   return (
-    <div className="rounded-lg border bg-card p-4 space-y-1.5">
-      <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-primary/10 text-primary">
-        <Icon className="h-4 w-4" />
-      </div>
-      <div className="font-semibold text-sm">{title}</div>
-      <div className="text-xs text-muted-foreground leading-relaxed">{desc}</div>
-    </div>
-  );
-}
-
-function Stepline({ n, icon: Icon, title, desc }: { n: number; icon: typeof Sparkles; title: string; desc: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold">
-        {n}
-      </div>
-      <div className="flex-1">
-        <div className="flex items-center gap-1.5 text-sm font-medium">
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" /> {title}
-        </div>
-        <div className="text-xs text-muted-foreground">{desc}</div>
-      </div>
+    <div className="flex items-center gap-2 pt-2">
+      {onBack && (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          onClick={onBack}
+          disabled={saving}
+        >
+          <ArrowLeft className="mr-1.5 h-4 w-4" /> Voltar
+        </Button>
+      )}
+      <div className="flex-1" />
+      <Button
+        type="button"
+        onClick={onNext}
+        disabled={nextDisabled}
+        className="h-11 px-6"
+      >
+        {saving ? "Salvando…" : nextLabel}
+        {!saving && <ArrowRight className="ml-2 h-4 w-4" />}
+      </Button>
     </div>
   );
 }
