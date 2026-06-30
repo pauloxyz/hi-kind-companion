@@ -157,18 +157,34 @@ export function toAppError(err: unknown, overrides: AppErrorOptions = {}): AppEr
  * kind-based phrase.
  */
 function pickReadableMessage(err: unknown): string | undefined {
-  if (typeof err === "string") return err.length > 0 && err.length < 300 ? err : undefined;
+  if (typeof err === "string") {
+    if (err.length === 0 || err.length >= 300) return undefined;
+    // String might still carry leakable substrings — same filter as below.
+    if (/postgrest|sqlstate|jwt|jws|bearer|permission denied|relation .* (does not|doesn't) exist|duplicate key/i.test(err)) {
+      return undefined;
+    }
+    return err;
+  }
   if (err instanceof Error) {
     const msg = err.message?.trim();
     if (!msg) return undefined;
     // Don't surface raw DB messages, stack lines, or internal markers.
     if (/at\s+\w+\s+\(/.test(msg)) return undefined;
-    if (/postgrest|sqlstate|jwt|jws|bearer/i.test(msg)) return undefined;
+    if (/postgrest|sqlstate|jwt|jws|bearer|permission denied|relation .* (does not|doesn't) exist|duplicate key/i.test(msg)) return undefined;
     if (msg.length > 240) return undefined;
+
+    // Structured errors (HTTP status or recognized error code) are better
+    // served by the kind-based PT-BR fallback than by surfacing the raw
+    // wire text (e.g. "Bad Gateway", "Not Found", "permission denied …").
+    const e = err as Error & { status?: unknown; code?: unknown };
+    if (typeof e.status === "number") return undefined;
+    if (typeof e.code === "string" && e.code.length > 0) return undefined;
+
     return msg;
   }
   return undefined;
 }
+
 
 /** Convenience: always return a user-facing PT-BR string. */
 export function friendlyMessage(err: unknown): string {
