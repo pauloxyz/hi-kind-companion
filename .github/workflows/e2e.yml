@@ -493,7 +493,7 @@ jobs:
                 echo
                 echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
                 echo
-                while IFS= read -r t; do echo "- \`${t}\`"; done < /tmp/spec-titles-full-${SHARD}-run1.txt
+                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle for shard ${SHARD}/4 (attempt ${ATTEMPT})"; done < /tmp/spec-titles-full-${SHARD}-run1.txt
                 echo
                 echo "</details>"
               fi
