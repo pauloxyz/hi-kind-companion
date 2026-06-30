@@ -177,18 +177,14 @@ jobs:
       # combo that produced artifacts, so this list maps 1:1 to the specs
       # whose trace/video is in the artifact upload below. Used by the
       # summary step to show "which test produced which artifact".
+      # Scan test-results/ and write a TSV manifest of every spec result
+      # folder + which artifact types it actually contains. Used by the
+      # summary renderer below to emit per-file links (trace.zip /
+      # video.webm / screenshot.png) only when the file truly exists.
       - name: Collect spec titles with artifacts (smoke)
         id: spec_titles_smoke
         if: ${{ !cancelled() }}
-        run: |
-          {
-            if [ -d test-results ]; then
-              find test-results -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-                | sort -u
-            fi
-          } > /tmp/spec-titles-smoke.txt
-          count=$(wc -l < /tmp/spec-titles-smoke.txt | tr -d ' ')
-          echo "count=${count}" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-smoke.tsv
 
       - name: Upload Playwright artifacts (smoke)
         id: upload_smoke
@@ -207,7 +203,7 @@ jobs:
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
-      - name: Smoke summary (artifact link + spec titles or green fallback)
+      - name: Smoke summary (per-spec trace/video links or green fallback)
         if: ${{ !cancelled() }}
         env:
           ARTIFACT_URL: ${{ steps.upload_smoke.outputs.artifact-url }}
@@ -218,36 +214,13 @@ jobs:
             echo "### 🔎 Playwright — smoke (attempt ${ATTEMPT})"
             echo
             if [ "${{ job.status }}" = "success" ] && [ "${SPEC_COUNT:-0}" = "0" ]; then
-              # Green run, no artifacts written (no retries, no failures).
-              # Do NOT print a "Download" link — the upload step is gated on
-              # `if-no-files-found: ignore` and may not have produced an
-              # artifact at all.
               echo "✅ All smoke specs passed — no trace/video produced."
               echo
               echo "_Smoke records on every run (\`PW_RECORD_ALWAYS=1\`) but Playwright only writes \`test-results/\` entries for retries or failures, so a fully-green run has nothing to ship._"
             elif [ -n "${ARTIFACT_URL}" ]; then
-              echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report:"
-              echo
-              echo "- [Download \`playwright-smoke-artifacts-attempt-${ATTEMPT}\`](${ARTIFACT_URL})"
-              echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
-              echo "- Artifact retention: **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days** (auto-cleaned by GitHub)."
-              if [ -s /tmp/spec-titles-smoke.txt ]; then
-                echo
-                echo "<details><summary>Specs with recorded artifacts (${SPEC_COUNT})</summary>"
-                echo
-                while IFS= read -r t; do
-                  # Each spec links to the SAME shard+attempt artifact
-                  # (GitHub artifacts are zipped per upload — there is no
-                  # per-file public URL — so the artifact bundle is the
-                  # finest-grained debug link the platform exposes).
-                  echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"
-                done < /tmp/spec-titles-smoke.txt
-                echo
-                echo "</details>"
-              fi
+              echo "Bundle: [\`playwright-smoke-artifacts-attempt-${ATTEMPT}\`](${ARTIFACT_URL}) — retention **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days**."
+              bash .github/scripts/render-spec-summary.sh /tmp/spec-titles-smoke.tsv "${ARTIFACT_URL}" "Specs with recorded artifacts"
             else
-              # Job failed BEFORE Playwright produced any artifacts (install
-              # step, lint, etc.). Don't emit a broken link.
               echo "⚠️ No Playwright artifacts were produced (job likely failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
