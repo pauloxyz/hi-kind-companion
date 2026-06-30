@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, Plus, Trash2, Download, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toast-error";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
 import { importResumeFromPdf } from "@/lib/resume-import.functions";
