@@ -299,6 +299,8 @@ function Page() {
 
   async function handleGenerateMeta() {
     if (!hasScript) { toast.error("Gere o roteiro primeiro."); return; }
+    const isRetry = aiError?.action === "meta";
+    if (isRetry) console.info("[ai-retry]", { action: "meta", code: aiError?.code });
     setGenMeta(true);
     setAiError((e) => (e?.action === "meta" ? null : e));
     try {
