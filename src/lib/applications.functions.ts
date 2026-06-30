@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { AppError } from "./errors";
+import { withServerErrors } from "./server-error-handler";
 
 const CoverLetterInput = z.object({ jobId: z.string().uuid() });
 const RecordApplicationInput = z.object({
@@ -16,7 +18,7 @@ const RecordApplicationInput = z.object({
 export const generateCoverLetter = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CoverLetterInput.parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(withServerErrors("applications.generate_cover_letter", async ({ data, context }) => {
     const { supabase, userId } = context;
 
     const [{ data: job }, { data: profile }, { data: resume }, { data: experiences }] =
@@ -27,7 +29,12 @@ export const generateCoverLetter = createServerFn({ method: "POST" })
         supabase.from("resume_experiences").select("*").eq("owner_id", userId).order("sort_order", { ascending: true }),
       ]);
 
-    if (!job) throw new Error("Vaga não encontrada");
+    if (!job) {
+      throw new AppError("Não encontramos essa vaga. Atualize a página e tente novamente.", {
+        kind: "not_found",
+        code: "applications.cover_letter.job_not_found",
+      });
+    }
 
     const profileLines = [
       profile?.full_name && `Name: ${profile.full_name}`,
@@ -85,7 +92,12 @@ ${expLines || "(no prior experience listed)"}
 `;
 
     const key = process.env.LOVABLE_API_KEY;
-    if (!key) throw new Error("LOVABLE_API_KEY ausente");
+    if (!key) {
+      throw new AppError("O serviço de IA não está configurado. Tente novamente em instantes.", {
+        kind: "internal",
+        code: "applications.cover_letter.missing_key",
+      });
+    }
 
     const { generateText } = await import("ai");
     const { createLovableAiGatewayProvider } = await import("./ai-gateway.server");
@@ -97,9 +109,25 @@ ${expLines || "(no prior experience listed)"}
       letter = text.trim();
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      if (msg.includes("429")) throw new Error("Limite de IA atingido. Tente novamente em alguns minutos.");
-      if (msg.includes("402")) throw new Error("Créditos de IA esgotados. Adicione créditos no workspace.");
-      throw new Error("Falha ao gerar carta: " + msg);
+      if (msg.includes("429")) {
+        throw new AppError("Limite de IA atingido. Aguarde alguns minutos e tente novamente.", {
+          kind: "rate_limited",
+          code: "applications.cover_letter.ai_rate_limited",
+          cause: e,
+        });
+      }
+      if (msg.includes("402")) {
+        throw new AppError("Créditos de IA esgotados. Adicione créditos no workspace para continuar.", {
+          kind: "upstream",
+          code: "applications.cover_letter.ai_no_credits",
+          cause: e,
+        });
+      }
+      throw new AppError("Não conseguimos gerar a carta agora. Tente novamente em instantes.", {
+        kind: "upstream",
+        code: "applications.cover_letter.ai_failed",
+        cause: e,
+      });
     }
 
     // Build attachment footer. PDF do currículo já carrega as 6 fotos dentro,
@@ -126,12 +154,12 @@ ${expLines || "(no prior experience listed)"}
 
     const finalText = footer.length ? `${letter}\n\n---\nReferences:\n${footer.join("\n")}` : letter;
     return { text: finalText, job, attachedMediaIds, attachedVideoId };
-  });
+  }));
 
 export const recordApplication = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => RecordApplicationInput.parse(input))
-  .handler(async ({ data, context }) => {
+  .handler(withServerErrors("applications.record", async ({ data, context }) => {
     const { supabase, userId } = context;
     const followUp = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString();
 
@@ -158,7 +186,11 @@ export const recordApplication = createServerFn({ method: "POST" })
       gmail_message_id: data.gmailMessageId ?? null,
     }).select("id").single();
 
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Let `toAppError` map Postgrest code (e.g. 23505 → conflict) to a
+      // friendly PT-BR message; the raw DB text never reaches the client.
+      throw error;
+    }
 
     // Auto-complete onboarding the moment the first application is recorded.
     await supabase.from("my_profile")
@@ -167,7 +199,8 @@ export const recordApplication = createServerFn({ method: "POST" })
       .is("onboarding_completed_at", null);
 
     return { id: app.id, followUpDueAt: followUp };
-  });
+  }));
+
 
 // Check Gmail threads for any inbound reply on the user's pending applications.
 // Marks responded_at when a thread has a message NOT sent by the user (i.e. inbound).
@@ -175,7 +208,7 @@ const CheckRepliesInput = z.object({}).optional();
 export const checkApplicationReplies = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => CheckRepliesInput.parse(input ?? {}))
-  .handler(async ({ context }) => {
+  .handler(withServerErrors("applications.check_replies", async ({ context }) => {
     const { supabase, userId, claims } = context;
     const lovableKey = process.env.LOVABLE_API_KEY;
     const gmailKey = process.env.GOOGLE_MAIL_API_KEY;
@@ -237,4 +270,5 @@ export const checkApplicationReplies = createServerFn({ method: "POST" })
     }
 
     return { checked: apps.length, newReplies };
-  });
+  }));
+

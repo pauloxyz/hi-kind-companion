@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
+import { AppError } from "./errors";
+import { withServerErrors } from "./server-error-handler";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
@@ -10,7 +12,10 @@ async function resolveOrCreateCustomer(
   options: { email?: string; userId?: string },
 ): Promise<string> {
   if (options.userId && !/^[a-zA-Z0-9_-]+$/.test(options.userId)) {
-    throw new Error("Invalid userId");
+    throw new AppError("Identificador de usuário inválido.", {
+      kind: "validation",
+      code: "payments.invalid_user_id",
+    });
   }
   if (options.userId) {
     const found = await stripe.customers.search({
@@ -47,15 +52,25 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     returnUrl: string;
     environment: StripeEnv;
   }) => {
-    if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) throw new Error("Invalid priceId");
+    if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) {
+      throw new AppError("Plano inválido. Recarregue a página e tente novamente.", {
+        kind: "validation",
+        code: "payments.invalid_price_id",
+      });
+    }
     return data;
   })
-  .handler(async ({ data }): Promise<CheckoutSessionResult> => {
+  .handler(withServerErrors("payments.checkout", async ({ data }): Promise<CheckoutSessionResult> => {
     try {
       const stripe = createStripeClient(data.environment);
 
       const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
-      if (!prices.data.length) throw new Error("Price not found");
+      if (!prices.data.length) {
+        throw new AppError("Plano não encontrado. Atualize a página e tente novamente.", {
+          kind: "not_found",
+          code: "payments.price_not_found",
+        });
+      }
       const stripePrice = prices.data[0];
       const isRecurring = stripePrice.type === "recurring";
 
@@ -92,12 +107,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
-  });
+  }));
 
 export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
-  .handler(async ({ data, context }): Promise<PortalSessionResult> => {
+  .handler(withServerErrors("payments.portal", async ({ data, context }): Promise<PortalSessionResult> => {
     const { supabase, userId } = context;
 
     const { data: sub, error: subError } = await supabase
@@ -107,7 +122,13 @@ export const createPortalSession = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (subError || !sub?.stripe_customer_id) throw new Error("Nenhuma assinatura encontrada");
+    if (subError || !sub?.stripe_customer_id) {
+      throw new AppError("Nenhuma assinatura encontrada na sua conta.", {
+        kind: "not_found",
+        code: "payments.portal.no_subscription",
+        cause: subError ?? undefined,
+      });
+    }
 
     try {
       const stripe = createStripeClient(data.environment);
@@ -119,4 +140,5 @@ export const createPortalSession = createServerFn({ method: "POST" })
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
-  });
+  }));
+
