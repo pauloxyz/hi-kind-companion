@@ -259,9 +259,51 @@ function OnboardingPage() {
     return <div className="p-8 text-center text-sm text-muted-foreground">Carregando…</div>;
   }
 
+  // Validação dura: que etapas o usuário já completou (decide o que dá pra pular pra frente)
+  const stepCompleted = (idx: number): boolean => {
+    switch (idx) {
+      case 0:
+      case 1:
+        return step > idx; // só conta como concluída depois de avançar
+      case 2:
+        return (
+          !validateName(form.full_name) &&
+          !validateAge(form.age) &&
+          !validateCity(form.city) &&
+          !validateState(form.state) &&
+          !validatePhone(form.phone)
+        );
+      case 3:
+        return form.field_experience.length > 0;
+      case 4:
+        return form.physical_conditions.length > 0;
+      case 5:
+        return false; // tela final, não trava
+      default:
+        return false;
+    }
+  };
+
+  const tryGo = (target: number) => {
+    // Pra trás sempre pode
+    if (target <= step) {
+      goStep(target);
+      return;
+    }
+    // Pra frente: precisa ter completado TODAS as etapas anteriores
+    for (let i = 0; i < target; i++) {
+      if (!stepCompleted(i)) {
+        toast.error(`Complete "${STEP_LABELS[i]}" antes de pular pra frente.`);
+        goStep(i);
+        return;
+      }
+    }
+    goStep(target);
+  };
+
   return (
     <div className="max-w-2xl mx-auto px-4 sm:px-0">
-      <ProgressBar step={step} />
+      <Stepper current={step} onPick={tryGo} isCompleted={stepCompleted} />
       <div className="mt-6">
         {step === 0 && <Step0Welcome onNext={() => goStep(1)} />}
         {step === 1 && (
@@ -297,19 +339,68 @@ function OnboardingPage() {
   );
 }
 
-/* -------- progress bar -------- */
+/* -------- stepper clicável com validação dura -------- */
 
-function ProgressBar({ step }: { step: number }) {
-  const pct = ((step + 1) / TOTAL_STEPS) * 100;
+function Stepper({
+  current,
+  onPick,
+  isCompleted,
+}: {
+  current: number;
+  onPick: (idx: number) => void;
+  isCompleted: (idx: number) => boolean;
+}) {
+  const pct = ((current + 1) / TOTAL_STEPS) * 100;
   return (
-    <div className="pt-2 space-y-2">
+    <div className="pt-2 space-y-3">
       <div className="flex justify-between text-xs text-muted-foreground">
-        <span>
-          Passo {step + 1} de {TOTAL_STEPS}
-        </span>
-        <span className="font-semibold text-foreground">{STEP_LABELS[step]}</span>
+        <span>Passo {current + 1} de {TOTAL_STEPS}</span>
+        <span className="font-semibold text-foreground">{STEP_LABELS[current]}</span>
       </div>
       <Progress value={pct} className="h-1.5" />
+      <ol className="grid grid-cols-6 gap-1.5" aria-label="Etapas do onboarding">
+        {STEP_LABELS.map((label, idx) => {
+          const done = isCompleted(idx);
+          const active = idx === current;
+          const reachable = idx <= current || done;
+          return (
+            <li key={label}>
+              <button
+                type="button"
+                onClick={() => onPick(idx)}
+                aria-current={active ? "step" : undefined}
+                className={`group flex flex-col items-center w-full gap-1 rounded-md p-1.5 text-[10px] sm:text-xs font-semibold transition-colors ${
+                  active
+                    ? "text-primary"
+                    : reachable
+                      ? "text-foreground/70 hover:text-foreground"
+                      : "text-muted-foreground/60"
+                }`}
+                title={
+                  !reachable
+                    ? `Complete as etapas anteriores para abrir "${label}"`
+                    : label
+                }
+              >
+                <span
+                  className={`relative inline-flex h-6 w-6 items-center justify-center rounded-full border-2 text-[10px] ${
+                    active
+                      ? "border-primary bg-primary text-primary-foreground"
+                      : done
+                        ? "border-success bg-success/15 text-success"
+                        : reachable
+                          ? "border-muted-foreground/30 bg-background"
+                          : "border-muted-foreground/20 bg-muted/30"
+                  }`}
+                >
+                  {done && !active ? <Check className="h-3 w-3" /> : idx + 1}
+                </span>
+                <span className="hidden sm:block truncate w-full text-center">{label}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }
