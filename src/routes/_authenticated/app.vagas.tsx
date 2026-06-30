@@ -474,7 +474,6 @@ function Page() {
       <PageHeader
         title="Vagas H-2A"
         description="Explore, compare e candidate-se em poucos cliques."
-        actions={<></>}
       />
       <div className="flex flex-wrap gap-2 -mt-3 sm:-mt-4 justify-end">
           <Button variant="outline" size="sm" onClick={() => setAlertsOpen(true)} className="relative">
