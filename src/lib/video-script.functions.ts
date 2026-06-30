@@ -19,8 +19,11 @@ export type ScriptBlock = {
  */
 export const generateVideoScript = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: { correlationId?: string } | undefined) => input ?? {})
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const correlationId = data?.correlationId ?? "";
+    console.info("[video-script]", { action: "script", correlationId, userId, at: new Date().toISOString() });
 
     const [{ data: profile }, { data: experiences }, { data: skills }] = await Promise.all([
       supabase.from("my_profile").select("*").eq("owner_id", userId).maybeSingle(),
@@ -98,7 +101,7 @@ ${expLines || "(no experience listed — use generic farm worker phrasing, but m
     const { callJsonAI } = await import("./ai-gateway.server");
     const parsed = await callJsonAI<{ pt?: string; en?: string; blocks?: ScriptBlock[] }>(
       prompt,
-      { errorLabel: "roteiro" },
+      { errorLabel: "roteiro", correlationId },
     );
     const pt = (parsed.pt ?? "").trim();
     const en = (parsed.en ?? "").trim();
@@ -170,8 +173,11 @@ export type YoutubeMeta = {
 /** Gera título, descrição, tags, categoria e configurações recomendadas para upload no YouTube. */
 export const generateYoutubeMeta = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
+  .inputValidator((input: { correlationId?: string } | undefined) => input ?? {})
+  .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const correlationId = data?.correlationId ?? "";
+    console.info("[video-script]", { action: "meta", correlationId, userId, at: new Date().toISOString() });
     const { data: profile } = await supabase
       .from("my_profile")
       .select("full_name, country, video_script_pt, video_script_en")
@@ -207,7 +213,7 @@ Return ONLY this JSON (no markdown, no commentary):
 }`;
 
     const { callJsonAI } = await import("./ai-gateway.server");
-    const parsed = await callJsonAI<Partial<YoutubeMeta>>(prompt, { errorLabel: "metadados" });
+    const parsed = await callJsonAI<Partial<YoutubeMeta>>(prompt, { errorLabel: "metadados", correlationId });
 
     const title = String(parsed.title ?? "").trim().slice(0, 95) || `${name} — H-2A Introduction`;
     const description = String(parsed.description ?? "").trim() || en;
