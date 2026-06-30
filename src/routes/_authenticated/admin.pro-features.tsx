@@ -58,7 +58,7 @@ function AdminProFeaturesPage() {
       qc.invalidateQueries({ queryKey: ["admin", "pro-features"] });
       toast.success("Feature atualizada.");
     },
-    onError: toastError,
+    onError: (e) => toastError(e),
   });
 
   const overrideMut = useMutation({
@@ -68,7 +68,7 @@ function AdminProFeaturesPage() {
       qc.invalidateQueries({ queryKey: ["admin", "pro-overrides"] });
       toast.success("Override aplicado.");
     },
-    onError: toastError,
+    onError: (e) => toastError(e),
   });
 
   const removeMut = useMutation({
@@ -77,7 +77,7 @@ function AdminProFeaturesPage() {
       qc.invalidateQueries({ queryKey: ["admin", "pro-overrides"] });
       toast.success("Override removido.");
     },
-    onError: toastError,
+    onError: (e) => toastError(e),
   });
 
   // formulário override

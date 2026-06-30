@@ -44,6 +44,7 @@ import { Route as AuthenticatedAppMidiaRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedAppInglesRouteImport } from './routes/_authenticated/app.ingles'
 import { Route as AuthenticatedAppFollowupsRouteImport } from './routes/_authenticated/app.followups'
 import { Route as AuthenticatedAppEmpregadoresRouteImport } from './routes/_authenticated/app.empregadores'
+import { Route as AuthenticatedAppCurriculosRouteImport } from './routes/_authenticated/app.curriculos'
 import { Route as AuthenticatedAppCurriculoRouteImport } from './routes/_authenticated/app.curriculo'
 import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_authenticated/app.configuracoes'
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
@@ -51,6 +52,7 @@ import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
+import { Route as AuthenticatedAdminProFeaturesRouteImport } from './routes/_authenticated/admin.pro-features'
 import { Route as AuthenticatedAdminOnboardingRouteImport } from './routes/_authenticated/admin.onboarding'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
@@ -248,6 +250,12 @@ const AuthenticatedAppEmpregadoresRoute =
     path: '/app/empregadores',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAppCurriculosRoute =
+  AuthenticatedAppCurriculosRouteImport.update({
+    id: '/app/curriculos',
+    path: '/app/curriculos',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppCurriculoRoute =
   AuthenticatedAppCurriculoRouteImport.update({
     id: '/app/curriculo',
@@ -286,6 +294,12 @@ const AuthenticatedAdminSecurityRoute =
   AuthenticatedAdminSecurityRouteImport.update({
     id: '/admin/security',
     path: '/admin/security',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedAdminProFeaturesRoute =
+  AuthenticatedAdminProFeaturesRouteImport.update({
+    id: '/admin/pro-features',
+    path: '/admin/pro-features',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedAdminOnboardingRoute =
@@ -424,6 +438,7 @@ export interface FileRoutesByFullPath {
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/admin/onboarding': typeof AuthenticatedAdminOnboardingRoute
+  '/admin/pro-features': typeof AuthenticatedAdminProFeaturesRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -431,6 +446,7 @@ export interface FileRoutesByFullPath {
   '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
+  '/app/curriculos': typeof AuthenticatedAppCurriculosRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
   '/app/ingles': typeof AuthenticatedAppInglesRouteWithChildren
@@ -486,6 +502,7 @@ export interface FileRoutesByTo {
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
   '/admin/onboarding': typeof AuthenticatedAdminOnboardingRoute
+  '/admin/pro-features': typeof AuthenticatedAdminProFeaturesRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -493,6 +510,7 @@ export interface FileRoutesByTo {
   '/app/comecar': typeof AuthenticatedAppComecarRoute
   '/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/app/curriculo': typeof AuthenticatedAppCurriculoRoute
+  '/app/curriculos': typeof AuthenticatedAppCurriculosRoute
   '/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/app/followups': typeof AuthenticatedAppFollowupsRoute
   '/app/midia': typeof AuthenticatedAppMidiaRoute
@@ -548,6 +566,7 @@ export interface FileRoutesById {
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
   '/_authenticated/admin/onboarding': typeof AuthenticatedAdminOnboardingRoute
+  '/_authenticated/admin/pro-features': typeof AuthenticatedAdminProFeaturesRoute
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -555,6 +574,7 @@ export interface FileRoutesById {
   '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
   '/_authenticated/app/configuracoes': typeof AuthenticatedAppConfiguracoesRoute
   '/_authenticated/app/curriculo': typeof AuthenticatedAppCurriculoRoute
+  '/_authenticated/app/curriculos': typeof AuthenticatedAppCurriculosRoute
   '/_authenticated/app/empregadores': typeof AuthenticatedAppEmpregadoresRoute
   '/_authenticated/app/followups': typeof AuthenticatedAppFollowupsRoute
   '/_authenticated/app/ingles': typeof AuthenticatedAppInglesRouteWithChildren
@@ -612,6 +632,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
     | '/admin/onboarding'
+    | '/admin/pro-features'
     | '/admin/security'
     | '/admin/seo'
     | '/app/auditoria'
@@ -619,6 +640,7 @@ export interface FileRouteTypes {
     | '/app/comecar'
     | '/app/configuracoes'
     | '/app/curriculo'
+    | '/app/curriculos'
     | '/app/empregadores'
     | '/app/followups'
     | '/app/ingles'
@@ -674,6 +696,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a'
     | '/admin/onboarding'
+    | '/admin/pro-features'
     | '/admin/security'
     | '/admin/seo'
     | '/app/auditoria'
@@ -681,6 +704,7 @@ export interface FileRouteTypes {
     | '/app/comecar'
     | '/app/configuracoes'
     | '/app/curriculo'
+    | '/app/curriculos'
     | '/app/empregadores'
     | '/app/followups'
     | '/app/midia'
@@ -735,6 +759,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
     | '/_authenticated/admin/onboarding'
+    | '/_authenticated/admin/pro-features'
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/seo'
     | '/_authenticated/app/auditoria'
@@ -742,6 +767,7 @@ export interface FileRouteTypes {
     | '/_authenticated/app/comecar'
     | '/_authenticated/app/configuracoes'
     | '/_authenticated/app/curriculo'
+    | '/_authenticated/app/curriculos'
     | '/_authenticated/app/empregadores'
     | '/_authenticated/app/followups'
     | '/_authenticated/app/ingles'
@@ -1060,6 +1086,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppEmpregadoresRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/app/curriculos': {
+      id: '/_authenticated/app/curriculos'
+      path: '/app/curriculos'
+      fullPath: '/app/curriculos'
+      preLoaderRoute: typeof AuthenticatedAppCurriculosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/curriculo': {
       id: '/_authenticated/app/curriculo'
       path: '/app/curriculo'
@@ -1107,6 +1140,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/security'
       fullPath: '/admin/security'
       preLoaderRoute: typeof AuthenticatedAdminSecurityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/admin/pro-features': {
+      id: '/_authenticated/admin/pro-features'
+      path: '/admin/pro-features'
+      fullPath: '/admin/pro-features'
+      preLoaderRoute: typeof AuthenticatedAdminProFeaturesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/admin/onboarding': {
@@ -1310,6 +1350,7 @@ const AuthenticatedAppAdminEmailsRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminOnboardingRoute: typeof AuthenticatedAdminOnboardingRoute
+  AuthenticatedAdminProFeaturesRoute: typeof AuthenticatedAdminProFeaturesRoute
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSeoRoute: typeof AuthenticatedAdminSeoRoute
   AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
@@ -1317,6 +1358,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAppComecarRoute: typeof AuthenticatedAppComecarRoute
   AuthenticatedAppConfiguracoesRoute: typeof AuthenticatedAppConfiguracoesRoute
   AuthenticatedAppCurriculoRoute: typeof AuthenticatedAppCurriculoRoute
+  AuthenticatedAppCurriculosRoute: typeof AuthenticatedAppCurriculosRoute
   AuthenticatedAppEmpregadoresRoute: typeof AuthenticatedAppEmpregadoresRoute
   AuthenticatedAppFollowupsRoute: typeof AuthenticatedAppFollowupsRoute
   AuthenticatedAppInglesRoute: typeof AuthenticatedAppInglesRouteWithChildren
@@ -1331,6 +1373,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminOnboardingRoute: AuthenticatedAdminOnboardingRoute,
+  AuthenticatedAdminProFeaturesRoute: AuthenticatedAdminProFeaturesRoute,
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSeoRoute: AuthenticatedAdminSeoRoute,
   AuthenticatedAppAuditoriaRoute: AuthenticatedAppAuditoriaRoute,
@@ -1338,6 +1381,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAppComecarRoute: AuthenticatedAppComecarRoute,
   AuthenticatedAppConfiguracoesRoute: AuthenticatedAppConfiguracoesRoute,
   AuthenticatedAppCurriculoRoute: AuthenticatedAppCurriculoRoute,
+  AuthenticatedAppCurriculosRoute: AuthenticatedAppCurriculosRoute,
   AuthenticatedAppEmpregadoresRoute: AuthenticatedAppEmpregadoresRoute,
   AuthenticatedAppFollowupsRoute: AuthenticatedAppFollowupsRoute,
   AuthenticatedAppInglesRoute: AuthenticatedAppInglesRouteWithChildren,

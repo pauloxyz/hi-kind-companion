@@ -62,15 +62,28 @@ function CurriculosManager() {
   const [editing, setEditing] = useState<ProfileVariant | null>(null);
   const [creating, setCreating] = useState(false);
 
+  type UpsertPayload = {
+    id?: string | null;
+    name: string;
+    label?: string | null;
+    job_title_pt?: string | null;
+    job_title_en?: string | null;
+    summary_pt?: string | null;
+    summary_en?: string | null;
+    skills: string[];
+    highlighted_experience_ids: string[];
+    source?: "variant" | "upload";
+  };
+
   const upsertMut = useMutation({
-    mutationFn: (v: Parameters<typeof upsert>[0]["data"]) => upsert({ data: v }),
+    mutationFn: (v: UpsertPayload) => upsert({ data: v }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["my", "profile-variants"] });
       toast.success("Currículo salvo.");
       setEditing(null);
       setCreating(false);
     },
-    onError: toastError,
+    onError: (e) => toastError(e),
   });
 
   const removeMut = useMutation({
@@ -79,7 +92,7 @@ function CurriculosManager() {
       qc.invalidateQueries({ queryKey: ["my", "profile-variants"] });
       toast.success("Currículo removido.");
     },
-    onError: toastError,
+    onError: (e) => toastError(e),
   });
 
   const activeMut = useMutation({
@@ -88,7 +101,7 @@ function CurriculosManager() {
       qc.invalidateQueries({ queryKey: ["my", "profile-variants"] });
       toast.success("Currículo ativo atualizado.");
     },
-    onError: toastError,
+    onError: (e) => toastError(e),
   });
 
   const attachMut = useMutation({
@@ -98,7 +111,7 @@ function CurriculosManager() {
       qc.invalidateQueries({ queryKey: ["my", "profile-variants"] });
       toast.success("PDF anexado.");
     },
-    onError: toastError,
+    onError: (e) => toastError(e),
   });
 
   return (
