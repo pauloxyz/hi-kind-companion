@@ -15,6 +15,8 @@ import { toastError } from "@/lib/toast-error";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import { generateHeadline } from "@/lib/headline.functions";
+import { normalizeYouTubeUrl } from "@/lib/youtube";
+
 
 export const Route = createFileRoute("/_authenticated/app/perfil")({ component: PerfilPage });
 
@@ -200,19 +202,39 @@ function PerfilPage() {
           return;
         }
       }
+
+      // YouTube: aceita qualquer formato comum e salva em forma canônica
+      // (https://youtu.be/{id}). Se o usuário colou algo que não é YouTube,
+      // bloqueia o save com mensagem clara. Vazio = sem vídeo, OK.
+      let youtubeNormalized: string | null = null;
+      const ytRaw = form.youtube_video_url.trim();
+      if (ytRaw) {
+        const canonical = normalizeYouTubeUrl(ytRaw);
+        if (!canonical) {
+          toastError(
+            new Error("Cole o link do YouTube no formato https://youtu.be/... ou https://www.youtube.com/watch?v=..."),
+            { title: "Link do YouTube inválido" },
+          );
+          return;
+        }
+        youtubeNormalized = canonical;
+      }
+
       const { error } = await supabase.from("my_profile").upsert(
         {
           owner_id: uid,
           ...form,
           public_slug: slug || null,
           birth_date: form.birth_date || null,
+          youtube_video_url: youtubeNormalized,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "owner_id" },
       );
       if (error) throw error;
-      setForm((f) => ({ ...f, public_slug: slug }));
+      setForm((f) => ({ ...f, public_slug: slug, youtube_video_url: youtubeNormalized ?? "" }));
       toast.success(scope === "profile" ? "Dados pessoais salvos" : "Página pública salva");
+
     } catch (err) {
       toastError(err, { title: "Falha ao salvar" });
     } finally {
