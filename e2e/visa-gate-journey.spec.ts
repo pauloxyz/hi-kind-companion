@@ -642,11 +642,13 @@ for (const vp of VIEWPORTS) {
       if (vp.name === "mobile") {
         await page.getByTestId("drawer-trigger").click();
         await expect(page.locator('[role="dialog"]')).toBeVisible();
-        await page.keyboard.press("Escape");
       }
       await expect
         .poll(() => readPhaseLabel(page), { timeout: 10_000 })
         .toMatch(/DS-?160/i);
+      if (vp.name === "mobile") {
+        await page.keyboard.press("Escape");
+      }
 
       // 3) Desmarca o contrato → drift inconsistente.
       await hiredCheckbox.click();
