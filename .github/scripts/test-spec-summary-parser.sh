@@ -65,7 +65,10 @@ assert_contains "$out" 'video.webm _skipped_'                      "legacy: vide
 cat > "$tmp/reasons.tsv" <<EOF
 specBelow	0	0	0	0	2	64	0	below_min	empty
 EOF
-MIN_TRACE_BYTES=2048 MIN_VIDEO_BYTES=8192 out="$(bash "$renderer" "$tmp/reasons.tsv" "https://example.com/art/R" "Reasons")"
+# Bash quirk: `FOO=bar out=$(...)` does NOT export FOO into the subshell,
+# because variable assignments only propagate to *external* commands.
+# `env FOO=bar` forces a real exec wrapper so the renderer sees the vars.
+out="$(env MIN_TRACE_BYTES=2048 MIN_VIDEO_BYTES=8192 bash "$renderer" "$tmp/reasons.tsv" "https://example.com/art/R" "Reasons")"
 assert_contains "$out" 'trace.zip _skipped_'                       "reasons: trace skip line"
 assert_contains "$out" '(size: 64 B, min: 2048 B)'                 "reasons: trace size + threshold"
 assert_contains "$out" 'video.webm _skipped_'                      "reasons: video skip line"
