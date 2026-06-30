@@ -205,7 +205,8 @@ function Dashboard() {
         onboarding, journey,
       };
     },
-    staleTime: 30_000,
+    staleTime: 120_000,
+    gcTime: 300_000,
   });
 
   const rate = stats.data?.total ? Math.round((stats.data.responded / stats.data.total) * 100) : 0;
