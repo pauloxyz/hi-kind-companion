@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,65 @@ function saveTtsCache(cache: Map<number, string>) {
   } catch { /* quota — ignore */ }
 }
 
+
+const AiErrorBanner = memo(function AiErrorBanner({
+  error, secondsLeft, onRetry, onDismiss, busy,
+}: {
+  error: AiErrorInfo | null;
+  secondsLeft: number;
+  onRetry: () => void;
+  onDismiss: () => void;
+  busy: boolean;
+}) {
+  if (!error) return null;
+  const blocked = error.code === "no_credits";
+  const waiting = error.code === "rate_limited" && secondsLeft > 0;
+  const palette = blocked
+    ? "border-destructive/40 bg-destructive/10 text-destructive"
+    : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200";
+  const title = blocked
+    ? "Créditos de IA esgotados"
+    : error.code === "rate_limited"
+    ? "Limite temporário atingido"
+    : error.code === "bad_json"
+    ? "Resposta inesperada da IA"
+    : "Falha na geração";
+  return (
+    <div className={`flex items-start gap-2 text-xs rounded-md border p-3 ${palette}`}>
+      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div>
+          <div className="font-semibold">{title}</div>
+          <div>{error.msg}</div>
+          <div className="text-[11px] opacity-80 mt-1">
+            Nada do que você já fez foi perdido — o roteiro, áudios e link continuam salvos.
+          </div>
+        </div>
+        {!blocked && (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={onRetry} disabled={busy || waiting} className="h-7">
+              {busy ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                : <RotateCcw className="h-3.5 w-3.5 mr-1" />}
+              {waiting ? `Tentar de novo em ${secondsLeft}s` : "Tentar de novo"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7" onClick={onDismiss}>
+              Dispensar
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+
+type AiErrorInfo = {
+  action: "script" | "meta";
+  code: "rate_limited" | "no_credits" | "bad_json" | "other";
+  msg: string;
+  retryAt: number; // epoch ms; 0 = retry immediately
+};
+
 function Page() {
   const genFn = useServerFn(generateVideoScript);
   const ttsFn = useServerFn(speakText);
@@ -68,19 +127,18 @@ function Page() {
   const [ytMeta, setYtMeta] = useState<YoutubeMeta | null>(null);
   const [genMeta, setGenMeta] = useState(false);
 
-  type AiErrorInfo = {
-    action: "script" | "meta";
-    code: "rate_limited" | "no_credits" | "bad_json" | "other";
-    msg: string;
-    retryAt: number; // epoch ms; 0 = retry immediately
-  };
   const [aiError, setAiError] = useState<AiErrorInfo | null>(null);
   const [nowTs, setNowTs] = useState(() => Date.now());
   useEffect(() => {
     if (!aiError || aiError.retryAt <= Date.now()) return;
-    const id = window.setInterval(() => setNowTs(Date.now()), 500);
+    const id = window.setInterval(() => {
+      const now = Date.now();
+      setNowTs(now);
+      if (now >= aiError.retryAt) window.clearInterval(id);
+    }, 500);
     return () => window.clearInterval(id);
   }, [aiError]);
+
 
   const [secondsPerBlock, setSecondsPerBlock] = useState(4);
   const [activeIdx, setActiveIdx] = useState<number | null>(null);
@@ -327,58 +385,9 @@ function Page() {
   const ytId = normalizedUrl?.split("/").pop();
   const totalSec = Math.round(blocks.length * secondsPerBlock);
 
-  function AiErrorBanner({ action, onRetry, busy }: {
-    action: "script" | "meta";
-    onRetry: () => void;
-    busy: boolean;
-  }) {
-    if (!aiError || aiError.action !== action) return null;
-    const secondsLeft = Math.max(0, Math.ceil((aiError.retryAt - nowTs) / 1000));
-    const blocked = aiError.code === "no_credits";
-    const waiting = aiError.code === "rate_limited" && secondsLeft > 0;
-    const palette = blocked
-      ? "border-destructive/40 bg-destructive/10 text-destructive"
-      : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200";
-    const title = blocked
-      ? "Créditos de IA esgotados"
-      : aiError.code === "rate_limited"
-      ? "Limite temporário atingido"
-      : aiError.code === "bad_json"
-      ? "Resposta inesperada da IA"
-      : "Falha na geração";
-    return (
-      <div className={`flex items-start gap-2 text-xs rounded-md border p-3 ${palette}`}>
-        <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
-        <div className="flex-1 space-y-2">
-          <div>
-            <div className="font-semibold">{title}</div>
-            <div>{aiError.msg}</div>
-            <div className="text-[11px] opacity-80 mt-1">
-              Nada do que você já fez foi perdido — o roteiro, áudios e link continuam salvos.
-            </div>
-          </div>
-          {!blocked && (
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={onRetry}
-                disabled={busy || waiting}
-                className="h-7"
-              >
-                {busy ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
-                  : <RotateCcw className="h-3.5 w-3.5 mr-1" />}
-                {waiting ? `Tentar de novo em ${secondsLeft}s` : "Tentar de novo"}
-              </Button>
-              <Button size="sm" variant="ghost" className="h-7" onClick={() => setAiError(null)}>
-                Dispensar
-              </Button>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+
+
+
 
 
   return (
@@ -407,7 +416,13 @@ function Page() {
             {hasScript ? "Gerar de novo" : "Gerar meu roteiro"}
           </Button>
 
-          <AiErrorBanner action="script" onRetry={handleGenerate} busy={generating} />
+          <AiErrorBanner
+            error={aiError?.action === "script" ? aiError : null}
+            secondsLeft={Math.max(0, Math.ceil(((aiError?.retryAt ?? 0) - nowTs) / 1000))}
+            onRetry={handleGenerate}
+            onDismiss={() => setAiError(null)}
+            busy={generating}
+          />
 
           {needsRegenForBlocks && (
             <div className="flex items-start gap-2 text-xs rounded-md border border-amber-300 bg-amber-50 dark:bg-amber-950/30 p-2.5 text-amber-900 dark:text-amber-200">
@@ -582,7 +597,13 @@ function Page() {
             </Button>
           </div>
 
-          <AiErrorBanner action="meta" onRetry={handleGenerateMeta} busy={genMeta} />
+          <AiErrorBanner
+            error={aiError?.action === "meta" ? aiError : null}
+            secondsLeft={Math.max(0, Math.ceil(((aiError?.retryAt ?? 0) - nowTs) / 1000))}
+            onRetry={handleGenerateMeta}
+            onDismiss={() => setAiError(null)}
+            busy={genMeta}
+          />
 
           {!hasScript && (
             <p className="text-xs text-amber-700 dark:text-amber-400">Gere o roteiro no Passo 1 primeiro.</p>
