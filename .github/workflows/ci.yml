@@ -32,6 +32,8 @@ jobs:
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
           SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+          SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
 
   e2e:
     runs-on: ubuntu-latest
