@@ -524,7 +524,7 @@ function Page() {
             🔄 Buscar agora
           </Button>
         </div>
-      </div>
+      </header>
 
       <Card>
         <CardContent className="pt-4 space-y-3">
