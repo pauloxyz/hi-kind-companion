@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
+import { AppError } from "./errors";
+import { withServerErrors } from "./server-error-handler";
 
 const CoverLetterInput = z.object({ jobId: z.string().uuid() });
 const RecordApplicationInput = z.object({
