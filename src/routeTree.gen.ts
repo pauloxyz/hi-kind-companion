@@ -51,6 +51,7 @@ import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_auth
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
+import { Route as AuthenticatedAdminOnboardingRouteImport } from './routes/_authenticated/admin.onboarding'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -287,6 +288,12 @@ const AuthenticatedAdminSecurityRoute =
     path: '/admin/security',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminOnboardingRoute =
+  AuthenticatedAdminOnboardingRouteImport.update({
+    id: '/admin/onboarding',
+    path: '/admin/onboarding',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppInglesIndexRoute =
   AuthenticatedAppInglesIndexRouteImport.update({
     id: '/',
@@ -416,6 +423,7 @@ export interface FileRoutesByFullPath {
   '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/admin/onboarding': typeof AuthenticatedAdminOnboardingRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -477,6 +485,7 @@ export interface FileRoutesByTo {
   '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
+  '/admin/onboarding': typeof AuthenticatedAdminOnboardingRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -538,6 +547,7 @@ export interface FileRoutesById {
   '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/_authenticated/admin/onboarding': typeof AuthenticatedAdminOnboardingRoute
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
@@ -601,6 +611,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/empresas'
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
+    | '/admin/onboarding'
     | '/admin/security'
     | '/admin/seo'
     | '/app/auditoria'
@@ -662,6 +673,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/empresas'
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a'
+    | '/admin/onboarding'
     | '/admin/security'
     | '/admin/seo'
     | '/app/auditoria'
@@ -722,6 +734,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/empresas'
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
+    | '/_authenticated/admin/onboarding'
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/seo'
     | '/_authenticated/app/auditoria'
@@ -1096,6 +1109,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSecurityRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/onboarding': {
+      id: '/_authenticated/admin/onboarding'
+      path: '/admin/onboarding'
+      fullPath: '/admin/onboarding'
+      preLoaderRoute: typeof AuthenticatedAdminOnboardingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/ingles/': {
       id: '/_authenticated/app/ingles/'
       path: '/'
@@ -1289,6 +1309,7 @@ const AuthenticatedAppAdminEmailsRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminOnboardingRoute: typeof AuthenticatedAdminOnboardingRoute
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSeoRoute: typeof AuthenticatedAdminSeoRoute
   AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
@@ -1309,6 +1330,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminOnboardingRoute: AuthenticatedAdminOnboardingRoute,
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSeoRoute: AuthenticatedAdminSeoRoute,
   AuthenticatedAppAuditoriaRoute: AuthenticatedAppAuditoriaRoute,
