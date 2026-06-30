@@ -50,6 +50,7 @@ import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authentic
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
+import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
 import { Route as AuthenticatedAppInglesIndexRouteImport } from './routes/_authenticated/app.ingles.index'
 import { Route as LovableEmailTransactionalSendRouteImport } from './routes/lovable/email/transactional/send'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -280,6 +281,12 @@ const AuthenticatedAdminSeoRoute = AuthenticatedAdminSeoRouteImport.update({
   path: '/admin/seo',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedAdminSecurityRoute =
+  AuthenticatedAdminSecurityRouteImport.update({
+    id: '/admin/security',
+    path: '/admin/security',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAppInglesIndexRoute =
   AuthenticatedAppInglesIndexRouteImport.update({
     id: '/',
@@ -409,6 +416,7 @@ export interface FileRoutesByFullPath {
   '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
@@ -469,6 +477,7 @@ export interface FileRoutesByTo {
   '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a': typeof VagasH2aIndexRoute
+  '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
@@ -529,6 +538,7 @@ export interface FileRoutesById {
   '/vagas-h2a/empresas': typeof VagasH2aEmpresasRoute
   '/vagas-h2a/tabaco': typeof VagasH2aTabacoRoute
   '/vagas-h2a/': typeof VagasH2aIndexRoute
+  '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/seo': typeof AuthenticatedAdminSeoRoute
   '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
@@ -591,6 +601,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/empresas'
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
+    | '/admin/security'
     | '/admin/seo'
     | '/app/auditoria'
     | '/app/candidaturas'
@@ -651,6 +662,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/empresas'
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a'
+    | '/admin/security'
     | '/admin/seo'
     | '/app/auditoria'
     | '/app/candidaturas'
@@ -710,6 +722,7 @@ export interface FileRouteTypes {
     | '/vagas-h2a/empresas'
     | '/vagas-h2a/tabaco'
     | '/vagas-h2a/'
+    | '/_authenticated/admin/security'
     | '/_authenticated/admin/seo'
     | '/_authenticated/app/auditoria'
     | '/_authenticated/app/candidaturas'
@@ -1076,6 +1089,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAdminSeoRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/security': {
+      id: '/_authenticated/admin/security'
+      path: '/admin/security'
+      fullPath: '/admin/security'
+      preLoaderRoute: typeof AuthenticatedAdminSecurityRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/app/ingles/': {
       id: '/_authenticated/app/ingles/'
       path: '/'
@@ -1269,6 +1289,7 @@ const AuthenticatedAppAdminEmailsRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSeoRoute: typeof AuthenticatedAdminSeoRoute
   AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
   AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
@@ -1288,6 +1309,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSeoRoute: AuthenticatedAdminSeoRoute,
   AuthenticatedAppAuditoriaRoute: AuthenticatedAppAuditoriaRoute,
   AuthenticatedAppCandidaturasRoute: AuthenticatedAppCandidaturasRoute,
