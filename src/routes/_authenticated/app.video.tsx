@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import { pdf } from "@react-pdf/renderer";
 import { VideoScriptPdf } from "@/components/VideoScriptPdf";
+import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
 import QRCode from "qrcode";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
