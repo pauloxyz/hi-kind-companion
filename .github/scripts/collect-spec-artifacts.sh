@@ -66,6 +66,20 @@ largest_match() {
 
 rows=()
 
+# Reason codes for trace/video flags. Stored in TSV so the renderer can
+# explain WHY a link was suppressed instead of silently hiding it:
+#   ok         — file present and ≥ threshold
+#   absent     — no matching file in the spec folder
+#   empty      — file exists but is 0 bytes
+#   below_min  — file exists, has content, but is under MIN_*_BYTES
+classify() {
+  local file="$1" size="$2" threshold="$3"
+  if [ -z "$file" ]; then echo "absent"; return; fi
+  if [ "$size" -eq 0 ]; then echo "empty"; return; fi
+  if [ "$size" -lt "$threshold" ]; then echo "below_min"; return; fi
+  echo "ok"
+}
+
 if [ -d test-results ]; then
   while IFS= read -r dir; do
     slug="$(basename "$dir")"
@@ -80,25 +94,21 @@ if [ -d test-results ]; then
     [ -n "$trace_file" ] && trace_size="$(filesize "$trace_file")"
     [ -n "$video_file" ] && video_size="$(filesize "$video_file")"
 
-    has_trace=0
-    has_video=0
-    has_screenshot=0
-    if [ -n "$trace_file" ] && [ "$trace_size" -ge "$MIN_TRACE_BYTES" ]; then
-      has_trace=1
-    fi
-    if [ -n "$video_file" ] && [ "$video_size" -ge "$MIN_VIDEO_BYTES" ]; then
-      has_video=1
-    fi
-    if [ -n "$screenshot_file" ]; then
-      has_screenshot=1
-    fi
+    trace_reason="$(classify "$trace_file" "$trace_size" "$MIN_TRACE_BYTES")"
+    video_reason="$(classify "$video_file" "$video_size" "$MIN_VIDEO_BYTES")"
 
-    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
+    has_trace=0; [ "$trace_reason" = "ok" ] && has_trace=1
+    has_video=0; [ "$video_reason" = "ok" ] && has_video=1
+    has_screenshot=0; [ -n "$screenshot_file" ] && has_screenshot=1
+
+    printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' \
       "$slug" "$has_trace" "$has_video" "$has_screenshot" \
-      "$has_report" "$ATTEMPT" "$trace_size" "$video_size" >> "$out"
+      "$has_report" "$ATTEMPT" "$trace_size" "$video_size" \
+      "$trace_reason" "$video_reason" >> "$out"
 
     rows+=("$slug" "$has_trace" "$has_video" "$has_screenshot" \
-           "$has_report" "$ATTEMPT" "$trace_size" "$video_size")
+           "$has_report" "$ATTEMPT" "$trace_size" "$video_size" \
+           "$trace_reason" "$video_reason")
   done < <(find test-results -mindepth 1 -maxdepth 1 -type d | sort -u)
 fi
 
@@ -106,9 +116,11 @@ count="$(wc -l < "$out" | tr -d ' ')"
 
 if [ -n "$out_json" ]; then
   # Build JSON without depending on jq — keys are fixed, values are
-  # already safe (slugs come from Playwright and contain no quotes).
+  # already safe (slugs come from Playwright and contain no quotes;
+  # reasons are constrained to the classify() enum above).
   {
     printf '{\n'
+    printf '  "schema_version": 2,\n'
     printf '  "attempt": %s,\n' "$ATTEMPT"
     printf '  "has_report": %s,\n' "$has_report"
     printf '  "min_trace_bytes": %s,\n' "$MIN_TRACE_BYTES"
@@ -116,6 +128,7 @@ if [ -n "$out_json" ]; then
     printf '  "count": %s,\n' "$count"
     printf '  "specs": [\n'
     n=${#rows[@]}
+    stride=10
     i=0
     while [ "$i" -lt "$n" ]; do
       slug="${rows[$i]}"
@@ -126,13 +139,15 @@ if [ -n "$out_json" ]; then
       at="${rows[$((i+5))]}"
       ts="${rows[$((i+6))]}"
       vs="${rows[$((i+7))]}"
+      tr="${rows[$((i+8))]}"
+      vr="${rows[$((i+9))]}"
       sep=","
-      [ "$((i + 8))" -ge "$n" ] && sep=""
+      [ "$((i + stride))" -ge "$n" ] && sep=""
       esc_slug="${slug//\\/\\\\}"
       esc_slug="${esc_slug//\"/\\\"}"
-      printf '    {"slug":"%s","has_trace":%s,"has_video":%s,"has_screenshot":%s,"has_report":%s,"attempt":%s,"trace_size":%s,"video_size":%s}%s\n' \
-        "$esc_slug" "$ht" "$hv" "$hs" "$hr" "$at" "$ts" "$vs" "$sep"
-      i=$((i + 8))
+      printf '    {"slug":"%s","has_trace":%s,"has_video":%s,"has_screenshot":%s,"has_report":%s,"attempt":%s,"trace_size":%s,"video_size":%s,"trace_reason":"%s","video_reason":"%s"}%s\n' \
+        "$esc_slug" "$ht" "$hv" "$hs" "$hr" "$at" "$ts" "$vs" "$tr" "$vr" "$sep"
+      i=$((i + stride))
     done
     printf '  ]\n'
     printf '}\n'
