@@ -539,6 +539,7 @@ function ChecklistRow({
   item,
   meta,
   attachments,
+  gateBlocked,
   onToggle,
   onDate,
   announce,
@@ -548,6 +549,12 @@ function ChecklistRow({
   item: Item;
   meta?: StepMeta;
   attachments: Attachment[];
+  /**
+   * true quando esta etapa só faz sentido após o contrato assinado
+   * (`hired_by_employer`) e ele ainda não foi marcado. Visualmente
+   * a linha fica atenuada e o checkbox desabilitado.
+   */
+  gateBlocked?: boolean;
   onToggle: () => void;
   onDate: (field: "event_at" | "due_at", value: string) => void;
   announce: (msg: string) => void;
@@ -558,22 +565,28 @@ function ChecklistRow({
   const dueDays = daysFromToday(item.due_at);
   const isLate = !checked && dueDays !== null && dueDays < 0;
   const isSoon = !checked && dueDays !== null && dueDays >= 0 && dueDays <= 7;
+  const blocked = !!gateBlocked;
 
   return (
     <div
       id={`step-${item.id}`}
+      data-gate-blocked={blocked ? "true" : undefined}
       className={
         "group p-4 transition-colors scroll-mt-20 " +
-        (checked ? "bg-primary/[0.03]" : "hover:bg-muted/40")
+        (checked ? "bg-primary/[0.03]" : "hover:bg-muted/40") +
+        (blocked ? " opacity-60" : "")
       }
     >
       <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-3 sm:gap-4">
         <Checkbox
           checked={checked}
           onCheckedChange={onToggle}
+          disabled={blocked}
           aria-label={`Marcar etapa: ${item.step_label}`}
+          aria-describedby={blocked ? `gate-${item.id}` : undefined}
           className="mt-1 h-5 w-5"
         />
+
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div
