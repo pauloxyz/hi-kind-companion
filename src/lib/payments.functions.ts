@@ -107,12 +107,12 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
-  });
+  }));
 
 export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
-  .handler(async ({ data, context }): Promise<PortalSessionResult> => {
+  .handler(withServerErrors("payments.portal", async ({ data, context }): Promise<PortalSessionResult> => {
     const { supabase, userId } = context;
 
     const { data: sub, error: subError } = await supabase
@@ -122,7 +122,13 @@ export const createPortalSession = createServerFn({ method: "POST" })
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
-    if (subError || !sub?.stripe_customer_id) throw new Error("Nenhuma assinatura encontrada");
+    if (subError || !sub?.stripe_customer_id) {
+      throw new AppError("Nenhuma assinatura encontrada na sua conta.", {
+        kind: "not_found",
+        code: "payments.portal.no_subscription",
+        cause: subError ?? undefined,
+      });
+    }
 
     try {
       const stripe = createStripeClient(data.environment);
@@ -134,4 +140,5 @@ export const createPortalSession = createServerFn({ method: "POST" })
     } catch (error) {
       return { error: getStripeErrorMessage(error) };
     }
-  });
+  }));
+
