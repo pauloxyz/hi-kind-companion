@@ -125,8 +125,11 @@ function PerfilPage() {
   const usedCodes = new Set(parsedLangs.map((l) => l.code));
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Meu Perfil</h1>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Meu Perfil"
+        description="Mantenha seus dados atualizados — eles preenchem o currículo e a candidatura automaticamente."
+      />
       <Card>
         <CardHeader><CardTitle>Dados pessoais</CardTitle></CardHeader>
         <CardContent className="space-y-3">
