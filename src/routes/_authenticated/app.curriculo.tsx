@@ -386,6 +386,10 @@ function Page() {
         skills,
         resumePhotos,
       };
+      const [{ pdf }, { ResumePdfDocument }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/ResumePdfDocument"),
+      ]);
       const blob = await pdf(<ResumePdfDocument data={data} />).toBlob();
 
       // Upload to storage
