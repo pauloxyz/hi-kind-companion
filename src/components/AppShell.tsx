@@ -31,6 +31,8 @@ type NavItem = {
   highlight?: boolean;
   badgeKey?: "unreadReplies";
   countKey?: "savedJobs" | "applications";
+  /** When true, the item is shown disabled with a lock icon while the user hasn't finished the onboarding. Perfil/Configurações ficam sempre abertos. */
+  requiresOnboarding?: boolean;
 };
 type NavGroup = { label: string; items: NavItem[] };
 
@@ -44,20 +46,20 @@ const groups: NavGroup[] = [
     label: "Preparação",
     items: [
       { to: "/app/perfil", labelKey: "profile", icon: User },
-      { to: "/app/curriculo", labelKey: "resume", icon: FileText },
-      { to: "/app/midia", labelKey: "media", icon: ImageIcon },
-      { to: "/app/video", labelKey: "intro_video", icon: Video },
-      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap },
-      { to: "/app/visto", labelKey: "visa", icon: Stamp },
+      { to: "/app/curriculo", labelKey: "resume", icon: FileText, requiresOnboarding: true },
+      { to: "/app/midia", labelKey: "media", icon: ImageIcon, requiresOnboarding: true },
+      { to: "/app/video", labelKey: "intro_video", icon: Video, requiresOnboarding: true },
+      { to: "/app/ingles", labelKey: "english_course", icon: GraduationCap, requiresOnboarding: true },
+      { to: "/app/visto", labelKey: "visa", icon: Stamp, requiresOnboarding: true },
     ],
   },
   {
     label: "Busca de vagas",
     items: [
-      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase, countKey: "savedJobs" },
-      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies", countKey: "applications" },
-      { to: "/app/followups", labelKey: "followups", icon: Bell },
-      { to: "/app/empregadores", labelKey: "employers", icon: Building2 },
+      { to: "/app/vagas", labelKey: "jobs", icon: Briefcase, countKey: "savedJobs", requiresOnboarding: true },
+      { to: "/app/candidaturas", labelKey: "applications", icon: Send, badgeKey: "unreadReplies", countKey: "applications", requiresOnboarding: true },
+      { to: "/app/followups", labelKey: "followups", icon: Bell, requiresOnboarding: true },
+      { to: "/app/empregadores", labelKey: "employers", icon: Building2, requiresOnboarding: true },
     ],
   },
   {
@@ -67,6 +69,7 @@ const groups: NavGroup[] = [
     ],
   },
 ];
+
 
 const LANG_OPTIONS: { code: "pt" | "en" | "es"; label: string; flag: string }[] = [
   { code: "pt", label: "PT", flag: "🇧🇷" },
