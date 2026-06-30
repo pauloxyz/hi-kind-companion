@@ -53,7 +53,11 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
     const phone = (typeof phoneRow === "string" ? phoneRow : null) as string | null;
 
     const ownerId = profile.owner_id;
-    const [exps, skills, mediaRows, videoRow] = await Promise.all([
+    // intro_video bucket removido do fluxo público — vídeo agora é
+    // só YouTube (campo youtube_video_url) e renderizado direto na
+    // página via embed nocookie. Sem chamada de storage = sem signed
+    // URLs = página pública mais rápida.
+    const [exps, skills, mediaRows] = await Promise.all([
       sb.from("resume_experiences").select("id,job_title,job_title_en,employer_name,start_date,end_date,description_en,description_pt").eq("owner_id", ownerId).order("start_date", { ascending: false }),
       sb.from("resume_skills").select("id,skill_name,category").eq("owner_id", ownerId),
       (async () => {
@@ -62,7 +66,6 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
         // Fallback: if the candidate hasn't starred anything, show the most recent uploads
         return await sb.from("work_media").select("id,media_url,media_type,caption,is_featured").eq("owner_id", ownerId).order("uploaded_at", { ascending: false }).limit(8);
       })(),
-      sb.from("intro_video").select("id,video_url").eq("owner_id", ownerId).eq("is_active", true).order("recorded_at", { ascending: false }).limit(1).maybeSingle(),
     ]);
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -71,11 +74,6 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
     for (const m of mediaRows.data ?? []) {
       const { data: s } = await supabaseAdmin.storage.from("work-media").createSignedUrl(m.media_url, EXPIRES);
       if (s) media.push({ id: m.id, type: m.media_type ?? "photo", caption: m.caption, url: s.signedUrl });
-    }
-    let video: { id: string; url: string } | null = null;
-    if (videoRow.data) {
-      const { data: s } = await supabaseAdmin.storage.from("intro-videos").createSignedUrl(videoRow.data.video_url, EXPIRES);
-      if (s) video = { id: videoRow.data.id, url: s.signedUrl };
     }
 
     const experiences: PublicExperience[] = (exps.data ?? []).map((e) => ({
@@ -101,9 +99,9 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
       experiences,
       skills: skills.data ?? [],
       media,
-      video,
     };
   });
+
 
 export const trackProfileView = createServerFn({ method: "POST" })
   .inputValidator((d: { slug: string; userAgent?: string; referer?: string }) => d)
