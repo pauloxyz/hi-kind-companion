@@ -9,6 +9,23 @@ import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { track } from "@/lib/telemetry";
+import { logOnboardingEvent } from "@/lib/onboarding-events.functions";
+
+/** Mirror every funnel `track()` to the server (auditable, survives nav-away). */
+function mirror(event: string, step?: number, label?: string, props?: Record<string, unknown>) {
+  track(event, { step, label, ...(props ?? {}) });
+  // fire-and-forget; never block the UI on the network
+  void logOnboardingEvent({
+    data: {
+      event,
+      step_index: typeof step === "number" ? step : null,
+      step_label: label ?? null,
+      props: props ?? {},
+    },
+  }).catch(() => {
+    /* offline / nav-away: client track() still fired */
+  });
+}
 import { ProfilePreview } from "@/components/ProfilePreview";
 import {
   ArrowRight, ArrowLeft, Sparkles, Tractor, HeartPulse, Send,
