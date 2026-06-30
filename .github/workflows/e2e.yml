@@ -1207,5 +1207,5 @@ jobs:
               await core.summary.addRaw(lines.join('\n')).write();
             } catch (err) {
               core.warning(`Rendering consolidated table failed: ${err.message}`);
-              await writeFallback('rendering the consolidated table threw', err.stack || err.message);
+              await writeFallback('rendering the consolidated table threw', err.stack || err.message, { total: (artifacts || []).length, matched: matched.length });
             }
