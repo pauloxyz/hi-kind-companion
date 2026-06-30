@@ -542,7 +542,12 @@ function VistoPage() {
 /* Row                                                               */
 /* ---------------------------------------------------------------- */
 
-function ChecklistRow({
+/**
+ * Exportado nomeado apenas para testes unitários de acessibilidade do gate
+ * (`src/routes/_authenticated/app.visto.checklist-row.test.tsx`). Não use
+ * em outras rotas — a UI do checklist é específica de `/app/visto`.
+ */
+export function ChecklistRow({
   item,
   meta,
   attachments,
