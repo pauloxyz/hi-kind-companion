@@ -107,6 +107,22 @@ jobs:
           fi
           echo "OK — every Playwright artifact upload uses PLAYWRIGHT_ARTIFACT_RETENTION_DAYS."
 
+  # Unit-tests the regexes the consolidated `debug-links` job uses to
+  # parse artifact names back into (label, phase, attempt). If somebody
+  # renames an artifact upload step in this workflow without updating
+  # those regexes, the consolidated summary silently degrades to
+  # "Attempt: –" and useless labels — this guard fails the workflow
+  # immediately so the regression is caught at PR time.
+  artifact-name-parser-guard:
+    timeout-minutes: 2
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run artifact-name parser unit tests
+        run: node .github/scripts/test-artifact-name-parser.mjs
+
+
+
 
   smoke:
     needs: aria-live-guard
