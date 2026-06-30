@@ -226,22 +226,16 @@ function Page() {
         </div>
       )}
 
-      {!loading && errorMsg && (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardContent className="pt-4 flex items-start gap-3 text-sm">
-            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-            <div className="flex-1">
-              <div className="font-medium text-destructive">Não foi possível carregar suas candidaturas.</div>
-              <div className="text-xs text-muted-foreground mt-1">{errorMsg}</div>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => query.refetch()}>
-              <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
+      {!loading && query.error && (
+        <InlineQueryError
+          error={query.error}
+          title="Não foi possível carregar suas candidaturas."
+          onRetry={() => query.refetch()}
+        />
       )}
 
-      {!loading && !errorMsg && (
+      {!loading && !query.error && (
+
       <div className="grid gap-2">
         {visible.map((r) => (
           <Card key={r.id}>
