@@ -236,7 +236,11 @@ jobs:
                 echo "<details><summary>Specs with recorded artifacts (${SPEC_COUNT})</summary>"
                 echo
                 while IFS= read -r t; do
-                  echo "- \`${t}\`"
+                  # Each spec links to the SAME shard+attempt artifact
+                  # (GitHub artifacts are zipped per upload — there is no
+                  # per-file public URL — so the artifact bundle is the
+                  # finest-grained debug link the platform exposes).
+                  echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"
                 done < /tmp/spec-titles-smoke.txt
                 echo
                 echo "</details>"
@@ -365,7 +369,7 @@ jobs:
                 echo
                 echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
                 echo
-                while IFS= read -r t; do echo "- \`${t}\`"; done < /tmp/spec-titles-targeted.txt
+                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"; done < /tmp/spec-titles-targeted.txt
                 echo
                 echo "</details>"
               fi
@@ -489,7 +493,7 @@ jobs:
                 echo
                 echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
                 echo
-                while IFS= read -r t; do echo "- \`${t}\`"; done < /tmp/spec-titles-full-${SHARD}-run1.txt
+                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle for shard ${SHARD}/4 (attempt ${ATTEMPT})"; done < /tmp/spec-titles-full-${SHARD}-run1.txt
                 echo
                 echo "</details>"
               fi
@@ -1137,6 +1141,10 @@ jobs:
       contents: read
     steps:
       - name: List Playwright artifacts and write consolidated summary
+        # Never fail the workflow because of a flaky `gh api` call or an
+        # empty-artifact run — the consolidated section is observability,
+        # not gating. Any error falls through to a fallback summary block.
+        continue-on-error: true
         uses: actions/github-script@v7
         with:
           script: |
@@ -1144,54 +1152,94 @@ jobs:
             const run_id = context.runId;
             const attempt = context.runAttempt;
             const retention = process.env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS || '14';
+            const jobResults = {
+              smoke: `${{ needs.smoke.result }}`,
+              targeted: `${{ needs.targeted.result }}`,
+              full: `${{ needs.full.result }}`,
+            };
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${run_id}/attempts/${attempt}`;
 
-            // List ALL artifacts produced by this workflow run, then keep
-            // only the Playwright ones (smoke / targeted / full shards /
-            // reruns). Filtering on the name prefix keeps the consolidated
-            // rerun report and unrelated artifacts out of this section.
-            const artifacts = await github.paginate(
-              github.rest.actions.listWorkflowRunArtifacts,
-              { owner, repo, run_id, per_page: 100 },
-            );
+            const writeFallback = async (reason, detail) => {
+              const out = [
+                `## 🧭 Playwright debug links — consolidated (attempt ${attempt})`,
+                '',
+                `⚠️ Could not build the consolidated artifact table: **${reason}**.`,
+                '',
+                `- Workflow status: smoke=\`${jobResults.smoke}\` · targeted=\`${jobResults.targeted}\` · full=\`${jobResults.full}\``,
+                `- Open the [run page](${runUrl}) and scroll to **Artifacts** to download trace/video bundles manually.`,
+                `- Artifact retention: **${retention} days** (auto-cleaned by GitHub).`,
+              ];
+              if (detail) {
+                out.push('', '<details><summary>Diagnostic</summary>', '', '```', String(detail).slice(0, 4000), '```', '', '</details>');
+              }
+              await core.summary.addRaw(out.join('\n')).write();
+            };
+
+            let artifacts;
+            try {
+              // List ALL artifacts produced by this workflow run, then keep
+              // only the Playwright ones. `paginate` retries on transient
+              // 5xx itself, but we still guard against hard failures (rate
+              // limit, network blip, permissions drift).
+              artifacts = await github.paginate(
+                github.rest.actions.listWorkflowRunArtifacts,
+                { owner, repo, run_id, per_page: 100 },
+              );
+            } catch (err) {
+              core.warning(`listWorkflowRunArtifacts failed: ${err.message}`);
+              await writeFallback('GitHub API call failed', err.stack || err.message);
+              return;
+            }
+
             const pwPrefixes = [
               'playwright-smoke-artifacts-',
               'playwright-artifacts-shard-',
               'playwright-rerun-shard-',
             ];
-            const matched = artifacts
+            const matched = (artifacts || [])
               .filter(a => pwPrefixes.some(p => a.name.startsWith(p)))
               .sort((a, b) => a.name.localeCompare(b.name));
 
-            const fmtBytes = n => {
-              if (!n) return '–';
-              const mb = n / (1024 * 1024);
-              return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(n / 1024).toFixed(0)} KB`;
-            };
-            const artifactUrl = id =>
-              `https://github.com/${owner}/${repo}/actions/runs/${run_id}/artifacts/${id}`;
-
-            const lines = [];
-            lines.push(`## 🧭 Playwright debug links — consolidated (attempt ${attempt})`);
-            lines.push('');
-            lines.push('All Playwright artifacts produced by this workflow run, in one place. Each link opens the artifact download page; the `.zip` inside is a Playwright trace bundle that you can drop into <https://trace.playwright.dev>.');
-            lines.push('');
-            lines.push(`- **Workflow status:** smoke=\`${{ needs.smoke.result }}\` · targeted=\`${{ needs.targeted.result }}\` · full=\`${{ needs.full.result }}\``);
-            lines.push(`- **Artifact retention:** ${retention} days (auto-cleaned by GitHub)`);
-            lines.push('');
-
             if (matched.length === 0) {
-              lines.push('⚠️ No Playwright artifacts were uploaded by this run — the failing job(s) likely crashed before tests executed. Check the per-job logs.');
-            } else {
-              lines.push('| Job / shard | Phase | Artifact | Size | Expires |');
-              lines.push('|---|---|---|---:|---|');
+              await writeFallback(
+                'no Playwright artifacts were uploaded by this run',
+                `Total artifacts seen: ${(artifacts || []).length}. The failing job(s) likely crashed before tests executed — check the per-job logs.`,
+              );
+              return;
+            }
+
+            try {
+              const fmtBytes = n => {
+                if (!n) return '–';
+                const mb = n / (1024 * 1024);
+                return mb >= 1 ? `${mb.toFixed(1)} MB` : `${(n / 1024).toFixed(0)} KB`;
+              };
+              const artifactUrl = id =>
+                `https://github.com/${owner}/${repo}/actions/runs/${run_id}/artifacts/${id}`;
+
+              const lines = [];
+              lines.push(`## 🧭 Playwright debug links — consolidated (attempt ${attempt})`);
+              lines.push('');
+              lines.push('All Playwright artifacts produced by this workflow run, in one place. Each link opens the artifact download page; the `.zip` inside is a Playwright trace bundle that you can drop into <https://trace.playwright.dev>.');
+              lines.push('');
+              lines.push(`- **Workflow status:** smoke=\`${jobResults.smoke}\` · targeted=\`${jobResults.targeted}\` · full=\`${jobResults.full}\``);
+              lines.push(`- **Artifact retention:** ${retention} days (auto-cleaned by GitHub)`);
+              lines.push('');
+              lines.push('| Job / shard | Phase | Attempt | Artifact | Size | Expires |');
+              lines.push('|---|---|---:|---|---:|---|');
+
               for (const a of matched) {
-                // Derive a human label from the artifact name. Examples:
-                //   playwright-smoke-artifacts-attempt-1               → smoke / run1
-                //   playwright-artifacts-shard-targeted-attempt-1-run1 → targeted / run1
-                //   playwright-artifacts-shard-3-attempt-2-run1        → full shard 3/4 / run1
-                //   playwright-rerun-shard-3-attempt-2-rerun           → full shard 3/4 / rerun
+                // Derive a human label + attempt number from the artifact
+                // name. Examples:
+                //   playwright-smoke-artifacts-attempt-1               → smoke / run1 / 1
+                //   playwright-artifacts-shard-targeted-attempt-1-run1 → targeted / run1 / 1
+                //   playwright-artifacts-shard-3-attempt-2-run1        → full shard 3/4 / run1 / 2
+                //   playwright-rerun-shard-3-attempt-2-rerun           → full shard 3/4 / rerun / 2
                 let label = a.name;
                 let phase = 'run1';
+                let attemptN = '–';
+                const attemptMatch = a.name.match(/-attempt-(\d+)(?:-|$)/);
+                if (attemptMatch) attemptN = attemptMatch[1];
                 if (a.name.startsWith('playwright-smoke-artifacts-')) {
                   label = 'smoke';
                 } else if (a.name.startsWith('playwright-artifacts-shard-targeted-')) {
@@ -1205,11 +1253,14 @@ jobs:
                   phase = 'rerun';
                 }
                 lines.push(
-                  `| ${label} | ${phase} | [\`${a.name}\`](${artifactUrl(a.id)}) | ${fmtBytes(a.size_in_bytes)} | ${a.expires_at ? a.expires_at.slice(0, 10) : '–'} |`,
+                  `| ${label} | ${phase} | ${attemptN} | [\`${a.name}\`](${artifactUrl(a.id)}) | ${fmtBytes(a.size_in_bytes)} | ${a.expires_at ? a.expires_at.slice(0, 10) : '–'} |`,
                 );
               }
               lines.push('');
-              lines.push('> 💡 Per-shard summaries above each job already list the failed spec titles. Open the matching artifact here to grab the trace/video for that spec.');
-            }
+              lines.push('> 💡 Per-shard summaries above each job already list the failed spec titles with direct links to the same artifact bundle. Open the matching artifact here to grab the trace/video for that spec.');
 
-            await core.summary.addRaw(lines.join('\n')).write();
+              await core.summary.addRaw(lines.join('\n')).write();
+            } catch (err) {
+              core.warning(`Rendering consolidated table failed: ${err.message}`);
+              await writeFallback('rendering the consolidated table threw', err.stack || err.message);
+            }
