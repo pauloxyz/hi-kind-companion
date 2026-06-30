@@ -15,6 +15,12 @@ env:
   E2E_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
   E2E_TEST_EMAIL: ${{ secrets.E2E_TEST_EMAIL }}
   E2E_TEST_PASSWORD: ${{ secrets.E2E_TEST_PASSWORD }}
+  # Single source of truth for how long Playwright artifacts (traces, videos,
+  # screenshots, HTML report) live in GitHub Actions storage. 14 days is long
+  # enough to triage a Monday failure reported the following Friday while
+  # short enough to keep the repo's artifact footprint bounded. GitHub
+  # auto-deletes artifacts past this window — no manual cleanup needed.
+  PLAYWRIGHT_ARTIFACT_RETENTION_DAYS: "14"
 
 jobs:
   # Cheap static guard that runs before any browser job: every e2e spec
