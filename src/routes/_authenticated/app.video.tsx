@@ -145,6 +145,7 @@ function ScriptPdf({
 function Page() {
   const genFn = useServerFn(generateVideoScript);
   const ttsFn = useServerFn(speakText);
+  const ytMetaFn = useServerFn(generateYoutubeMeta);
 
   const [scriptPt, setScriptPt] = useState("");
   const [scriptEn, setScriptEn] = useState("");
