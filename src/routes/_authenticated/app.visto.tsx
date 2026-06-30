@@ -317,6 +317,10 @@ function VistoPage() {
           }),
         })),
       };
+      const [{ pdf }, { VisaChecklistPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/VisaChecklistPdf"),
+      ]);
       const blob = await pdf(<VisaChecklistPdf data={pdfData} />).toBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
