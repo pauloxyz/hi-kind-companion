@@ -119,11 +119,11 @@ function Page() {
   }
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-bold">Follow-ups</h1>
-      <p className="text-sm text-muted-foreground">
-        Empregadores que receberam sua candidatura há ≥ 2 dias e ainda não responderam. Um lembrete educado costuma dobrar a taxa de resposta.
-      </p>
+    <div className="space-y-6 sm:space-y-8">
+      <PageHeader
+        title="Follow-ups"
+        description="Empregadores que receberam sua candidatura há ≥ 2 dias e ainda não responderam. Um lembrete educado costuma dobrar a taxa de resposta."
+      />
 
       {loading && (
         <div className="grid gap-2" aria-busy="true" aria-label="Carregando follow-ups">
