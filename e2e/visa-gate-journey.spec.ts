@@ -111,10 +111,17 @@ function journeyCard(page: Page) {
 
 async function readPhaseLabel(page: Page): Promise<string> {
   const card = journeyCard(page);
-  // Texto "Fase · X" só existe quando journeyDataReady=true.
-  const t = await card.locator("text=/^Fase\\s+·/").first().textContent();
-  return (t ?? "").trim();
+  // Lê o textContent do card e extrai "Fase · X". É mais resiliente do que
+  // tentar um selector `text=/^Fase/` no DOM, porque o slot da fase é um
+  // <div> dentro de outro <div> com text node "Olá!" no irmão — o regex
+  // âncora pode não casar no escopo certo.
+  return await card.evaluate((el) => {
+    const text = (el.textContent ?? "").replace(/\s+/g, " ").trim();
+    const m = text.match(/Fase\s+·\s+\S+/);
+    return m ? m[0] : "";
+  });
 }
+
 
 
 const VIEWPORTS = [
