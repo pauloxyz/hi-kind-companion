@@ -582,6 +582,8 @@ function Page() {
             </Button>
           </div>
 
+          <AiErrorBanner action="meta" onRetry={handleGenerateMeta} busy={genMeta} />
+
           {!hasScript && (
             <p className="text-xs text-amber-700 dark:text-amber-400">Gere o roteiro no Passo 1 primeiro.</p>
           )}
