@@ -165,7 +165,50 @@ else
   fail=$((fail + 1)); echo "  FAIL  empty TSV: unexpected side effects"
 fi
 
-echo
+# --- Fixture 9: JSON/CSV escaping for unsafe label characters --------
+cat > "$tmp/esc.tsv" <<EOF
+specE	1	1	0	0	1	4096	16384	ok	ok
+EOF
+env RUN_LABEL='full, "shard"=A\B' RUN_PHASE='re"run' RUN_ATTEMPT=1 \
+    AGGREGATE_OUT_JSON="$tmp/esc.json" AGGREGATE_OUT_CSV="$tmp/esc.csv" \
+    bash "$renderer" "$tmp/esc.tsv" "" "Esc" >/dev/null
+# JSON must round-trip cleanly — node should parse and return the
+# exact original strings (with escapes resolved back).
+if node -e '
+  const o = JSON.parse(require("fs").readFileSync("'"$tmp/esc.json"'", "utf8"));
+  if (o.label !== "full, \"shard\"=A\\B") throw new Error("bad label: " + o.label);
+  if (o.phase !== "re\"run")              throw new Error("bad phase: " + o.phase);
+' 2>/dev/null; then
+  pass=$((pass + 1)); echo "  ok    escape: JSON label + phase round-trip cleanly"
+else
+  fail=$((fail + 1)); echo "  FAIL  escape: JSON label/phase corruption"
+fi
+# CSV: the label has a comma + quotes so it MUST be wrapped in "...".
+csv_row="$(sed -n '2p' "$tmp/esc.csv")"
+if printf '%s' "$csv_row" | grep -Eq '^"full, ""shard""=A\\B","re""run",1,1,1,0,0,0,1,0,0,0,0,0,1024,4096$'; then
+  pass=$((pass + 1)); echo "  ok    escape: CSV quotes commas + doubles inner quotes"
+else
+  fail=$((fail + 1)); echo "  FAIL  escape: CSV row malformed: $csv_row"
+fi
+
+# --- Fixture 10: large ranking is SIGPIPE-safe under pipefail --------
+{
+  for i in $(seq 1 200); do
+    printf 'spec%03d\t0\t0\t0\t0\t1\t0\t0\tabsent\tabsent\n' "$i"
+  done
+} > "$tmp/big.tsv"
+if out="$(env TOP_PROBLEM_LIMIT=3 bash "$renderer" "$tmp/big.tsv" "" "Big" 2>&1)"; then
+  pass=$((pass + 1)); echo "  ok    sigpipe: large ranking renders cleanly under pipefail"
+else
+  fail=$((fail + 1)); echo "  FAIL  sigpipe: renderer aborted with: $out"
+fi
+ranking_rows="$(printf '%s\n' "${out:-}" | awk '/Top problem specs/{flag=1;next} /<details>/{flag=0} flag' | grep -c '^| `' || true)"
+if [ "$ranking_rows" = "3" ]; then
+  pass=$((pass + 1)); echo "  ok    sigpipe: TOP_PROBLEM_LIMIT honored over large input"
+else
+  fail=$((fail + 1)); echo "  FAIL  sigpipe: expected 3 ranking rows, got $ranking_rows"
+fi
+
 if [ "$fail" -gt 0 ]; then
   echo "FAILED: $fail assertion(s), $pass passed."
   exit 1
