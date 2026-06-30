@@ -122,6 +122,8 @@ ${expLines || "(no experience listed — use generic farm worker phrasing, but m
         video_script_en: en,
         video_script_blocks: blocks as never,
         video_script_generated_at: new Date().toISOString(),
+        // Script changed → previous YouTube metadata is stale.
+        video_youtube_meta: null as never,
       })
       .eq("owner_id", userId);
 
