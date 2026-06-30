@@ -20,6 +20,12 @@ export type AiErrorBannerProps = {
   onDismiss: () => void;
   /** True while the parent is re-running the action. */
   busy: boolean;
+  /**
+   * Fires exactly once at the waiting → ready transition with the epoch ms
+   * when the unlock happened. Parent stores this to compute `waitedPastUnlockMs`
+   * for the next retry click telemetry event.
+   */
+  onReady?: (readyAt: number) => void;
 };
 
 function bannerTitle(code: AiErrorInfo["code"]): string {
@@ -35,6 +41,7 @@ export const AiErrorBanner = memo(function AiErrorBanner({
   onRetry,
   onDismiss,
   busy,
+  onReady,
 }: AiErrorBannerProps) {
   const retryRef = useRef<HTMLButtonElement | null>(null);
   const wasWaitingRef = useRef(false);
@@ -51,11 +58,13 @@ export const AiErrorBanner = memo(function AiErrorBanner({
     if (waiting) { wasWaitingRef.current = true; return; }
     if (wasWaitingRef.current && readyAfterWait) {
       wasWaitingRef.current = false;
+      const readyAt = Date.now();
       track("ai_retry_ready", { action: error.action, code: error.code });
+      onReady?.(readyAt);
       // Defer to next frame so the button is enabled before focusing.
       requestAnimationFrame(() => retryRef.current?.focus());
     }
-  }, [waiting, readyAfterWait, error]);
+  }, [waiting, readyAfterWait, error, onReady]);
 
   if (!error) return null;
   const palette = blocked
