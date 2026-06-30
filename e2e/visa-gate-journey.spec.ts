@@ -111,15 +111,19 @@ function journeyCard(page: Page) {
 
 async function readPhaseLabel(page: Page): Promise<string> {
   const card = journeyCard(page);
-  // Lê o textContent do card e extrai "Fase · X". É mais resiliente do que
-  // tentar um selector `text=/^Fase/` no DOM, porque o slot da fase é um
-  // <div> dentro de outro <div> com text node "Olá!" no irmão — o regex
-  // âncora pode não casar no escopo certo.
-  return await card.evaluate((el) => {
-    const text = (el.textContent ?? "").replace(/\s+/g, " ").trim();
-    const m = text.match(/Fase\s+·\s+\S+/);
-    return m ? m[0] : "";
-  });
+  // Defensivo: durante transições de query (invalidação após click) o
+  // <Drawer> e a sidebar podem re-montar, deixando o elemento detached
+  // entre a resolução do locator e o `evaluate`. Capturamos o erro e
+  // devolvemos string vazia para `expect.poll` simplesmente tentar de novo.
+  try {
+    return await card.evaluate((el) => {
+      const text = (el.textContent ?? "").replace(/\s+/g, " ").trim();
+      const m = text.match(/Fase\s+·\s+\S+/);
+      return m ? m[0] : "";
+    });
+  } catch {
+    return "";
+  }
 }
 
 
