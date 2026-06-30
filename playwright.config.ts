@@ -24,11 +24,13 @@ export default defineConfig({
     headless: true,
     actionTimeout: 10_000,
     navigationTimeout: 20_000,
-    // Always capture artifacts on failure to make CI regressions (notably the
-    // shortcuts + aria-live specs) diagnosable without re-running locally.
+    // Always capture screenshots/trace/video on failure. The smoke job opts
+    // into recording even on green runs by setting `PW_RECORD_ALWAYS=1` so
+    // we always have a baseline to compare against when a regression lands;
+    // full shards stay on `retain-on-failure` to keep artifact size bounded.
     screenshot: { mode: "only-on-failure", fullPage: false },
-    trace: "retain-on-failure",
-    video: "retain-on-failure",
+    trace: process.env.PW_RECORD_ALWAYS === "1" ? "on" : "retain-on-failure",
+    video: process.env.PW_RECORD_ALWAYS === "1" ? "on" : "retain-on-failure",
   },
   projects: [
     {
