@@ -91,3 +91,12 @@ Já está com `defaultPreloadStaleTime: 0` (correto). Vou afinar:
 ---
 
 Posso seguir nessa ordem (banco → fetching → bundle → hidratação)? Se quiser pular alguma fase ou priorizar diferente, me diga antes de eu começar.
+---
+
+## Fase 2 aplicada (parcial, seguro)
+
+- `app.vagas`: o `load()` manual (7 queries em paralelo via `useEffect`) virou `useQuery(["vagas-bundle"], …, staleTime: 60s)`. Voltar à página agora usa cache → sem refetch e sem flicker dentro de 60s. Mutações continuam fazendo `invalidateQueries(["vagas-bundle"])` via `load()`.
+- `app.index` (dashboard): `staleTime` 30s → 120s, `gcTime` 5min. Reduz refetches em troca de tela inicial → menus → tela inicial.
+
+### Adiado (exige refactor por rota, não single-shot)
+Migrar todas as rotas autenticadas para `loader: ensureQueryData` + `useSuspenseQuery` exige reescrever o modelo de estado de cada página (vagas tem ~20 `useState` que mutam após o fetch). Fica para passadas focadas, uma rota por vez, quando houver sintoma específico de lentidão.

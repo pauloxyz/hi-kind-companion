@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,7 @@ function QualityMedal({ q }: { q: JobQuality }) {
 
 function Page() {
   const { confirm } = useActionFeedback();
+  const qc = useQueryClient();
   const [jobs, setJobs] = useState<Job[]>([]);
   type ProfileRow = Database["public"]["Tables"]["my_profile"]["Row"];
   type ResumeRow = Database["public"]["Tables"]["resumes"]["Row"];
@@ -115,7 +117,6 @@ function Page() {
   const [resume, setResume] = useState<ResumeRow | null>(null);
   const [suspiciousEmployers, setSuspiciousEmployers] = useState<Set<string>>(new Set());
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
-  const [loading, setLoading] = useState(true);
   const [importing, setImporting] = useState<null | "daily" | "backfill">(null);
   const [stateFilter, setStateFilter] = useState("");
   const [search, setSearch] = useState("");
@@ -152,27 +153,57 @@ function Page() {
   const recordFn = useServerFn(recordApplication);
   const sendFn = useServerFn(sendApplicationEmail);
 
+  // Single bundled fetch with cache. Cached for 60s → instant when user
+  // returns to /app/vagas from a detail view, no flicker.
+  const bundle = useQuery({
+    queryKey: ["vagas-bundle"],
+    queryFn: async () => {
+      const [jobsRes, appsRes, profRes, resRes, empRes, savedRes, alertsRes] = await Promise.all([
+        supabase.from("jobs").select("*").order("posted_date", { ascending: false, nullsFirst: false }).limit(500),
+        supabase.from("applications").select("job_id"),
+        supabase.from("my_profile").select("*").maybeSingle(),
+        supabase.from("resumes").select("*").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
+        supabase.from("employers").select("employer_name").eq("is_flagged_suspicious", true),
+        supabase.from("saved_jobs").select("job_id"),
+        supabase.from("job_alerts").select("*").order("created_at", { ascending: false }),
+      ]);
+      if (jobsRes.error) throw new Error(jobsRes.error.message);
+      return {
+        jobs: (jobsRes.data ?? []) as Job[],
+        applied: (appsRes.data ?? []).map((a) => a.job_id).filter(Boolean) as string[],
+        profile: profRes.data,
+        resume: resRes.data,
+        suspicious: (empRes.data ?? []).map((e) => e.employer_name),
+        saved: (savedRes.data ?? []).map((s) => s.job_id).filter(Boolean) as string[],
+        alerts: (alertsRes.data ?? []) as JobAlert[],
+      };
+    },
+    staleTime: 60_000,
+  });
+  const loading = bundle.isPending;
+
+  // Hydrate local state from query payload. We keep local state so existing
+  // optimistic mutation code (toggleSaved, applied set, alerts CRUD) stays
+  // intact — only the initial fetch path changes.
+  useEffect(() => {
+    if (!bundle.data) return;
+    setJobs(bundle.data.jobs);
+    setAppliedJobIds(new Set(bundle.data.applied));
+    setProfile(bundle.data.profile);
+    setResume(bundle.data.resume);
+    setSuspiciousEmployers(new Set(bundle.data.suspicious));
+    setSavedJobIds(new Set(bundle.data.saved));
+    setAlerts(bundle.data.alerts);
+  }, [bundle.data]);
+
+  useEffect(() => {
+    if (bundle.error) toast.error("Erro ao carregar vagas: " + (bundle.error as Error).message);
+  }, [bundle.error]);
+
   async function load() {
-    setLoading(true);
-    const [jobsRes, appsRes, profRes, resRes, empRes, savedRes, alertsRes] = await Promise.all([
-      supabase.from("jobs").select("*").order("posted_date", { ascending: false, nullsFirst: false }).limit(500),
-      supabase.from("applications").select("job_id"),
-      supabase.from("my_profile").select("*").maybeSingle(),
-      supabase.from("resumes").select("*").order("updated_at", { ascending: false }).limit(1).maybeSingle(),
-      supabase.from("employers").select("employer_name").eq("is_flagged_suspicious", true),
-      supabase.from("saved_jobs").select("job_id"),
-      supabase.from("job_alerts").select("*").order("created_at", { ascending: false }),
-    ]);
-    if (jobsRes.error) toast.error("Erro ao carregar vagas: " + jobsRes.error.message);
-    setJobs(jobsRes.data ?? []);
-    setAppliedJobIds(new Set((appsRes.data ?? []).map((a) => a.job_id).filter(Boolean) as string[]));
-    setProfile(profRes.data);
-    setResume(resRes.data);
-    setSuspiciousEmployers(new Set((empRes.data ?? []).map((e) => e.employer_name)));
-    setSavedJobIds(new Set((savedRes.data ?? []).map((s) => s.job_id).filter(Boolean) as string[]));
-    setAlerts((alertsRes.data ?? []) as JobAlert[]);
-    setLoading(false);
+    await qc.invalidateQueries({ queryKey: ["vagas-bundle"] });
   }
+
 
   async function toggleSaved(jobId: string) {
     const isSaved = savedJobIds.has(jobId);
@@ -207,8 +238,6 @@ function Page() {
   }
 
 
-
-  useEffect(() => { void load(); }, []);
 
   async function runImport(daysBack: number, label: "daily" | "backfill") {
     setImporting(label);
