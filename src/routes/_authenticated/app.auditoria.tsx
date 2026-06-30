@@ -250,6 +250,10 @@ function AuditPanel() {
     }
     setExporting(true);
     try {
+      const [{ pdf }, { SecurityAuditPdf }] = await Promise.all([
+        import("@react-pdf/renderer"),
+        import("@/components/SecurityAuditPdf"),
+      ]);
       const blob = await pdf(
         <SecurityAuditPdf
           stats={stats.data}
