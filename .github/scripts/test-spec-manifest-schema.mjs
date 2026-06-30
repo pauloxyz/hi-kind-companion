@@ -137,6 +137,7 @@ function mkSpec(dir, slug, { trace, video, png } = {}) {
   console.log("scenario 2: one healthy spec + report present");
   validateShape(data, TOP_FIELDS, "s2.top");
   check(data.has_report === 1,         "s2: has_report === 1");
+  check(data.report_reason === "ok",   "s2: report_reason === ok");
   check(data.attempt === 7,            "s2: attempt propagated from env");
   check(data.count === 1,              "s2: count === 1");
   check(data.specs.length === 1,       "s2: specs array length 1");
