@@ -948,6 +948,244 @@ for (const vp of VIEWPORTS) {
   });
 }
 
+/* ----------------------------------------------------------------------- */
+/* 16) FOCO: foco permanece no checkbox DS-160 durante tentativa de        */
+/*     progressão e pode ser re-aplicado após reload.                      */
+/* ----------------------------------------------------------------------- */
+
+test.describe("Visa gate ↔ Jornada — foco persistente", () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  let session: E2ESession;
+
+  test.beforeEach(async ({ page, request }) => {
+    session = await ensureSignedIn(page);
+    await resetState(request, session);
+    const profileUrl = `${SUPABASE_URL}/rest/v1/my_profile?owner_id=eq.${session.session.user.id}`;
+    await request.patch(profileUrl, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${session.session.access_token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      data: { onboarding_completed_at: new Date().toISOString() },
+    });
+    await page.evaluate(() => window.localStorage.setItem("vaiprala_tour_done_v1", "1"));
+  });
+
+  test.afterEach(async ({ request }) => {
+    if (session) await resetState(request, session);
+  });
+
+  test("foco fica no checkbox DS-160 ao tentar progredir e pode voltar após reload", async ({
+    page,
+  }) => {
+    await gotoVisto(page);
+
+    const ds160 = rowByStepKey(page, "ds160");
+    const checkbox = ds160.getByRole("checkbox", { name: /Marcar etapa:/i });
+    const banner = ds160.locator('[id^="gate-"]');
+
+    await expect(banner).toBeVisible();
+    await checkbox.focus();
+
+    // Confirma que o foco está realmente no checkbox bloqueado.
+    const isFocusedBefore = await checkbox.evaluate((el) => el === document.activeElement);
+    expect(isFocusedBefore, "foco precisa começar no checkbox DS-160").toBe(true);
+
+    // Tentativa de progressão via teclado.
+    await page.keyboard.press("Enter").catch(() => {});
+    await page.keyboard.press("Space").catch(() => {});
+    await page.waitForTimeout(200);
+
+    // Foco continua no checkbox (não pulou para outro elemento) — o banner
+    // segue como descrição via aria-describedby, sem roubar o foco.
+    const stillFocused = await checkbox.evaluate((el) => el === document.activeElement);
+    expect(stillFocused, "foco deve permanecer no checkbox bloqueado").toBe(true);
+    await expect(checkbox).not.toBeChecked();
+    await expect(banner).toBeVisible();
+
+    // Reload — foco do navegador é perdido (comportamento esperado), mas a
+    // estrutura para devolver o foco precisa continuar válida: o checkbox
+    // resolve, é focável e a relação aria-describedby aponta para o banner.
+    await page.reload({ waitUntil: "commit" });
+    await expect(page.getByTestId("app-main")).toBeVisible({ timeout: 15_000 });
+
+    const ds160After = rowByStepKey(page, "ds160");
+    const checkboxAfter = ds160After.getByRole("checkbox", { name: /Marcar etapa:/i });
+    const bannerAfter = ds160After.locator('[id^="gate-"]');
+    await expect(bannerAfter).toBeVisible();
+    await expect(checkboxAfter).toBeDisabled();
+
+    // Re-focar o checkbox funciona (não está com tabindex=-1 nem oculto).
+    await checkboxAfter.focus();
+    const refocused = await checkboxAfter.evaluate((el) => el === document.activeElement);
+    expect(refocused, "checkbox deve ser focável de novo após reload").toBe(true);
+
+    // E aria-describedby continua apontando para o banner com o mesmo id.
+    const bannerId = await bannerAfter.getAttribute("id");
+    await expect(checkboxAfter).toHaveAttribute("aria-describedby", bannerId!);
+  });
+});
+
+/* ----------------------------------------------------------------------- */
+/* 17) MOBILE: Tab/Enter no checklist com gate ativo não avança a Jornada  */
+/* ----------------------------------------------------------------------- */
+
+test.describe("Visa gate ↔ Jornada — teclado em mobile", () => {
+  test.use({ viewport: { width: 390, height: 844 } });
+
+  let session: E2ESession;
+
+  test.beforeEach(async ({ page, request }) => {
+    session = await ensureSignedIn(page);
+    await resetState(request, session);
+    const profileUrl = `${SUPABASE_URL}/rest/v1/my_profile?owner_id=eq.${session.session.user.id}`;
+    await request.patch(profileUrl, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${session.session.access_token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      data: { onboarding_completed_at: new Date().toISOString() },
+    });
+    await page.evaluate(() => window.localStorage.setItem("vaiprala_tour_done_v1", "1"));
+  });
+
+  test.afterEach(async ({ request }) => {
+    if (session) await resetState(request, session);
+  });
+
+  test("Tab+Enter em mobile não avança a Jornada com gateBlocked ativo", async ({ page }) => {
+    await gotoVisto(page);
+
+    const ds160 = rowByStepKey(page, "ds160");
+    const checkbox = ds160.getByRole("checkbox", { name: /Marcar etapa:/i });
+
+    // Lê a fase inicial pelo drawer (mobile esconde o card da Jornada).
+    await page.getByTestId("drawer-trigger").click();
+    await expect(page.locator('[role="dialog"]')).toBeVisible();
+    const phaseBefore = await readPhaseLabel(page);
+    expect(phaseBefore).toMatch(/Contrato/i);
+    await page.keyboard.press("Escape");
+
+    // Foca o checkbox bloqueado e tenta avançar via teclado.
+    await checkbox.focus();
+    await page.keyboard.press("Enter").catch(() => {});
+    await page.keyboard.press("Space").catch(() => {});
+    await page.waitForTimeout(250);
+
+    // UI continua bloqueada — nada mudou.
+    await expect(checkbox).not.toBeChecked();
+    await expect(ds160).toHaveAttribute("data-gate-blocked", "true");
+    await expect(ds160.locator('[id^="gate-"]')).toBeVisible();
+
+    // Jornada no drawer NÃO transitou.
+    await page.getByTestId("drawer-trigger").click();
+    await expect(page.locator('[role="dialog"]')).toBeVisible();
+    const phaseAfter = await readPhaseLabel(page);
+    expect(phaseAfter, `fase mobile: ${phaseAfter}`).toMatch(/Contrato/i);
+    expect(phaseAfter).not.toMatch(/DS-?160/i);
+  });
+});
+
+/* ----------------------------------------------------------------------- */
+/* 18) MULTI-ABA: drift em uma aba propaga banner+disabled na outra        */
+/* ----------------------------------------------------------------------- */
+
+test.describe("Visa gate ↔ Jornada — sincronização entre abas", () => {
+  test.use({ viewport: { width: 1280, height: 900 } });
+
+  let session: E2ESession;
+
+  test.beforeEach(async ({ page, request }) => {
+    session = await ensureSignedIn(page);
+    await resetState(request, session);
+    const profileUrl = `${SUPABASE_URL}/rest/v1/my_profile?owner_id=eq.${session.session.user.id}`;
+    await request.patch(profileUrl, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${session.session.access_token}`,
+        "Content-Type": "application/json",
+        Prefer: "return=minimal",
+      },
+      data: { onboarding_completed_at: new Date().toISOString() },
+    });
+    await page.evaluate(() => window.localStorage.setItem("vaiprala_tour_done_v1", "1"));
+  });
+
+  test.afterEach(async ({ request }) => {
+    if (session) await resetState(request, session);
+  });
+
+  test("drift em uma aba atualiza banner e CTAs disabled na outra após refetch", async ({
+    page,
+    context,
+    request,
+  }) => {
+    // Aba A: estado limpo, contrato ASSINADO → DS-160 habilitado.
+    await patchStep(request, session.session.access_token, "hired_by_employer", true);
+    await gotoVisto(page);
+
+    const ds160A = rowByStepKey(page, "ds160");
+    await expect(ds160A).not.toHaveAttribute("data-gate-blocked", "true");
+    const checkboxA = ds160A.getByRole("checkbox", { name: /Marcar etapa:/i });
+    await expect(checkboxA).toBeEnabled();
+
+    // Aba B: nova page no mesmo contexto (compartilha a sessão Supabase
+    // via localStorage). Carrega /app/visto com o estado consistente.
+    const pageB = await context.newPage();
+    await pageB.evaluate(() =>
+      window.localStorage.setItem("vaiprala_tour_done_v1", "1"),
+    ).catch(() => {});
+    await pageB.goto("/app/visto", { waitUntil: "commit" });
+    await expect(pageB.getByTestId("app-main")).toBeVisible({ timeout: 15_000 });
+    await expect(pageB.locator('[id^="step-"]').first()).toBeVisible({ timeout: 10_000 });
+
+    const ds160B = rowByStepKey(pageB, "ds160");
+    await expect(ds160B).not.toHaveAttribute("data-gate-blocked", "true");
+
+    // Provoca o drift via PATCH (simula correção externa / outra sessão):
+    // contrato volta a false. Aba A está focada; aba B fica em background.
+    await patchStep(request, session.session.access_token, "hired_by_employer", false);
+
+    // Trazer aba B para o primeiro plano dispara o `refetchOnWindowFocus`
+    // default do TanStack Query — em alguns ambientes `bringToFront` não
+    // emite `focus`/`visibilitychange` consistentemente, então também
+    // disparamos os dois eventos manualmente como fallback determinístico.
+    await pageB.bringToFront();
+    await pageB.evaluate(() => {
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+
+    // Aba B precisa convergir para o estado bloqueado: banner visível,
+    // checkbox disabled, data-gate-blocked="true".
+    await expect(ds160B).toHaveAttribute("data-gate-blocked", "true", { timeout: 10_000 });
+    const bannerB = ds160B.locator('[id^="gate-"]');
+    await expect(bannerB).toBeVisible();
+    await expect(bannerB).toContainText(/Oferta de trabalho aceita/i);
+    await expect(
+      ds160B.getByRole("checkbox", { name: /Marcar etapa:/i }),
+    ).toBeDisabled();
+
+    // Sanity check: aba A, ao voltar para o primeiro plano, também
+    // refletirá o drift — consistência cross-tab nas duas direções.
+    await page.bringToFront();
+    await page.evaluate(() => {
+      window.dispatchEvent(new Event("focus"));
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    await expect(ds160A).toHaveAttribute("data-gate-blocked", "true", { timeout: 10_000 });
+    await expect(ds160A.locator('[id^="gate-"]')).toBeVisible();
+
+    await pageB.close();
+  });
+});
+
+
 
 
 
