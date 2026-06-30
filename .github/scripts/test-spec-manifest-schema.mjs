@@ -113,10 +113,12 @@ function mkSpec(dir, slug, { trace, video, png } = {}) {
   const { data } = runCollect(work, { GITHUB_RUN_ATTEMPT: "1" });
   console.log("scenario 1: empty test-results");
   validateShape(data, TOP_FIELDS, "s1.top");
-  check(data.schema_version === 2,     "s1: schema_version === 2");
+  check(data.schema_version === 3,     "s1: schema_version === 3");
   check(data.count === 0,              "s1: count === 0");
   check(data.specs.length === 0,       "s1: specs array empty");
   check(data.has_report === 0,         "s1: has_report === 0 (no report dir)");
+  check(data.report_reason === "absent", "s1: report_reason === absent");
+  check(data.min_report_index_bytes === 1024, "s1: min_report_index_bytes default");
   rmSync(work, { recursive: true, force: true });
 }
 
