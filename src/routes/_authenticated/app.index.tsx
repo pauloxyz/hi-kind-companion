@@ -339,11 +339,11 @@ function Dashboard() {
               <div className="grid h-11 w-11 sm:h-12 sm:w-12 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground shadow-elevated">
                 <action.icon className="h-5 w-5" aria-hidden />
               </div>
-              <div className="min-w-0">
-                <h2 id="dashboard-focus-title" className="text-lg sm:text-xl font-bold leading-tight text-balance">
+              <div className="min-w-0 space-y-1.5">
+                <h2 id="dashboard-focus-title" className="font-display text-xl sm:text-2xl font-semibold leading-[1.15] tracking-tight text-balance">
                   {action.title}
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground leading-relaxed">{action.why}</p>
+                <p className="text-sm sm:text-[0.95rem] text-muted-foreground leading-relaxed">{action.why}</p>
               </div>
             </div>
 
