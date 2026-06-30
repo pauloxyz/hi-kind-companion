@@ -270,4 +270,5 @@ export const checkApplicationReplies = createServerFn({ method: "POST" })
     }
 
     return { checked: apps.length, newReplies };
-  });
+  }));
+
