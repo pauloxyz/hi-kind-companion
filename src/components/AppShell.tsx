@@ -357,12 +357,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
               className="h-10 w-10 shrink-0 rounded-xl object-contain bg-sidebar-primary/10 p-1 ring-1 ring-sidebar-border shadow-lg shadow-black/20"
             />
             <div className="min-w-0">
-              <h1 className="font-bold text-base leading-tight tracking-tight text-sidebar-foreground uppercase italic truncate">
+              <p className="font-display text-[11px] font-bold tracking-[0.18em] text-sidebar-foreground/70 uppercase leading-none">
+                Vai<span className="text-sidebar-primary">PraLá</span>
+              </p>
+              <h1 className="font-bold text-sm leading-tight tracking-tight text-sidebar-foreground uppercase italic truncate mt-1">
                 Jornada <span className="text-sidebar-primary not-italic">H-2A</span>
               </h1>
-              <p className="text-[10px] text-sidebar-primary/80 font-bold tracking-widest leading-none mt-0.5">
-                TRABALHO RURAL
-              </p>
             </div>
           </Link>
           <button
