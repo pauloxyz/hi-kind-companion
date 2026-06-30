@@ -13,6 +13,7 @@ import {
   ArrowRight, AlertCircle, CheckCircle2, FileText, Send,
   Stamp, Mic, PartyPopper, Sparkles, RefreshCw,
 } from "lucide-react";
+import { InlineQueryError } from "@/components/query-state";
 
 export const Route = createFileRoute("/_authenticated/app/")({ component: Dashboard });
 
@@ -262,19 +263,13 @@ function Dashboard() {
       )}
 
       {!stats.isPending && stats.error && (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardContent className="pt-4 flex items-start gap-3 text-sm">
-            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-            <div className="flex-1">
-              <div className="font-medium text-destructive">Não foi possível carregar seu painel.</div>
-              <div className="text-xs text-muted-foreground mt-1">{(stats.error as Error).message}</div>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => stats.refetch()}>
-              <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
+        <InlineQueryError
+          error={stats.error}
+          title="Não foi possível carregar seu painel."
+          onRetry={() => stats.refetch()}
+        />
       )}
+
 
       {(stats.data?.followupsDue ?? 0) > 0 && (
         <Card className="border-warning/40 bg-warning/5">

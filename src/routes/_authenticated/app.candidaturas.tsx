@@ -10,6 +10,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Mail, Calendar, Download, RefreshCw, Loader2, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { checkApplicationReplies } from "@/lib/applications.functions";
+import { InlineQueryError } from "@/components/query-state";
+import { toastError } from "@/lib/toast-error";
 
 export const Route = createFileRoute("/_authenticated/app/candidaturas")({ component: Page });
 
@@ -84,7 +86,7 @@ function Page() {
 
   const rows = query.data ?? [];
   const loading = query.isPending;
-  const errorMsg = query.error ? (query.error as Error).message : null;
+
 
   async function loadRows() {
     await qc.invalidateQueries({ queryKey: ["applications", "list"] });
@@ -124,7 +126,7 @@ function Page() {
   async function markResponded(id: string) {
     const nowIso = new Date().toISOString();
     const { error } = await supabase.from("applications").update({ responded_at: nowIso, status: "responded" }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toastError(error, { title: "Falha ao atualizar" }); return; }
     updateLocal(id, { responded_at: nowIso, status: "responded" });
   }
 
@@ -134,7 +136,7 @@ function Page() {
     const patch: { status: string; responded_at?: string } = { status };
     if (!current?.responded_at) patch.responded_at = nowIso;
     const { error } = await supabase.from("applications").update(patch as never).eq("id", id);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toastError(error, { title: "Falha ao atualizar status" }); return; }
     updateLocal(id, patch as Partial<Row>);
     toast.success("Status atualizado");
   }
@@ -151,7 +153,7 @@ function Page() {
         toast.message(`Verificado ${r.checked} candidatura(s) — nenhuma resposta nova ainda.`);
       }
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao verificar respostas");
+      toastError(e, { title: "Erro ao verificar respostas" });
     } finally { setChecking(false); }
   }
 
@@ -226,22 +228,16 @@ function Page() {
         </div>
       )}
 
-      {!loading && errorMsg && (
-        <Card className="border-destructive/40 bg-destructive/5">
-          <CardContent className="pt-4 flex items-start gap-3 text-sm">
-            <AlertCircle className="h-5 w-5 text-destructive shrink-0" />
-            <div className="flex-1">
-              <div className="font-medium text-destructive">Não foi possível carregar suas candidaturas.</div>
-              <div className="text-xs text-muted-foreground mt-1">{errorMsg}</div>
-            </div>
-            <Button size="sm" variant="outline" onClick={() => query.refetch()}>
-              <RefreshCw className="h-3 w-3 mr-1" /> Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
+      {!loading && query.error && (
+        <InlineQueryError
+          error={query.error}
+          title="Não foi possível carregar suas candidaturas."
+          onRetry={() => query.refetch()}
+        />
       )}
 
-      {!loading && !errorMsg && (
+      {!loading && !query.error && (
+
       <div className="grid gap-2">
         {visible.map((r) => (
           <Card key={r.id}>

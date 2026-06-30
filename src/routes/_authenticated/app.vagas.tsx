@@ -24,6 +24,8 @@ import { useActionFeedback } from "@/components/ActionFeedback";
 import { matchScore, detectFraud, jobQuality, type JobQuality } from "@/lib/score";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Database } from "@/integrations/supabase/types";
+import { InlineQueryError } from "@/components/query-state";
+import { toastError } from "@/lib/toast-error";
 
 type Job = Database["public"]["Tables"]["jobs"]["Row"];
 
@@ -197,8 +199,9 @@ function Page() {
   }, [bundle.data]);
 
   useEffect(() => {
-    if (bundle.error) toast.error("Erro ao carregar vagas: " + (bundle.error as Error).message);
+    if (bundle.error) toastError(bundle.error, { title: "Erro ao carregar vagas" });
   }, [bundle.error]);
+
 
   async function load() {
     await qc.invalidateQueries({ queryKey: ["vagas-bundle"] });
@@ -245,7 +248,7 @@ function Page() {
       const result = await importFn({ data: { daysBack } });
       toast.success(`Importadas ${result.imported} vagas`);
       await load();
-    } catch (e) { toast.error("Falha ao importar: " + (e instanceof Error ? e.message : String(e))); }
+    } catch (e) { toastError(e, { title: "Falha ao importar vagas" }); }
     finally { setImporting(null); }
   }
 
@@ -588,6 +591,13 @@ function Page() {
       </div>
 
       <div className="grid gap-3">
+        {!loading && bundle.error && (
+          <InlineQueryError
+            error={bundle.error}
+            title="Não foi possível carregar as vagas."
+            onRetry={() => bundle.refetch()}
+          />
+        )}
         {loading && (
           <>
             {[0, 1, 2].map((i) => (

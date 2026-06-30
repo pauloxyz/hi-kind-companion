@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Sparkles, Plus, Trash2, Download, Save, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { toastError } from "@/lib/toast-error";
 import { supabase } from "@/integrations/supabase/client";
 import { translateToEnglish } from "@/lib/translate.functions";
 import { importResumeFromPdf } from "@/lib/resume-import.functions";
@@ -201,7 +202,7 @@ function Page() {
       }
       toast.success("Currículo importado! Revise antes de salvar.");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao importar");
+      toastError(e, { title: "Erro ao importar" });
     } finally {
       setImporting(false);
     }
@@ -245,7 +246,7 @@ function Page() {
       );
       toast.success("Traduzido para inglês ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro");
+      toastError(e);
     } finally {
       setTranslating(false);
     }
@@ -261,7 +262,7 @@ function Page() {
       setExperiences((prev) => prev.map((e, idx) => (idx === i ? { ...e, job_title_en: en } : e)));
       toast.success("Cargo traduzido ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao traduzir");
+      toastError(e, { title: "Erro ao traduzir" });
     }
   }
 
@@ -342,7 +343,7 @@ function Page() {
 
       toast.success("Currículo salvo ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro ao salvar");
+      toastError(e, { title: "Erro ao salvar" });
     } finally {
       setSaving(false);
     }
@@ -414,7 +415,7 @@ function Page() {
       URL.revokeObjectURL(url);
       toast.success("PDF gerado ✓");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro no PDF");
+      toastError(e, { title: "Erro ao gerar PDF" });
     } finally {
       setGeneratingPdf(false);
     }
