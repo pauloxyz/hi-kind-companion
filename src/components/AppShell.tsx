@@ -376,52 +376,50 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </button>
         </div>
 
-        {/* Journey Progress Card */}
-        <div className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-4 mb-2">
-          <div className="flex items-center gap-3 mb-3">
+        {/* Journey Progress Card — densificado: avatar + nome/fase + barra numa só pilha */}
+        <div className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-3 mb-2 space-y-2.5">
+          <div className="flex items-center gap-2.5">
             <div className="relative shrink-0">
               {photoUrl ? (
                 <img
                   src={photoUrl}
                   alt={fullName ? `Foto de ${fullName}` : "Foto do perfil"}
-                  className="w-10 h-10 rounded-full border-2 border-sidebar-primary object-cover"
+                  className="w-9 h-9 rounded-full ring-2 ring-sidebar-primary/60 ring-offset-2 ring-offset-sidebar-accent object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full border-2 border-sidebar-primary bg-sidebar flex items-center justify-center text-sidebar-primary text-xs font-bold">
+                <div className="w-9 h-9 rounded-full ring-2 ring-sidebar-primary/60 ring-offset-2 ring-offset-sidebar-accent bg-sidebar flex items-center justify-center text-sidebar-primary text-xs font-bold">
                   {initials}
                 </div>
               )}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-success border-2 border-sidebar rounded-full" aria-hidden />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-success ring-2 ring-sidebar-accent rounded-full" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-sidebar-foreground truncate">
+              <div className="text-sm font-semibold text-sidebar-foreground truncate leading-tight">
                 {fullName || "Olá!"}
               </div>
-              <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-tighter">
-                Fase: {currentStage}
+              <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-wider leading-tight mt-0.5">
+                Fase · {currentStage}
               </div>
             </div>
+            <span className="text-[11px] font-bold tabular-nums text-sidebar-primary shrink-0">
+              {progressPct}%
+            </span>
           </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px] font-bold">
-              <span className="text-sidebar-foreground/60 uppercase tracking-tighter">
-                Progresso · {doneCount}/{stages.length}
-              </span>
-              <span className="text-sidebar-primary">{progressPct}%</span>
-            </div>
+          <div
+            className="h-1.5 w-full bg-sidebar rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Progresso da jornada H-2A: ${progressPct}%, fase atual ${currentStage}, ${doneCount} de ${stages.length} etapas`}
+          >
             <div
-              className="h-1.5 w-full bg-sidebar rounded-full overflow-hidden"
-              role="progressbar"
-              aria-valuenow={progressPct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`Progresso da jornada H-2A: ${progressPct}%, fase atual ${currentStage}`}
-            >
-              <div
-                className="h-full bg-sidebar-primary shadow-[0_0_10px_rgba(181,109,45,0.4)] transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+              className="h-full bg-sidebar-primary shadow-[0_0_10px_color-mix(in_oklab,var(--sidebar-primary)_45%,transparent)] transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50 tabular-nums">
+            {doneCount}/{stages.length} etapas
           </div>
         </div>
       </div>
