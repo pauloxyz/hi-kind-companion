@@ -20,12 +20,16 @@ export type PublicProfilePayload = {
     languages: string[] | null;
     has_prior_h2_experience: boolean | null;
     phone: string | null;
+    /** YouTube URL (unlisted recomendado) — embed na página pública. */
+    youtube_video_url: string | null;
   };
   experiences: PublicExperience[];
   skills: PublicSkill[];
   media: PublicMedia[];
+  /** Fallback de vídeo gravado no app (bucket privado intro-videos). Preferir YouTube quando ambos existirem. */
   video: { id: string; url: string } | null;
 } | null;
+
 
 export const getPublicProfileBySlug = createServerFn({ method: "GET" })
   .inputValidator((d: { slug: string }) => d)
@@ -33,7 +37,7 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
     const sb = publicClient();
     const { data: profile } = await sb
       .from("public_profiles" as never)
-      .select("owner_id, full_name, country, public_headline, languages, has_prior_h2_experience")
+      .select("owner_id, full_name, country, public_headline, languages, has_prior_h2_experience, youtube_video_url")
       .eq("public_slug", data.slug)
       .maybeSingle<{
         owner_id: string;
@@ -42,8 +46,10 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
         public_headline: string | null;
         languages: string[] | null;
         has_prior_h2_experience: boolean | null;
+        youtube_video_url: string | null;
       }>();
     if (!profile) return null;
+
     const { data: phoneRow } = await (sb.rpc as unknown as (fn: string, args: Record<string, unknown>) => Promise<{ data: string | null }>)("get_public_profile_whatsapp", { _slug: data.slug });
     const phone = (typeof phoneRow === "string" ? phoneRow : null) as string | null;
 
@@ -90,7 +96,9 @@ export const getPublicProfileBySlug = createServerFn({ method: "GET" })
         languages: profile.languages,
         has_prior_h2_experience: profile.has_prior_h2_experience,
         phone,
+        youtube_video_url: profile.youtube_video_url,
       },
+
       experiences,
       skills: skills.data ?? [],
       media,
