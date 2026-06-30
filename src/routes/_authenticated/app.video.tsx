@@ -88,7 +88,7 @@ function Page() {
     void (async () => {
       const { data: prof } = await supabase
         .from("my_profile")
-        .select("full_name, youtube_video_url, video_script_pt, video_script_en, video_script_blocks")
+        .select("full_name, youtube_video_url, video_script_pt, video_script_en, video_script_blocks, video_youtube_meta")
         .maybeSingle();
       if (prof) {
         setName(prof.full_name ?? "");
@@ -98,6 +98,12 @@ function Page() {
         if (Array.isArray(stored) && stored.length > 0) setBlocks(stored as unknown as ScriptBlock[]);
         setYoutubeUrl(prof.youtube_video_url ?? "");
         if (prof.youtube_video_url) setNormalizedUrl(normalizeYouTubeUrl(prof.youtube_video_url));
+        // Persisted meta (server) wins over sessionStorage cache
+        const savedMeta = prof.video_youtube_meta as YoutubeMeta | null;
+        if (savedMeta && typeof savedMeta === "object" && "title" in savedMeta) {
+          setYtMeta(savedMeta);
+          try { sessionStorage.setItem(META_CACHE_KEY, JSON.stringify(savedMeta)); } catch { /* ignore */ }
+        }
       }
     })();
   }, []);
