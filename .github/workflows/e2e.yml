@@ -360,6 +360,11 @@ jobs:
           ARTIFACT_URL: ${{ steps.upload_targeted.outputs.artifact-url }}
           SPEC_COUNT: ${{ steps.spec_titles_targeted.outputs.count }}
           ATTEMPT: ${{ github.run_attempt }}
+          RUN_LABEL: targeted
+          RUN_PHASE: run1
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          AGGREGATE_OUT_JSON: /tmp/aggregate-targeted.json
+          AGGREGATE_OUT_CSV: /tmp/aggregate-targeted.csv
         run: |
           {
             echo "### 🔎 Playwright — targeted regression (attempt ${ATTEMPT})"
@@ -373,6 +378,17 @@ jobs:
               echo "⚠️ No Playwright artifacts were produced (job failed before tests ran). Check the job logs above."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload aggregate stats (targeted)
+        if: ${{ !cancelled() && hashFiles('/tmp/aggregate-targeted.json') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-aggregate-stats-targeted-attempt-${{ github.run_attempt }}
+          path: |
+            /tmp/aggregate-targeted.json
+            /tmp/aggregate-targeted.csv
+          retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
+          if-no-files-found: ignore
 
 
   # Full e2e suite sharded across 4 parallel runners. Each shard runs a
