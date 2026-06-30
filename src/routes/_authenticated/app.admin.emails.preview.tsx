@@ -15,6 +15,7 @@ import {
   type VisaReminderPreview,
 } from "@/lib/email-admin.functions";
 import { sendTransactionalEmail } from "@/lib/email/send";
+import { PageHeader } from "@/components/page-header";
 import { detectEmailEnv, envLabel, envBadgeClass } from "@/lib/email/env";
 
 export const Route = createFileRoute("/_authenticated/app/admin/emails/preview")({
@@ -107,21 +108,16 @@ function Page() {
 
   return (
     <div className="space-y-6">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2">
-            <Link to="/app/admin/emails" className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1">
-              <ArrowLeft className="h-3.5 w-3.5" /> Voltar
-            </Link>
-          </div>
-          <h1 className="text-2xl font-bold mt-1">Preview dos lembretes H-2A</h1>
-          <p className="text-sm text-muted-foreground">
-            Renderiza as 3 variações (14, 7 e 1 dia) exatamente como sairão na
-            caixa de entrada — e envia uma cópia para o destinatário de teste.
-          </p>
-        </div>
-        <Badge className={envBadgeClass[env]}>Ambiente: {envLabel[env]}</Badge>
-      </header>
+      <div className="space-y-2">
+        <Link to="/app/admin/emails" className="text-sm text-muted-foreground hover:underline inline-flex items-center gap-1">
+          <ArrowLeft className="h-3.5 w-3.5" /> Voltar
+        </Link>
+        <PageHeader
+          title="Preview dos lembretes H-2A"
+          description="Renderiza as 3 variações (14, 7 e 1 dia) exatamente como sairão na caixa de entrada — e envia uma cópia para o destinatário de teste."
+          actions={<Badge className={envBadgeClass[env]}>Ambiente: {envLabel[env]}</Badge>}
+        />
+      </div>
 
       <Card>
         <CardHeader>

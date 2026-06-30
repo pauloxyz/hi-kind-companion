@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/page-header";
 import {
   CheckCircle2, Circle, ArrowRight, Sparkles, FileText, Video, Send,
   Shield, Globe2, Zap,
@@ -172,11 +173,11 @@ function OnboardingPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Vamos preparar seu perfil 🌽</h1>
-        <p className="text-sm text-muted-foreground">
-          4 passos rápidos. Quanto mais completo seu perfil, maior a chance de o empregador responder.
-        </p>
+      <div className="space-y-3">
+        <PageHeader
+          title="Vamos preparar seu perfil 🌽"
+          description="4 passos rápidos. Quanto mais completo seu perfil, maior a chance de o empregador responder."
+        />
         <div className="space-y-1.5 pt-2">
           <div className="flex justify-between text-xs text-muted-foreground">
             <span>Passo {step + 1} de {STEPS.length}: {STEPS[step].label}</span>

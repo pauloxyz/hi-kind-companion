@@ -19,6 +19,7 @@ import {
 } from "@/lib/english.functions";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
 
 type Phrase = { en: string; pt: string; phonetic?: string; note?: string };
 type DialogueLine = { speaker: string; en: string; pt: string };
@@ -185,24 +186,26 @@ function LessonPage() {
       </Link>
 
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 flex-wrap mb-2">
-          <Badge variant="outline" className="text-[10px] uppercase">{lesson.module_level}</Badge>
-          <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
-            <Clock className="h-3 w-3" /> ~{lesson.estimated_minutes} min
-          </span>
-          {mastered && (
-            <Badge className="bg-warning hover:bg-warning text-warning-foreground gap-1">
-              <Trophy className="h-3 w-3" /> Dominada
-            </Badge>
-          )}
-          {bestScore > 0 && !mastered && (
-            <Badge variant="outline">Melhor: {Math.round(bestScore * 100)}%</Badge>
-          )}
-        </div>
-        <h1 className="text-2xl font-bold">{lesson.title_pt}</h1>
-        <p className="text-sm text-muted-foreground italic">{lesson.title_en}</p>
-      </div>
+      <PageHeader
+        eyebrow={
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className="text-[10px] uppercase">{lesson.module_level}</Badge>
+            <span className="text-xs text-muted-foreground inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" /> ~{lesson.estimated_minutes} min
+            </span>
+            {mastered && (
+              <Badge className="bg-warning hover:bg-warning text-warning-foreground gap-1">
+                <Trophy className="h-3 w-3" /> Dominada
+              </Badge>
+            )}
+            {bestScore > 0 && !mastered && (
+              <Badge variant="outline">Melhor: {Math.round(bestScore * 100)}%</Badge>
+            )}
+          </div>
+        }
+        title={lesson.title_pt}
+        description={<span className="italic">{lesson.title_en}</span>}
+      />
 
       {/* Stepper */}
       <Card>

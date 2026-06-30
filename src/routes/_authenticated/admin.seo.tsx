@@ -11,6 +11,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import {
   Table,
@@ -171,33 +172,31 @@ function AdminSeoDashboard() {
 
   return (
     <div className="container mx-auto max-w-7xl space-y-6 px-4 py-8">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Link to="/app" className="hover:underline">
-              <ArrowLeft className="inline h-3 w-3" /> app
-            </Link>
-            <span>/</span>
-            <span>admin</span>
-            <span>/</span>
-            <span>seo</span>
-          </div>
-          <h1 className="mt-1 text-3xl font-semibold tracking-tight">
-            Painel SEO
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            Histórico de scans, tendência de findings e cobertura do sitemap.
-          </p>
+      <div className="space-y-2">
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Link to="/app" className="hover:underline">
+            <ArrowLeft className="inline h-3 w-3" /> app
+          </Link>
+          <span>/</span>
+          <span>admin</span>
+          <span>/</span>
+          <span>seo</span>
         </div>
-        <Button
-          onClick={() => triggerMut.mutate()}
-          disabled={triggerMut.isPending}
-        >
-          <RefreshCw
-            className={`mr-2 h-4 w-4 ${triggerMut.isPending ? "animate-spin" : ""}`}
-          />
-          Rodar scan agora
-        </Button>
+        <PageHeader
+          title="Painel SEO"
+          description="Histórico de scans, tendência de findings e cobertura do sitemap."
+          actions={
+            <Button
+              onClick={() => triggerMut.mutate()}
+              disabled={triggerMut.isPending}
+            >
+              <RefreshCw
+                className={`mr-2 h-4 w-4 ${triggerMut.isPending ? "animate-spin" : ""}`}
+              />
+              Rodar scan agora
+            </Button>
+          }
+        />
       </div>
 
       {/* KPIs */}

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ChevronLeft, Lock, CheckCircle2, ChevronRight, Clock, Trophy } from "lucide-react";
+import { PageHeader } from "@/components/page-header";
 
 export const Route = createFileRoute("/_authenticated/app/ingles/$module/")({
   component: ModulePage,
@@ -55,13 +56,12 @@ function ModulePage() {
       <Link to="/app/ingles" className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
         <ChevronLeft className="h-4 w-4" /> Voltar
       </Link>
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <Badge variant="outline" className="text-[10px] uppercase">{mod.level}</Badge>
-        </div>
-        <h1 className="text-2xl font-bold">{mod.title_pt}</h1>
-        <p className="text-muted-foreground mt-1">{mod.description_pt}</p>
-      </div>
+      
+      <PageHeader
+        eyebrow={<Badge variant="outline" className="text-[10px] uppercase">{mod.level}</Badge>}
+        title={mod.title_pt}
+        description={mod.description_pt}
+      />
 
       <div className="space-y-3">
         {lessons.map((l, i) => {
