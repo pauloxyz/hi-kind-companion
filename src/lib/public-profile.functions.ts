@@ -26,9 +26,8 @@ export type PublicProfilePayload = {
   experiences: PublicExperience[];
   skills: PublicSkill[];
   media: PublicMedia[];
-  /** Fallback de vídeo gravado no app (bucket privado intro-videos). Preferir YouTube quando ambos existirem. */
-  video: { id: string; url: string } | null;
 } | null;
+
 
 
 export const getPublicProfileBySlug = createServerFn({ method: "GET" })
