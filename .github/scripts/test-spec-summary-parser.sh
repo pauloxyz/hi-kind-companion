@@ -101,7 +101,7 @@ else
 fi
 
 # --- Fixture 5: TOP_PROBLEM_LIMIT trims the ranking -----------------
-TOP_PROBLEM_LIMIT=1 out="$(bash "$renderer" "$tmp/ranking.tsv" "" "Trimmed")"
+out="$(env TOP_PROBLEM_LIMIT=1 bash "$renderer" "$tmp/ranking.tsv" "" "Trimmed")"
 ranking_block="$(printf '%s\n' "$out" | awk '/Top problem specs/{flag=1;next} /<details>/{flag=0} flag' | grep -c '^| `' || true)"
 if [ "$ranking_block" = "1" ]; then
   pass=$((pass + 1)); echo "  ok    ranking: TOP_PROBLEM_LIMIT honored"
@@ -114,7 +114,7 @@ cat > "$tmp/agg.tsv" <<EOF
 specA	1	0	1	1	2	4096	0	ok	below_min
 specB	0	1	0	1	2	0	16384	absent	ok
 EOF
-RUN_LABEL="full shard 2/4" RUN_PHASE="rerun" RUN_ATTEMPT="3" \
+env_prefix="env RUN_LABEL=\"full shard 2/4\" RUN_PHASE=rerun RUN_ATTEMPT=3 AGGREGATE_OUT_JSON=$tmp/agg.json AGGREGATE_OUT_CSV=$tmp/agg.csv"
 AGGREGATE_OUT_JSON="$tmp/agg.json" AGGREGATE_OUT_CSV="$tmp/agg.csv" \
   bash "$renderer" "$tmp/agg.tsv" "https://example.com/agg" "Agg" >/dev/null
 if [ -f "$tmp/agg.json" ]; then
