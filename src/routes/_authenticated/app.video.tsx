@@ -26,7 +26,8 @@ import {
 import { pdf } from "@react-pdf/renderer";
 import { VideoScriptPdf } from "@/components/VideoScriptPdf";
 import { AiErrorBanner, type AiErrorInfo } from "@/components/AiErrorBanner";
-import { track } from "@/lib/telemetry";
+import { track, newCorrelationId } from "@/lib/telemetry";
+import { captureAiError, initSentry, setCorrelationId } from "@/lib/sentry";
 import QRCode from "qrcode";
 
 export const Route = createFileRoute("/_authenticated/app/video")({ component: Page });
