@@ -10,15 +10,18 @@ import { Slider } from "@/components/ui/slider";
 import { supabase } from "@/integrations/supabase/client";
 import {
   generateVideoScript,
+  generateYoutubeMeta,
   normalizeYouTubeUrl,
   deriveFallbackBlocks,
+  buildSrt,
   type ScriptBlock,
+  type YoutubeMeta,
 } from "@/lib/video-script.functions";
 import { speakText } from "@/lib/english.functions";
 import { toast } from "sonner";
 import {
   Loader2, Sparkles, Copy, Save, Download, Youtube, Check, AlertCircle,
-  Volume2, Play, Pause, SkipForward, RotateCcw,
+  Volume2, Play, Pause, SkipForward, RotateCcw, FileText, Tag, Settings2,
 } from "lucide-react";
 import { pdf, Document, Page as PdfPage, Text, View, StyleSheet, Image as PdfImage } from "@react-pdf/renderer";
 import { PdfBrandedFooter, PdfLogo } from "@/components/PdfLogo";
