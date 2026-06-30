@@ -68,6 +68,7 @@ function typeOk(value, kind) {
     case "0|1":    return value === 0 || value === 1;
     case "array":  return Array.isArray(value);
     case "reason": return typeof value === "string" && REASONS.has(value);
+    case "report_reason": return typeof value === "string" && REPORT_REASONS.has(value);
     default:       return false;
   }
 }
