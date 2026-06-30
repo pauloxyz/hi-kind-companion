@@ -304,12 +304,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
         onClick={() => setOpen(false)}
         aria-current={active ? "page" : undefined}
         className={cn(
-          "group flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
+          "group relative flex items-center gap-3 rounded-xl px-4 py-2.5 text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-5 before:w-[3px] before:rounded-r-full before:bg-sidebar-primary before:transition-all before:duration-200",
           active
-            ? "bg-sidebar-accent text-sidebar-accent-foreground border border-sidebar-border shadow-inner"
+            ? "bg-sidebar-accent text-sidebar-accent-foreground before:opacity-100 before:shadow-[0_0_8px_color-mix(in_oklab,var(--sidebar-primary)_60%,transparent)]"
             : it.highlight
-              ? "bg-sidebar-primary/15 text-sidebar-primary font-semibold hover:bg-sidebar-primary/25"
-              : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60",
+              ? "bg-sidebar-primary/15 text-sidebar-primary font-semibold hover:bg-sidebar-primary/25 before:opacity-0"
+              : "text-sidebar-foreground/60 hover:text-sidebar-foreground hover:bg-sidebar-accent/60 before:opacity-0",
         )}
       >
         <Icon
@@ -357,12 +357,12 @@ export function AppShell({ children }: { children?: ReactNode }) {
               className="h-10 w-10 shrink-0 rounded-xl object-contain bg-sidebar-primary/10 p-1 ring-1 ring-sidebar-border shadow-lg shadow-black/20"
             />
             <div className="min-w-0">
-              <h1 className="font-bold text-base leading-tight tracking-tight text-sidebar-foreground uppercase italic truncate">
+              <p className="font-display text-[11px] font-bold tracking-[0.18em] text-sidebar-foreground/70 uppercase leading-none">
+                Vai<span className="text-sidebar-primary">PraLá</span>
+              </p>
+              <h1 className="font-bold text-sm leading-tight tracking-tight text-sidebar-foreground uppercase italic truncate mt-1">
                 Jornada <span className="text-sidebar-primary not-italic">H-2A</span>
               </h1>
-              <p className="text-[10px] text-sidebar-primary/80 font-bold tracking-widest leading-none mt-0.5">
-                TRABALHO RURAL
-              </p>
             </div>
           </Link>
           <button
@@ -376,52 +376,50 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </button>
         </div>
 
-        {/* Journey Progress Card */}
-        <div className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-4 mb-2">
-          <div className="flex items-center gap-3 mb-3">
+        {/* Journey Progress Card — densificado: avatar + nome/fase + barra numa só pilha */}
+        <div className="bg-sidebar-accent/50 border border-sidebar-border rounded-2xl p-3 mb-2 space-y-2.5">
+          <div className="flex items-center gap-2.5">
             <div className="relative shrink-0">
               {photoUrl ? (
                 <img
                   src={photoUrl}
                   alt={fullName ? `Foto de ${fullName}` : "Foto do perfil"}
-                  className="w-10 h-10 rounded-full border-2 border-sidebar-primary object-cover"
+                  className="w-9 h-9 rounded-full ring-2 ring-sidebar-primary/60 ring-offset-2 ring-offset-sidebar-accent object-cover"
                 />
               ) : (
-                <div className="w-10 h-10 rounded-full border-2 border-sidebar-primary bg-sidebar flex items-center justify-center text-sidebar-primary text-xs font-bold">
+                <div className="w-9 h-9 rounded-full ring-2 ring-sidebar-primary/60 ring-offset-2 ring-offset-sidebar-accent bg-sidebar flex items-center justify-center text-sidebar-primary text-xs font-bold">
                   {initials}
                 </div>
               )}
-              <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-success border-2 border-sidebar rounded-full" aria-hidden />
+              <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-success ring-2 ring-sidebar-accent rounded-full" aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <div className="text-sm font-semibold text-sidebar-foreground truncate">
+              <div className="text-sm font-semibold text-sidebar-foreground truncate leading-tight">
                 {fullName || "Olá!"}
               </div>
-              <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-tighter">
-                Fase: {currentStage}
+              <div className="text-[10px] text-sidebar-primary/90 font-bold truncate uppercase tracking-wider leading-tight mt-0.5">
+                Fase · {currentStage}
               </div>
             </div>
+            <span className="text-[11px] font-bold tabular-nums text-sidebar-primary shrink-0">
+              {progressPct}%
+            </span>
           </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-[11px] font-bold">
-              <span className="text-sidebar-foreground/60 uppercase tracking-tighter">
-                Progresso · {doneCount}/{stages.length}
-              </span>
-              <span className="text-sidebar-primary">{progressPct}%</span>
-            </div>
+          <div
+            className="h-1.5 w-full bg-sidebar rounded-full overflow-hidden"
+            role="progressbar"
+            aria-valuenow={progressPct}
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-label={`Progresso da jornada H-2A: ${progressPct}%, fase atual ${currentStage}, ${doneCount} de ${stages.length} etapas`}
+          >
             <div
-              className="h-1.5 w-full bg-sidebar rounded-full overflow-hidden"
-              role="progressbar"
-              aria-valuenow={progressPct}
-              aria-valuemin={0}
-              aria-valuemax={100}
-              aria-label={`Progresso da jornada H-2A: ${progressPct}%, fase atual ${currentStage}`}
-            >
-              <div
-                className="h-full bg-sidebar-primary shadow-[0_0_10px_rgba(181,109,45,0.4)] transition-all duration-500"
-                style={{ width: `${progressPct}%` }}
-              />
-            </div>
+              className="h-full bg-sidebar-primary shadow-[0_0_10px_color-mix(in_oklab,var(--sidebar-primary)_45%,transparent)] transition-all duration-500"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+          <div className="text-[10px] font-bold uppercase tracking-wider text-sidebar-foreground/50 tabular-nums">
+            {doneCount}/{stages.length} etapas
           </div>
         </div>
       </div>
@@ -579,7 +577,7 @@ export function AppShell({ children }: { children?: ReactNode }) {
           </div>
         )}
         <main id="main-content" className="flex-1 min-w-0" data-testid="app-main">
-          <header className="flex items-center gap-3 border-b bg-card p-3 lg:hidden">
+          <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-border/60 bg-card/80 backdrop-blur-md supports-[backdrop-filter]:bg-card/70 p-3 lg:hidden">
             <button
               ref={menuTriggerRef}
               type="button"
