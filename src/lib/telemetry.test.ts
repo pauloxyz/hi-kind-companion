@@ -35,10 +35,10 @@ describe("newCorrelationId — format & uniqueness", () => {
       const id = newCorrelationId();
       expect(id).toMatch(/^cid_[0-9a-z]+_[0-9a-z]+$/);
     } finally {
-      // @ts-expect-error — restore original.
-      globalThis.crypto.randomUUID = original;
+      (globalThis.crypto as { randomUUID?: () => string }).randomUUID = original;
     }
   });
+
 });
 
 
