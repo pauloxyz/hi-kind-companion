@@ -51,6 +51,57 @@ function saveTtsCache(cache: Map<number, string>) {
 }
 
 
+const AiErrorBanner = memo(function AiErrorBanner({
+  error, secondsLeft, onRetry, onDismiss, busy,
+}: {
+  error: AiErrorInfo | null;
+  secondsLeft: number;
+  onRetry: () => void;
+  onDismiss: () => void;
+  busy: boolean;
+}) {
+  if (!error) return null;
+  const blocked = error.code === "no_credits";
+  const waiting = error.code === "rate_limited" && secondsLeft > 0;
+  const palette = blocked
+    ? "border-destructive/40 bg-destructive/10 text-destructive"
+    : "border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-900 dark:text-amber-200";
+  const title = blocked
+    ? "Créditos de IA esgotados"
+    : error.code === "rate_limited"
+    ? "Limite temporário atingido"
+    : error.code === "bad_json"
+    ? "Resposta inesperada da IA"
+    : "Falha na geração";
+  return (
+    <div className={`flex items-start gap-2 text-xs rounded-md border p-3 ${palette}`}>
+      <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+      <div className="flex-1 space-y-2">
+        <div>
+          <div className="font-semibold">{title}</div>
+          <div>{error.msg}</div>
+          <div className="text-[11px] opacity-80 mt-1">
+            Nada do que você já fez foi perdido — o roteiro, áudios e link continuam salvos.
+          </div>
+        </div>
+        {!blocked && (
+          <div className="flex items-center gap-2">
+            <Button size="sm" variant="outline" onClick={onRetry} disabled={busy || waiting} className="h-7">
+              {busy ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" />
+                : <RotateCcw className="h-3.5 w-3.5 mr-1" />}
+              {waiting ? `Tentar de novo em ${secondsLeft}s` : "Tentar de novo"}
+            </Button>
+            <Button size="sm" variant="ghost" className="h-7" onClick={onDismiss}>
+              Dispensar
+            </Button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+});
+
+
 type AiErrorInfo = {
   action: "script" | "meta";
   code: "rate_limited" | "no_credits" | "bad_json" | "other";
