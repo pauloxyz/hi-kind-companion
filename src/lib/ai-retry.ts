@@ -50,13 +50,21 @@ export type AiAttemptInput<T> = {
   readyAt: number;
   /** Previous error code that drove this retry (used for telemetry context). */
   previousCode?: AiErrorCode;
+  /**
+   * Whether the banner is currently in its "ready" state. Defaults to true.
+   * When `isRetry` is true after a `rate_limited` error and `bannerReady` is
+   * false, the attempt is skipped — no telemetry click event, no generator
+   * call — to prevent premature retries during the countdown window.
+   */
+  bannerReady?: boolean;
   generator: () => Promise<T>;
   sinks: AiSinks;
 };
 
 export type AiAttemptResult<T> =
   | { ok: true; value: T; latencyMs: number }
-  | { ok: false; error: ParsedAiError; latencyMs: number };
+  | { ok: false; error: ParsedAiError; latencyMs: number }
+  | { ok: false; skipped: "not_ready"; latencyMs: 0 };
 
 /**
  * Run one AI generation attempt with full telemetry + Sentry breadcrumb
