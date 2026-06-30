@@ -296,14 +296,7 @@ jobs:
       - name: Collect spec titles with artifacts (targeted)
         id: spec_titles_targeted
         if: ${{ !cancelled() }}
-        run: |
-          {
-            if [ -d test-results ]; then
-              find test-results -mindepth 1 -maxdepth 1 -type d -printf '%f\n' \
-                | sort -u
-            fi
-          } > /tmp/spec-titles-targeted.txt
-          echo "count=$(wc -l < /tmp/spec-titles-targeted.txt | tr -d ' ')" >> "$GITHUB_OUTPUT"
+        run: bash .github/scripts/collect-spec-artifacts.sh /tmp/spec-titles-targeted.tsv
 
       - name: Upload Playwright artifacts (shard targeted)
         id: upload_targeted
@@ -320,7 +313,7 @@ jobs:
           retention-days: ${{ env.PLAYWRIGHT_ARTIFACT_RETENTION_DAYS }}
           if-no-files-found: ignore
 
-      - name: Targeted summary (artifact link + spec titles or green fallback)
+      - name: Targeted summary (per-spec trace/video links or green fallback)
         if: ${{ !cancelled() }}
         env:
           ARTIFACT_URL: ${{ steps.upload_targeted.outputs.artifact-url }}
@@ -333,19 +326,8 @@ jobs:
             if [ "${{ job.status }}" = "success" ]; then
               echo "✅ All 4 targeted specs passed — no trace/video produced."
             elif [ -n "${ARTIFACT_URL}" ]; then
-              echo "Trace (\`.zip\`), video (\`.webm\`) and HTML report:"
-              echo
-              echo "- [Download \`playwright-artifacts-shard-targeted-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL})"
-              echo "- Open the \`.zip\` at https://trace.playwright.dev to step through the run."
-              echo "- Artifact retention: **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days** (auto-cleaned by GitHub)."
-              if [ -s /tmp/spec-titles-targeted.txt ]; then
-                echo
-                echo "<details><summary>Failed specs (${SPEC_COUNT})</summary>"
-                echo
-                while IFS= read -r t; do echo "- [\`${t}\`](${ARTIFACT_URL}) — trace/video bundle"; done < /tmp/spec-titles-targeted.txt
-                echo
-                echo "</details>"
-              fi
+              echo "Bundle: [\`playwright-artifacts-shard-targeted-attempt-${ATTEMPT}-run1\`](${ARTIFACT_URL}) — retention **${PLAYWRIGHT_ARTIFACT_RETENTION_DAYS} days**."
+              bash .github/scripts/render-spec-summary.sh /tmp/spec-titles-targeted.tsv "${ARTIFACT_URL}" "Failed specs"
             else
               echo "⚠️ No Playwright artifacts were produced (job failed before tests ran). Check the job logs above."
             fi
