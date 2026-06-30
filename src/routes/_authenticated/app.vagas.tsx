@@ -470,10 +470,17 @@ function Page() {
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h1 className="text-2xl font-bold">Vagas H-2A</h1>
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-6 sm:space-y-8">
+      <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 sm:flex sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0 space-y-1">
+          <h1 className="font-display text-3xl sm:text-4xl lg:text-[2.625rem] font-bold leading-[1.05] tracking-tight text-balance">
+            Vagas H-2A
+          </h1>
+          <p className="text-sm sm:text-base text-muted-foreground leading-relaxed">
+            Explore, compare e candidate-se em poucos cliques.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 justify-end">
           <Button variant="outline" size="sm" onClick={() => setAlertsOpen(true)} className="relative">
             <Bell className="mr-2 h-4 w-4" />
             Alertas
