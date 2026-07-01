@@ -65,6 +65,7 @@ function AdminOnboardingPage() {
   const [exportingLocale, setExportingLocale] = useState<CsvLocale | null>(null);
   const dismissRef = useRef<HTMLButtonElement | null>(null);
   const lastExportBtnRef = useRef<HTMLButtonElement | null>(null);
+  const errorCardRef = useRef<HTMLDivElement | null>(null);
 
   // Quando um erro de export aparece, move o foco para "Fechar" para que
   // usuários de teclado / leitores de tela consigam continuar imediatamente.
