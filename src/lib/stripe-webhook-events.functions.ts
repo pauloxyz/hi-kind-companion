@@ -49,7 +49,7 @@ export const listStripeWebhookEvents = createServerFn({ method: "GET" })
 
     const { data: rows, error } = await q;
     if (error) throw new Error(error.message);
-    return (rows ?? []) as StripeWebhookEventRow[];
+    return (rows ?? []) as unknown as StripeWebhookEventRow[];
   });
 
 export const listStripeWebhookEventTypes = createServerFn({ method: "GET" })
