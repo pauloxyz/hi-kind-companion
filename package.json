@@ -15,6 +15,7 @@
     "security:coherence": "bun run scripts/check-definer-coherence.ts",
     "security:compare": "bun run scripts/compare-security-artifacts.ts",
     "security:nightly": "COMPARE_WITH=${COMPARE_WITH:-} bash scripts/security-regression.sh && bun run scripts/check-definer-coherence.ts",
+    "security:validate-config": "bun run scripts/validate-security-config.ts",
     "prebuild": "bun run check:migrations",
     "test:smoke:deploy": "playwright install chromium && playwright test e2e/smoke-post-deploy.spec.ts --reporter=line",
 

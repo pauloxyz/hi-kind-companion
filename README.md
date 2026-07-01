@@ -119,3 +119,72 @@ Se esses secrets não existirem, deixe as variáveis ausentes/vazias: o helper
 usa automaticamente `playwright+e2e-auto-confirm@vplusa.test` e
 `Playwright!E2E#2025`, cria o usuário com auto-confirm e reaproveita a sessão
 nas próximas execuções.
+
+## Security regression suite
+
+Toda a hardening de 2026-07-01 é validada continuamente. Os scripts abaixo
+consomem a mesma fonte de verdade (`src/config/security-internal-ids.ts`)
+usada pelo CI e pelo workflow nightly, então rodar localmente reproduz
+exatamente o gate que quebra o build.
+
+### Scripts disponíveis
+
+| Script | O que faz |
+| --- | --- |
+| `bun run security:validate-config` | Valida `src/config/security-internal-ids.ts` (schema, duplicatas, allow/deny sem overlap, hooks existem no disco). Roda no CI antes de tudo. |
+| `bun run security:regression` | Roda o suite completo (`security-regression.integration`, `cron-auth.server`, `cron-secret-regression`) e escreve `security-report/regression-results.json` + `regression.log`. |
+| `bun run security:coherence` | Sonda independente que confirma que toda função `SECURITY DEFINER` interna continua bloqueada para `anon` e que os helpers públicos continuam chamáveis. |
+| `bun run security:compare -- --previous <path> --current security-report/regression-results.json --out security-report/delta.md` | Diff entre um artifact anterior e o atual. Sai com código ≠ 0 se qualquer `TARGET_INTERNAL_IDS` reapareceu ou algum teste regrediu. |
+| `bun run security:nightly` | Regressão + coherence em sequência (usada localmente para simular o job noturno). Passe `COMPARE_WITH=/caminho/regression-results.json` para incluir o diff. |
+
+### Variáveis de ambiente esperadas
+
+Os scripts caem em placeholders quando as variáveis não estão setadas, mas
+para bater 1:1 com o CI exporte:
+
+```bash
+export CRON_SECRET='ci-regression-cron-secret-placeholder-do-not-use-in-prod'
+export VITE_SUPABASE_URL='https://lkvfvriexuxlvrufbqbf.supabase.co'
+export VITE_SUPABASE_PUBLISHABLE_KEY='sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3'
+export SUPABASE_URL="$VITE_SUPABASE_URL"
+export SUPABASE_PUBLISHABLE_KEY="$VITE_SUPABASE_PUBLISHABLE_KEY"
+```
+
+### Fluxos comuns
+
+**Rodar o suite antes de abrir um PR:**
+
+```bash
+bun run security:validate-config
+bun run security:regression
+bun run security:coherence
+```
+
+**Comparar contra a última execução baixada do GitHub Actions:**
+
+```bash
+bun run security:compare -- \
+  --previous ~/Downloads/security-report-123/regression-results.json \
+  --current  security-report/regression-results.json \
+  --out      security-report/delta.md
+cat security-report/delta.md
+```
+
+**Simular o job noturno inteiro (regressão + coherence + delta):**
+
+```bash
+COMPARE_WITH=~/Downloads/nightly-security-report-42/regression-results.json \
+  bun run security:nightly
+```
+
+### Notificações
+
+- **CI (PR/branch):** o passo `Compare against previous CI artifact` falha
+  o build quando qualquer `internal_id` alvo reaparece ou um teste
+  regride vs o último artifact `security-report-*`. Delta completo fica
+  em `security-report/delta.md` e sobe como artifact.
+- **Nightly:** quando algo regride, o workflow abre/atualiza um GitHub
+  Issue com label `security,regression` e envia um alerta para o Slack
+  (secret `SLACK_SECURITY_WEBHOOK_URL`) listando explicitamente os
+  `internal_ids` reintroduzidos e os testes regredidos extraídos de
+  `security-report/delta.json`.
