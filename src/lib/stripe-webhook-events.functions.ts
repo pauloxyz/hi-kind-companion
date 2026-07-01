@@ -445,6 +445,57 @@ export const reprocessStripeWebhookEventsBatch = createServerFn({ method: "POST"
     return { attempted: list.length, succeeded, failed, results };
   });
 
+// Reprocessa um conjunto específico de ids (usado pelo atalho "reprocessar
+// falhas do último batch"). Não aplica filtros; roda replay em cada id.
+const reprocessByIdsSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(500),
+});
+
+export const reprocessStripeWebhookEventsByIds = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((raw: unknown) => reprocessByIdsSchema.parse(raw ?? {}))
+  .handler(async ({ data, context }): Promise<BatchReprocessResult> => {
+    await assertAdminWithAudit(context as never, "stripe_webhook_events.reprocess_by_ids.fn");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const actorUserId = (context as { userId: string }).userId;
+
+    const { data: rows, error } = await supabaseAdmin
+      .from("stripe_webhook_events")
+      .select("id,event_type,environment,status,payload_summary,stripe_event_id")
+      .in("id", data.ids);
+    if (error) throw new Error(error.message);
+
+    const results: BatchReprocessResult["results"] = [];
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const row of (rows ?? []) as Array<{
+      id: string;
+      event_type: string;
+      environment: string;
+      status: string;
+      payload_summary: unknown;
+      stripe_event_id: string;
+    }>) {
+      const started = Date.now();
+      const r = await replayOneEvent(supabaseAdmin, row);
+      await writeReprocessAudit(supabaseAdmin, {
+        event_row_id: row.id,
+        stripe_event_id: row.stripe_event_id,
+        event_type: row.event_type,
+        environment: row.environment,
+        actor_user_id: actorUserId,
+        outcome: r.ok ? "success" : "error",
+        message: r.message,
+        duration_ms: Date.now() - started,
+      });
+      results.push({ id: row.id, stripe_event_id: row.stripe_event_id, ok: r.ok, message: r.message });
+      if (r.ok) succeeded++;
+      else failed++;
+    }
+    return { attempted: results.length, succeeded, failed, results };
+  });
+
 // ------------------------- Log de auditoria -------------------------
 
 export type ReprocessLogEntry = {

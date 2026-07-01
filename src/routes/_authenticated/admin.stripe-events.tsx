@@ -1,5 +1,5 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, getRouteApi, redirect, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
@@ -13,6 +13,7 @@ import {
   reprocessFromLogFilteredBatch,
   reprocessStripeWebhookEvent,
   reprocessStripeWebhookEventsBatch,
+  reprocessStripeWebhookEventsByIds,
   type BatchReprocessResult,
   type ReprocessLogEntry,
   type ReprocessLogPage,
@@ -53,10 +54,62 @@ type EnvFilter = "all" | "sandbox" | "live";
 type StatusFilter = "all" | "processed" | "ignored" | "error";
 type SortCol = "received_at" | "processed_at" | "event_type" | "status";
 type SortDir = "asc" | "desc";
+type TabId = "events" | "reprocess-log";
+type LogOutcome = "all" | "success" | "error";
+type LogSortCol = "created_at" | "outcome" | "duration_ms";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-export const Route = createFileRoute("/_authenticated/admin/stripe-events")({
+const ROUTE_ID = "/_authenticated/admin/stripe-events" as const;
+
+type SearchState = {
+  tab: TabId;
+  env: EnvFilter; st: StatusFilter; et: string; q: string; em: string;
+  sb: SortCol; sd: SortDir; p: number; ps: number;
+  l_sid: string; l_uid: string; l_oc: LogOutcome;
+  l_since: string; l_until: string;
+  l_sb: LogSortCol; l_sd: SortDir; l_p: number; l_ps: number;
+};
+
+function asEnum<T extends string>(v: unknown, allowed: readonly T[], d: T): T {
+  return typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : d;
+}
+function asStr(v: unknown, d = ""): string {
+  return typeof v === "string" ? v : d;
+}
+function asInt(v: unknown, d: number, min: number, max: number): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return d;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
+}
+
+function validateSearchState(raw: Record<string, unknown>): SearchState {
+  const s = raw ?? {};
+  return {
+    tab: asEnum(s.tab, ["events", "reprocess-log"] as const, "events"),
+    env: asEnum(s.env, ["all", "sandbox", "live"] as const, "all"),
+    st: asEnum(s.st, ["all", "processed", "ignored", "error"] as const, "all"),
+    et: asStr(s.et, "all"),
+    q: asStr(s.q, ""),
+    em: asStr(s.em, ""),
+    sb: asEnum(s.sb, ["received_at", "processed_at", "event_type", "status"] as const, "received_at"),
+    sd: asEnum(s.sd, ["asc", "desc"] as const, "desc"),
+    p: asInt(s.p, 0, 0, 100000),
+    ps: asInt(s.ps, 25, 1, 500),
+    l_sid: asStr(s.l_sid, ""),
+    l_uid: asStr(s.l_uid, ""),
+    l_oc: asEnum(s.l_oc, ["all", "success", "error"] as const, "all"),
+    l_since: asStr(s.l_since, ""),
+    l_until: asStr(s.l_until, ""),
+    l_sb: asEnum(s.l_sb, ["created_at", "outcome", "duration_ms"] as const, "created_at"),
+    l_sd: asEnum(s.l_sd, ["asc", "desc"] as const, "desc"),
+    l_p: asInt(s.l_p, 0, 0, 100000),
+    l_ps: asInt(s.l_ps, 25, 1, 200),
+  };
+}
+
+export const Route = createFileRoute(ROUTE_ID)({
+  validateSearch: validateSearchState,
   beforeLoad: async () => {
     try {
       await requireAdminAccess({ data: { route: "admin/stripe-events" } });
@@ -67,6 +120,9 @@ export const Route = createFileRoute("/_authenticated/admin/stripe-events")({
   component: AdminStripeEventsPage,
 });
 
+const routeApi = getRouteApi(ROUTE_ID);
+
+
 function AdminStripeEventsPage() {
   const list = useServerFn(listStripeWebhookEvents);
   const listTypes = useServerFn(listStripeWebhookEventTypes);
@@ -74,44 +130,78 @@ function AdminStripeEventsPage() {
   const statsFn = useServerFn(getStripeWebhookEventStats);
   const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
   const reprocessBatchFn = useServerFn(reprocessStripeWebhookEventsBatch);
+  const reprocessByIdsFn = useServerFn(reprocessStripeWebhookEventsByIds);
   const qc = useQueryClient();
 
-  const [environment, setEnvironment] = useState<EnvFilter>("all");
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [eventType, setEventType] = useState<string>("all");
-  const [searchInput, setSearchInput] = useState<string>("");
-  const [search, setSearch] = useState<string>(""); // debounced
-  const [errorMessageInput, setErrorMessageInput] = useState<string>("");
-  const [errorMessage, setErrorMessage] = useState<string>(""); // debounced
-  const [sortBy, setSortBy] = useState<SortCol>("received_at");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [pageSize, setPageSize] = useState<number>(25);
-  const [page, setPage] = useState<number>(0);
+  const search = routeApi.useSearch();
+  const navigate = useNavigate({ from: ROUTE_ID });
+
+  // Filtros/ordenação/página vivem na URL para compartilhar/voltar sem perder estado.
+  const environment = search.env;
+  const status = search.st;
+  const eventType = search.et;
+  const searchQ = search.q;
+  const errorMessage = search.em;
+  const sortBy = search.sb;
+  const sortDir = search.sd;
+  const page = search.p;
+  const pageSize = search.ps;
+  const tab = search.tab;
+
+  const [searchInput, setSearchInput] = useState<string>(searchQ);
+  const [errorMessageInput, setErrorMessageInput] = useState<string>(errorMessage);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const [batchSummary, setBatchSummary] = useState<BatchReprocessResult | null>(null);
-  const [tab, setTab] = useState<"events" | "reprocess-log">("events");
+  const [retryingFailures, setRetryingFailures] = useState<boolean>(false);
 
-  // Debounce das buscas (300ms)
+  function patchSearch(patch: Partial<SearchState>) {
+    navigate({
+      to: ROUTE_ID,
+      search: (prev: SearchState) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  }
+  function setEnvironment(v: EnvFilter) { patchSearch({ env: v, p: 0 }); }
+  function setStatus(v: StatusFilter) { patchSearch({ st: v, p: 0 }); }
+  function setEventType(v: string) { patchSearch({ et: v, p: 0 }); }
+  function setPageSize(n: number) { patchSearch({ ps: n, p: 0 }); }
+  function setPage(updater: number | ((p: number) => number)) {
+    const next = typeof updater === "function" ? updater(page) : updater;
+    patchSearch({ p: Math.max(0, next) });
+  }
+  function setTab(v: TabId) { patchSearch({ tab: v }); }
+  function setSortBy(v: SortCol) { patchSearch({ sb: v }); }
+  function setSortDir(v: SortDir) { patchSearch({ sd: v }); }
+
+  // Debounce busca (300ms) → URL
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    const t = setTimeout(() => {
+      const v = searchInput.trim();
+      if (v !== searchQ) patchSearch({ q: v, p: 0 });
+    }, 300);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
   useEffect(() => {
-    const t = setTimeout(() => setErrorMessage(errorMessageInput.trim()), 300);
+    const t = setTimeout(() => {
+      const v = errorMessageInput.trim();
+      if (v !== errorMessage) patchSearch({ em: v, p: 0 });
+    }, 300);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errorMessageInput]);
 
-  useEffect(() => {
-    setPage(0);
-  }, [environment, status, eventType, search, errorMessage, pageSize]);
+  // Sincroniza os inputs quando a URL muda externamente (back/forward, share).
+  useEffect(() => { setSearchInput(searchQ); }, [searchQ]);
+  useEffect(() => { setErrorMessageInput(errorMessage); }, [errorMessage]);
 
   const filterPayload = {
     environment,
     status,
     eventType: eventType === "all" ? undefined : eventType,
-    search: search || undefined,
+    search: searchQ || undefined,
     errorMessage: errorMessage || undefined,
   };
 
@@ -120,19 +210,22 @@ function AdminStripeEventsPage() {
     queryFn: () => listTypes() as Promise<string[]>,
   });
 
+  
+  const liveRefetch = autoRefresh || retryingFailures;
+
   const statsQuery = useQuery({
-    queryKey: ["admin", "stripe-events", "stats", environment, status, eventType, search, errorMessage],
+    queryKey: ["admin", "stripe-events", "stats", environment, status, eventType, searchQ, errorMessage],
     queryFn: () => statsFn({ data: filterPayload }) as Promise<StripeWebhookEventStats>,
-    refetchInterval: autoRefresh ? 5000 : false,
+    refetchInterval: liveRefetch ? 5000 : false,
   });
 
   const eventsQuery = useQuery({
-    queryKey: ["admin", "stripe-events", environment, status, eventType, search, errorMessage, sortBy, sortDir, page, pageSize],
+    queryKey: ["admin", "stripe-events", environment, status, eventType, searchQ, errorMessage, sortBy, sortDir, page, pageSize],
     queryFn: () =>
       list({
         data: { ...filterPayload, sortBy, sortDir, limit: pageSize, offset: page * pageSize },
       }) as Promise<StripeWebhookEventsPage>,
-    refetchInterval: autoRefresh ? 5000 : false,
+    refetchInterval: liveRefetch ? 5000 : false,
   });
 
   const reprocessMut = useMutation({
@@ -175,6 +268,47 @@ function AdminStripeEventsPage() {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha no reprocessamento em lote"),
   });
+
+  // Autoatualiza a tabela enquanto o lote roda; requery já é feito no onSuccess.
+  const isBatchRunning = batchMut.isPending || retryingFailures;
+  useEffect(() => {
+    if (!isBatchRunning) return;
+    const t = setInterval(() => {
+      void eventsQuery.refetch();
+      void statsQuery.refetch();
+    }, 3000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBatchRunning]);
+
+  async function retryLastBatchFailures() {
+    if (!batchSummary) return;
+    const failedIds = batchSummary.results.filter((r) => !r.ok).map((r) => r.id);
+    if (failedIds.length === 0) {
+      toast.info("Não há falhas para reprocessar.");
+      return;
+    }
+    setRetryingFailures(true);
+    try {
+      const res = (await reprocessByIdsFn({ data: { ids: failedIds } })) as BatchReprocessResult;
+      setBatchSummary(res);
+      if (res.failed === 0) {
+        toast.success(`Falhas reprocessadas: ${res.succeeded}/${res.attempted} OK`);
+      } else {
+        toast.warning(`Retentativa parcial: ${res.succeeded} OK · ${res.failed} falharam`);
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] }),
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-reprocess-log"] }),
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao retentar as falhas");
+    } finally {
+      setRetryingFailures(false);
+    }
+  }
+  
+
 
   const rows = eventsQuery.data?.rows ?? [];
   const total = eventsQuery.data?.total ?? 0;
@@ -296,11 +430,13 @@ function AdminStripeEventsPage() {
         </div>
 
         {/* Painel de progresso do batch reprocess */}
-        {(batchMut.isPending || batchSummary) && (
+        {(batchMut.isPending || retryingFailures || batchSummary) && (
           <BatchProgressPanel
-            pending={batchMut.isPending}
+            pending={batchMut.isPending || retryingFailures}
             summary={batchSummary}
             onDismiss={() => setBatchSummary(null)}
+            onRetryFailures={retryLastBatchFailures}
+            retryingFailures={retryingFailures}
           />
         )}
 
@@ -473,11 +609,7 @@ function AdminStripeEventsPage() {
             <ReprocessLogPanel
               onOpenEventInEvents={(id) => {
                 setSearchInput(id);
-                setSearch(id);
-                setStatus("all");
-                setEventType("all");
-                setPage(0);
-                setTab("events");
+                patchSearch({ q: id, st: "all", et: "all", p: 0, tab: "events" });
               }}
             />
           </TabsContent>
@@ -794,17 +926,20 @@ function downloadBlob(blob: Blob, filename: string) {
 // ------------------------- Batch progress panel -------------------------
 
 function BatchProgressPanel({
-  pending, summary, onDismiss,
+  pending, summary, onDismiss, onRetryFailures, retryingFailures,
 }: {
   pending: boolean;
   summary: BatchReprocessResult | null;
   onDismiss: () => void;
+  onRetryFailures?: () => void | Promise<void>;
+  retryingFailures?: boolean;
 }) {
   const attempted = summary?.attempted ?? 0;
   const succeeded = summary?.succeeded ?? 0;
   const failed = summary?.failed ?? 0;
   const progress = pending ? 0 : attempted === 0 ? 100 : Math.round((succeeded + failed) / attempted * 100);
   const errors = (summary?.results ?? []).filter((r) => !r.ok).slice(0, 5);
+  const canRetryFailures = !pending && failed > 0 && !!onRetryFailures;
 
   return (
     <Card className={pending ? "border-primary/40" : failed > 0 ? "border-destructive/40" : "border-emerald-500/40"}>
@@ -816,17 +951,31 @@ function BatchProgressPanel({
             </CardTitle>
             <CardDescription>
               {pending
-                ? "Isto pode levar alguns segundos por evento."
+                ? "Isto pode levar alguns segundos por evento. A tabela atualiza automaticamente."
                 : attempted === 0
                   ? "Nenhum evento com status=error nos filtros atuais."
                   : `Tentativas: ${attempted} · Sucesso: ${succeeded} · Falhas: ${failed}`}
             </CardDescription>
           </div>
-          {!pending && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDismiss} aria-label="Fechar">
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {canRetryFailures && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onRetryFailures?.()}
+                disabled={retryingFailures}
+                title="Reprocessar somente as falhas do último batch"
+              >
+                <RotateCcw className={`mr-2 h-3.5 w-3.5 ${retryingFailures ? "animate-spin" : ""}`} />
+                Retentar falhas ({failed})
+              </Button>
+            )}
+            {!pending && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDismiss} aria-label="Fechar">
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -856,6 +1005,7 @@ function BatchProgressPanel({
   );
 }
 
+
 // ------------------------- Reprocess-log panel -------------------------
 
 const REPROCESS_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
@@ -878,29 +1028,68 @@ function ReprocessLogPanel({
   const exportLog = useServerFn(exportReprocessLog);
   const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
   const reprocessLogBatchFn = useServerFn(reprocessFromLogFilteredBatch);
+  const reprocessByIdsFn = useServerFn(reprocessStripeWebhookEventsByIds);
   const qc = useQueryClient();
 
-  const [stripeEventId, setStripeEventId] = useState(REPROCESS_LOG_DEFAULTS.stripeEventId);
-  const [actorUserId, setActorUserId] = useState(REPROCESS_LOG_DEFAULTS.actorUserId);
-  const [outcome, setOutcome] = useState<"all" | "success" | "error">(REPROCESS_LOG_DEFAULTS.outcome);
-  const [since, setSince] = useState<string>(REPROCESS_LOG_DEFAULTS.since);
-  const [until, setUntil] = useState<string>(REPROCESS_LOG_DEFAULTS.until);
-  const [pageSize, setPageSize] = useState<number>(REPROCESS_LOG_DEFAULTS.pageSize);
-  const [page, setPage] = useState<number>(0);
-  const [sortBy, setSortBy] = useState<ReprocessLogSortCol>("created_at");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const search = routeApi.useSearch();
+  const navigate = useNavigate({ from: ROUTE_ID });
+
+  function patchLogSearch(patch: Partial<SearchState>) {
+    navigate({
+      to: ROUTE_ID,
+      search: (prev: SearchState) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  }
+
+  const stripeEventId = search.l_sid;
+  const actorUserId = search.l_uid;
+  const outcome = search.l_oc;
+  const since = search.l_since;
+  const until = search.l_until;
+  const sortBy = search.l_sb;
+  const sortDir = search.l_sd;
+  const pageSize = search.l_ps;
+  const page = search.l_p;
+
+  // Inputs de texto continuam controlados localmente para não spam-atualizar a URL
+  const [sidInput, setSidInput] = useState<string>(stripeEventId);
+  const [uidInput, setUidInput] = useState<string>(actorUserId);
+  useEffect(() => { setSidInput(stripeEventId); }, [stripeEventId]);
+  useEffect(() => { setUidInput(actorUserId); }, [actorUserId]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (sidInput !== stripeEventId) patchLogSearch({ l_sid: sidInput, l_p: 0 });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidInput]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (uidInput !== actorUserId) patchLogSearch({ l_uid: uidInput, l_p: 0 });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uidInput]);
+
+  const setOutcome = (v: LogOutcome) => patchLogSearch({ l_oc: v, l_p: 0 });
+  const setSince = (v: string) => patchLogSearch({ l_since: v, l_p: 0 });
+  const setUntil = (v: string) => patchLogSearch({ l_until: v, l_p: 0 });
+  const setPageSize = (n: number) => patchLogSearch({ l_ps: n, l_p: 0 });
+  const setPage = (updater: number | ((p: number) => number)) => {
+    const next = typeof updater === "function" ? updater(page) : updater;
+    patchLogSearch({ l_p: Math.max(0, next) });
+  };
+
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [confirmRow, setConfirmRow] = useState<ReprocessLogEntry | null>(null);
   const [confirmBatch, setConfirmBatch] = useState<null | "all" | "errors">(null);
   const [batchSummary, setBatchSummary] = useState<BatchReprocessResult | null>(null);
   const [batchPending, setBatchPending] = useState(false);
+  const [retryingFailures, setRetryingFailures] = useState(false);
   const [batchLimit, setBatchLimit] = useState<number>(50);
   const BATCH_LIMIT_OPTIONS = [50, 100, 500];
-
-  useEffect(() => {
-    setPage(0);
-  }, [stripeEventId, actorUserId, outcome, since, until, pageSize, sortBy, sortDir]);
 
   const toIso = (v: string): string | undefined => {
     if (!v) return undefined;
@@ -922,6 +1111,7 @@ function ReprocessLogPanel({
       listLog({
         data: { ...filterPayload, sortBy, sortDir, limit: pageSize, offset: page * pageSize },
       }) as Promise<ReprocessLogPage>,
+    refetchInterval: (batchPending || retryingFailures) ? 3000 : false,
   });
 
   const rows = query.data?.rows ?? [];
@@ -929,26 +1119,26 @@ function ReprocessLogPanel({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const filtersDirty =
-    stripeEventId !== REPROCESS_LOG_DEFAULTS.stripeEventId ||
-    actorUserId !== REPROCESS_LOG_DEFAULTS.actorUserId ||
-    outcome !== REPROCESS_LOG_DEFAULTS.outcome ||
-    since !== REPROCESS_LOG_DEFAULTS.since ||
-    until !== REPROCESS_LOG_DEFAULTS.until;
+    stripeEventId !== "" || actorUserId !== "" || outcome !== "all" ||
+    since !== "" || until !== "";
 
   function resetFilters() {
-    setStripeEventId(REPROCESS_LOG_DEFAULTS.stripeEventId);
-    setActorUserId(REPROCESS_LOG_DEFAULTS.actorUserId);
-    setOutcome(REPROCESS_LOG_DEFAULTS.outcome);
-    setSince(REPROCESS_LOG_DEFAULTS.since);
-    setUntil(REPROCESS_LOG_DEFAULTS.until);
-    setPageSize(REPROCESS_LOG_DEFAULTS.pageSize);
+    patchLogSearch({
+      l_sid: "", l_uid: "", l_oc: "all", l_since: "", l_until: "",
+      l_ps: 25, l_p: 0,
+    });
+    setSidInput("");
+    setUidInput("");
     toast.success("Filtros restaurados");
   }
 
-  function toggleSort(col: ReprocessLogSortCol) {
-    if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc");
-    else { setSortBy(col); setSortDir("desc"); }
+  function toggleSort(col: LogSortCol) {
+    if (sortBy === col) patchLogSearch({ l_sd: sortDir === "asc" ? "desc" : "asc", l_p: 0 });
+    else patchLogSearch({ l_sb: col, l_sd: "desc", l_p: 0 });
   }
+  // Alias para manter o resto do arquivo funcionando.
+  type ReprocessLogSortCol = LogSortCol;
+
 
   async function handleExport(format: "csv" | "json") {
     setExporting(format);
@@ -1024,6 +1214,33 @@ function ReprocessLogPanel({
     }
   }
 
+  async function retryLastBatchFailures() {
+    if (!batchSummary) return;
+    const failedIds = batchSummary.results.filter((r) => !r.ok).map((r) => r.id);
+    if (failedIds.length === 0) {
+      toast.info("Não há falhas para reprocessar.");
+      return;
+    }
+    setRetryingFailures(true);
+    try {
+      const res = (await reprocessByIdsFn({ data: { ids: failedIds } })) as BatchReprocessResult;
+      setBatchSummary(res);
+      if (res.failed === 0) {
+        toast.success(`Falhas reprocessadas: ${res.succeeded}/${res.attempted} OK`);
+      } else {
+        toast.warning(`Retentativa parcial: ${res.succeeded} OK · ${res.failed} falharam`);
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] }),
+        query.refetch(),
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao retentar as falhas");
+    } finally {
+      setRetryingFailures(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -1092,11 +1309,11 @@ function ReprocessLogPanel({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-muted-foreground">stripe_event_id contém</span>
-            <Input value={stripeEventId} onChange={(e) => setStripeEventId(e.target.value)} placeholder="evt_…" />
+            <Input value={sidInput} onChange={(e) => setSidInput(e.target.value)} placeholder="evt_…" />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-muted-foreground">Usuário (uuid)</span>
-            <Input value={actorUserId} onChange={(e) => setActorUserId(e.target.value)} placeholder="uuid do admin" />
+            <Input value={uidInput} onChange={(e) => setUidInput(e.target.value)} placeholder="uuid do admin" />
           </label>
           <FilterSelect
             label="Resultado" value={outcome} onChange={(v) => setOutcome(v as typeof outcome)}
@@ -1121,11 +1338,13 @@ function ReprocessLogPanel({
           />
         </div>
 
-        {(batchPending || batchSummary) && (
+        {(batchPending || retryingFailures || batchSummary) && (
           <BatchProgressPanel
-            pending={batchPending}
+            pending={batchPending || retryingFailures}
             summary={batchSummary}
             onDismiss={() => setBatchSummary(null)}
+            onRetryFailures={retryLastBatchFailures}
+            retryingFailures={retryingFailures}
           />
         )}
 
