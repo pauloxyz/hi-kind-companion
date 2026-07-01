@@ -94,20 +94,39 @@ function matchTargets(failed: VitestAssertion[]): string[] {
   return [...hits].sort();
 }
 
-const { previous, current, out } = parseArgs();
+const { previous, current, out, verbose, dryRun } = parseArgs();
 if (!existsSync(current)) {
   console.error(`Current report not found at ${current}`);
   process.exit(2);
 }
-const prev = previous && existsSync(previous) ? loadReport(previous) : null;
+
+// Safe fallback: no previous artifact = baseline run. Emit a clean delta
+// noting the baseline state, exit 0, and let the CI step continue without
+// masking real failures — regressions are still caught when a previous
+// artifact IS present on the next run.
+const hasPrev = !!previous && existsSync(previous);
+if (previous && !hasPrev) {
+  console.warn(`⚠ Previous artifact ${previous} not found — falling back to baseline mode (no drift comparison).`);
+}
+if (verbose) {
+  console.log(`[verbose] previous=${previous ?? "<none>"} exists=${hasPrev}`);
+  console.log(`[verbose] current=${current} out=${out} dryRun=${dryRun}`);
+}
+
+const prev = hasPrev ? loadReport(previous!) : null;
 const curr = loadReport(current);
 const { regressed, stillFailing, newlyPassing, newTests } = classify(prev, curr);
 const reappeared = matchTargets([...regressed, ...stillFailing]);
 
+if (verbose) {
+  console.log(`[verbose] curr=${curr.size} regressed=${regressed.length} stillFailing=${stillFailing.length} newlyPassing=${newlyPassing.length} newTests=${newTests.length}`);
+  console.log(`[verbose] reappeared=${JSON.stringify(reappeared)}`);
+}
+
 const lines: string[] = [];
 lines.push("# Security regression delta");
 lines.push("");
-lines.push(`- Previous artifact: ${prev ? previous : "_none (baseline run)_"}`);
+lines.push(`- Previous artifact: ${hasPrev ? previous : "_none (baseline run — no drift comparison)_"}`);
 lines.push(`- Current report:   \`${current}\``);
 lines.push(`- Total tests:      ${curr.size}`);
 lines.push(`- Regressed (was passing, now failing): **${regressed.length}**`);
@@ -117,16 +136,20 @@ lines.push(`- New tests added:  ${newTests.length}`);
 lines.push("");
 if (reappeared.length) {
   lines.push("## ⚠️ Targeted internal_ids that reappeared");
-  for (const id of reappeared) lines.push(`- \`${id}\``);
+  lines.push("");
+  lines.push("| internal_id | source |");
+  lines.push("| --- | --- |");
+  for (const id of reappeared) lines.push(`| \`${id}\` | regression suite |`);
   lines.push("");
 }
 if (regressed.length) {
   lines.push("## Regressions");
+  lines.push("");
+  lines.push("| test | failure preview |");
+  lines.push("| --- | --- |");
   for (const a of regressed) {
-    lines.push(`- ❌ \`${a.fullName}\``);
-    for (const m of (a.failureMessages ?? []).slice(0, 1)) {
-      lines.push(`  \`\`\`\n  ${m.split("\n").slice(0, 3).join("\n  ")}\n  \`\`\``);
-    }
+    const preview = (a.failureMessages?.[0] ?? "").split("\n")[0].slice(0, 160).replace(/\|/g, "\\|");
+    lines.push(`| ❌ \`${a.fullName}\` | ${preview} |`);
   }
   lines.push("");
 }
@@ -136,21 +159,42 @@ if (newlyPassing.length) {
   lines.push("");
 }
 
-writeFileSync(out, lines.join("\n"));
-console.log(`Wrote delta to ${out}`);
-
-// Also emit a compact JSON summary next to it for machine consumers.
-writeFileSync(out.replace(/\.md$/, ".json"), JSON.stringify({
+const jsonSummary = {
+  previous: hasPrev ? previous : null,
+  current,
+  baseline: !hasPrev,
+  totals: {
+    tests: curr.size,
+    regressed: regressed.length,
+    stillFailing: stillFailing.length,
+    newlyPassing: newlyPassing.length,
+    newTests: newTests.length,
+  },
   regressed: regressed.map((a) => a.fullName),
   stillFailing: stillFailing.map((a) => a.fullName),
   newlyPassing,
   newTests,
   reappearedInternalIds: reappeared,
-}, null, 2));
+};
+
+if (dryRun) {
+  console.log("[dry-run] Would write:", out);
+  console.log("[dry-run] Would write:", out.replace(/\.md$/, ".json"));
+  console.log("[dry-run] Markdown preview (first 40 lines):");
+  console.log(lines.slice(0, 40).join("\n"));
+  console.log("[dry-run] JSON summary:");
+  console.log(JSON.stringify(jsonSummary, null, 2));
+} else {
+  writeFileSync(out, lines.join("\n"));
+  writeFileSync(out.replace(/\.md$/, ".json"), JSON.stringify(jsonSummary, null, 2));
+  console.log(`Wrote delta to ${out}`);
+}
 
 // Exit non-zero when there are regressions OR any targeted id reappears.
+// Baseline runs (no previous artifact) never regress by definition.
 if (regressed.length > 0 || reappeared.length > 0) {
   console.error(`Drift detected: ${regressed.length} regressions, ${reappeared.length} targeted findings.`);
   process.exit(1);
 }
 process.exit(0);
+
