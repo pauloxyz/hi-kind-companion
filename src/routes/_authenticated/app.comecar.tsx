@@ -1039,6 +1039,59 @@ function Step5Done({ form }: { form: FormState }) {
 
             {publicUrl ? (
               <>
+                {canMultiCv && variants.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="wa-variant" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Enviar como currículo
+                    </Label>
+                    <select
+                      id="wa-variant"
+                      className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+                      value={activeVariant?.id ?? ""}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setSelectedVariantId(id || null);
+                        setEnMessage(null); // invalidate cached translation
+                        if (id) activateMut.mutate(id);
+                      }}
+                    >
+                      <option value="">Perfil padrão</option>
+                      {variants.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                          {v.job_title_pt ? ` — ${v.job_title_pt}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {activeVariant && (
+                      <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        Currículo ativo: <strong>{activeVariant.name}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {canTranslate && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setLang("pt")}
+                      className={`px-2 py-1 rounded-md border ${lang === "pt" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
+                    >
+                      PT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLang("en")}
+                      className={`px-2 py-1 rounded-md border inline-flex items-center gap-1 ${lang === "en" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
+                    >
+                      <Languages className="h-3 w-3" /> EN
+                    </button>
+                    {translating && <span className="text-muted-foreground ml-1">traduzindo…</span>}
+                  </div>
+                )}
+
                 <div className="rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-line text-muted-foreground">
                   {waMessage}
                 </div>
