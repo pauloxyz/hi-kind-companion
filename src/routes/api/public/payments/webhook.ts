@@ -18,7 +18,7 @@
  * na URL do webhook — cada endpoint (test/live) é registrado com o seu.
  */
 import { createFileRoute } from "@tanstack/react-router";
-import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
+import { type StripeEnv, verifyStripeWebhook } from "@/lib/stripe-webhook.server";
 
 // Tipos Stripe são pesados e o payload aqui é JSON puro (sem SDK), então usamos
 // `any` interno com resolvers tipados nas fronteiras.
