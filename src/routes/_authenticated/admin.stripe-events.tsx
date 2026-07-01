@@ -1035,28 +1035,53 @@ function ReprocessLogPanel({
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={resetFilters} disabled={!filtersDirty}>
+            <Button size="sm" variant="ghost" onClick={resetFilters} disabled={!filtersDirty || batchPending}>
               <X className="mr-2 h-4 w-4" />
               Limpar filtros
             </Button>
-            <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>
+            <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching || batchPending}>
               <RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
               Atualizar
+            </Button>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">Lote:</span>
+              <Select
+                value={String(batchLimit)}
+                onValueChange={(v) => setBatchLimit(Number(v))}
+                disabled={batchPending}
+              >
+                <SelectTrigger className="h-8 w-[84px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BATCH_LIMIT_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmBatch("all")}
+              disabled={batchPending || total === 0}
+            >
+              <RotateCcw className={`mr-2 h-4 w-4 ${batchPending ? "animate-spin" : ""}`} />
+              Reprocessar filtrados
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setConfirmBatch(true)}
-              disabled={batchPending || total === 0}
+              onClick={() => setConfirmBatch("errors")}
+              disabled={batchPending}
+              title="Reprocessar apenas eventos com outcome=error dentro dos filtros ativos"
             >
-              <RotateCcw className={`mr-2 h-4 w-4 ${batchPending ? "animate-spin" : ""}`} />
-              Reprocessar filtrados (até {BATCH_LIMIT})
+              <AlertCircle className={`mr-2 h-4 w-4 ${batchPending ? "animate-spin" : ""}`} />
+              Reprocessar só erros
             </Button>
-            <Button size="sm" onClick={() => handleExport("csv")} disabled={exporting !== null || total === 0}>
+            <Button size="sm" onClick={() => handleExport("csv")} disabled={exporting !== null || total === 0 || batchPending}>
               <Download className={`mr-2 h-4 w-4 ${exporting === "csv" ? "animate-pulse" : ""}`} />
               Exportar CSV
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleExport("json")} disabled={exporting !== null || total === 0}>
+            <Button size="sm" variant="outline" onClick={() => handleExport("json")} disabled={exporting !== null || total === 0 || batchPending}>
               <FileJson className={`mr-2 h-4 w-4 ${exporting === "json" ? "animate-pulse" : ""}`} />
               Exportar JSON
             </Button>
