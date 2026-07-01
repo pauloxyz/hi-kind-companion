@@ -1260,25 +1260,41 @@ function ReprocessLogPanel({
       </AlertDialog>
 
       {/* Confirmação: reprocessar em lote */}
-      <AlertDialog open={confirmBatch} onOpenChange={setConfirmBatch}>
+      <AlertDialog open={confirmBatch !== null} onOpenChange={(o) => { if (!o) setConfirmBatch(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reprocessar filtrados em lote?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmBatch === "errors"
+                ? "Reprocessar somente erros filtrados?"
+                : "Reprocessar filtrados em lote?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Serão reprocessados até <strong>{BATCH_LIMIT}</strong> eventos distintos correspondentes aos filtros
-              atuais do log (stripe_event_id, usuário, resultado, intervalo). Cada replay é best-effort e gera
-              auditoria.
+              {confirmBatch === "errors" ? (
+                <>
+                  Serão reprocessados até <strong>{batchLimit}</strong> eventos distintos com{" "}
+                  <code className="font-mono">outcome=error</code> dentro dos filtros ativos do log
+                  (stripe_event_id, usuário, intervalo). Cada replay é best-effort e gera auditoria.
+                </>
+              ) : (
+                <>
+                  Serão reprocessados até <strong>{Math.min(batchLimit, total)}</strong> de{" "}
+                  <strong>{total.toLocaleString("pt-BR")}</strong> registro(s) correspondentes aos filtros
+                  atuais do log (stripe_event_id, usuário, resultado, intervalo). Cada replay é best-effort
+                  e gera auditoria.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setConfirmBatch(false);
-                void runBatchFromLog();
+                const scope = confirmBatch ?? "all";
+                setConfirmBatch(null);
+                void runBatchFromLog(scope);
               }}
             >
-              Reprocessar em lote
+              {confirmBatch === "errors" ? "Reprocessar erros" : "Reprocessar em lote"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
