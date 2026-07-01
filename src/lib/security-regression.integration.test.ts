@@ -208,6 +208,60 @@ describe.runIf(hasCreds)("security regression — SECURITY DEFINER EXECUTE grant
   });
 });
 
+describe.runIf(hasCreds)("security regression — RLS/GRANT on internal tables", () => {
+  let anon: SupabaseClient;
+
+  beforeAll(() => {
+    anon = createClient(URL!, KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+    });
+  });
+
+  for (const table of FORBIDDEN_ANON_TABLE_READS) {
+    it(`anon cannot SELECT * FROM ${table}`, async () => {
+      const { data, error } = await anon.from(table).select("*").limit(1);
+      // Two acceptable regression-safe shapes:
+      //   1) explicit permission error (GRANT stripped from anon)
+      //   2) empty rows with no error (RLS returns 0 rows despite GRANT)
+      // Anything else — a populated row for anon — is a regression.
+      if (error) {
+        expect(
+          isPermissionErrorShape(error),
+          `${table}: unexpected error shape: ${error.message}`,
+        ).toBe(true);
+      } else {
+        expect(
+          data ?? [],
+          `${table} leaked rows to anon (regression!)`,
+        ).toEqual([]);
+      }
+    });
+  }
+
+  for (const { op, args } of MY_PROFILE_WRITE_PROBES) {
+    it(`anon cannot ${op.toUpperCase()} my_profile`, async () => {
+      let error: { code?: string; message?: string } | null = null;
+      if (op === "insert") {
+        ({ error } = await anon.from("my_profile").insert(args!));
+      } else if (op === "update") {
+        ({ error } = await anon
+          .from("my_profile")
+          .update(args!)
+          .eq("public_slug", "___regression_probe___"));
+      } else {
+        ({ error } = await anon
+          .from("my_profile")
+          .delete()
+          .eq("public_slug", "___regression_probe___"));
+      }
+      expect(
+        error && isPermissionErrorShape(error),
+        `Expected permission-denied on my_profile ${op}. Got: ${error?.message ?? "no error (regression!)"}`,
+      ).toBe(true);
+    });
+  }
+});
+
 describe.runIf(!hasCreds)("security regression (SKIPPED — no Supabase creds)", () => {
   it("skipped because VITE_SUPABASE_URL/PUBLISHABLE_KEY are not set", () => {
     expect(true).toBe(true);
