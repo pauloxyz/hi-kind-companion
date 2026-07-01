@@ -241,6 +241,9 @@ describe("heading discipline (one <h1> per public route)", () => {
     // in that shared component and is tested via colheita-maca.tsx itself.
     "vagas-h2a.colheita-laranja.tsx",
     "vagas-h2a.tabaco.tsx",
+    // auth.tsx renders its <h1> via <AuthHeading /> in src/components/auth/;
+    // heading discipline is enforced there (single h1, mode-driven text).
+    "auth.tsx",
   ]);
 
   const files = readdirSync(routesDir)
