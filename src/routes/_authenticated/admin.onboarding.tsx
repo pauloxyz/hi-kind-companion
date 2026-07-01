@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
 import { Users, CheckCircle2, TrendingDown, Download, Inbox, RefreshCw, AlertCircle } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   beforeLoad: async () => {
