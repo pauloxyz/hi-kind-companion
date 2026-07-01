@@ -108,7 +108,7 @@ function validateSearchState(raw: Record<string, unknown>): SearchState {
   };
 }
 
-export const Route = createFileRoute(ROUTE_ID)({
+export const Route = createFileRoute("/_authenticated/admin/stripe-events")({
   validateSearch: validateSearchState,
   beforeLoad: async () => {
     try {
