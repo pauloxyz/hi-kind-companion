@@ -23,7 +23,10 @@ export const Route = createFileRoute("/")({
       { property: "og:url", content: absUrl("/") },
       { property: "og:type", content: "website" },
     ],
-    links: [{ rel: "canonical", href: absUrl("/") }],
+    // Root-relative para alinhar com a convenção das demais rotas públicas
+    // (precos, vagas-h2a, guia-*) — o mesmo formato validado pelo teste
+    // sitemap-entries "canonical URLs on public indexable routes".
+    links: [{ rel: "canonical", href: "/" }],
     scripts: [
       {
         type: "application/ld+json",
