@@ -26,17 +26,12 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { CRON_PROTECTED_HOOKS } from "@/config/security-internal-ids";
 
 const HOOKS_DIR = join(__dirname);
 // spike-alert.ts uses its own HMAC signature (webhook from Postgres),
 // not CRON_SECRET — it is intentionally excluded from this gate.
-const CRON_HOOKS = [
-  "uptime.ts",
-  "check-replies.ts",
-  "import-dol-feed.ts",
-  "seo-scan.ts",
-  "visa-reminders.ts",
-] as const;
+const CRON_HOOKS = CRON_PROTECTED_HOOKS;
 
 describe("cron hooks — file inventory", () => {
   it("matches the expected inventory (adding a hook must update this list)", () => {
