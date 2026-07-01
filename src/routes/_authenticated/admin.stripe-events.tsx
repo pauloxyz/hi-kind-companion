@@ -1,12 +1,14 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import {
+  exportStripeWebhookEvents,
   listStripeWebhookEvents,
   listStripeWebhookEventTypes,
   type StripeWebhookEventRow,
+  type StripeWebhookEventsPage,
 } from "@/lib/stripe-webhook-events.functions";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,10 +20,19 @@ import {
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import { ChevronDown, ChevronRight, RefreshCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import {
+  ArrowDown, ArrowUp, ArrowUpDown, Check, ChevronDown, ChevronLeft, ChevronRight,
+  Copy, Download, RefreshCw,
+} from "lucide-react";
+import { toast } from "sonner";
 
 type EnvFilter = "all" | "sandbox" | "live";
 type StatusFilter = "all" | "processed" | "ignored" | "error";
+type SortCol = "received_at" | "processed_at" | "event_type" | "status";
+type SortDir = "asc" | "desc";
+
+const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 export const Route = createFileRoute("/_authenticated/admin/stripe-events")({
   beforeLoad: async () => {
@@ -37,11 +48,23 @@ export const Route = createFileRoute("/_authenticated/admin/stripe-events")({
 function AdminStripeEventsPage() {
   const list = useServerFn(listStripeWebhookEvents);
   const listTypes = useServerFn(listStripeWebhookEventTypes);
+  const exportFn = useServerFn(exportStripeWebhookEvents);
 
   const [environment, setEnvironment] = useState<EnvFilter>("all");
   const [status, setStatus] = useState<StatusFilter>("all");
   const [eventType, setEventType] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<SortCol>("received_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [pageSize, setPageSize] = useState<number>(25);
+  const [page, setPage] = useState<number>(0);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
+
+  // Volta pra primeira página quando filtros mudam
+  useEffect(() => {
+    setPage(0);
+  }, [environment, status, eventType, pageSize]);
 
   const typesQuery = useQuery({
     queryKey: ["admin", "stripe-events", "types"],
@@ -49,45 +72,95 @@ function AdminStripeEventsPage() {
   });
 
   const eventsQuery = useQuery({
-    queryKey: ["admin", "stripe-events", environment, status, eventType],
+    queryKey: ["admin", "stripe-events", environment, status, eventType, sortBy, sortDir, page, pageSize],
     queryFn: () =>
       list({
         data: {
           environment,
           status,
           eventType: eventType === "all" ? undefined : eventType,
-          limit: 100,
+          sortBy,
+          sortDir,
+          limit: pageSize,
+          offset: page * pageSize,
         },
-      }) as Promise<StripeWebhookEventRow[]>,
+      }) as Promise<StripeWebhookEventsPage>,
+    refetchInterval: autoRefresh ? 5000 : false,
   });
 
-  const rows = eventsQuery.data ?? [];
+  const rows = eventsQuery.data?.rows ?? [];
+  const total = eventsQuery.data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const showingFrom = total === 0 ? 0 : page * pageSize + 1;
+  const showingTo = Math.min(total, page * pageSize + rows.length);
+
+  function toggleSort(col: SortCol) {
+    if (sortBy === col) {
+      setSortDir(sortDir === "asc" ? "desc" : "asc");
+    } else {
+      setSortBy(col);
+      setSortDir("desc");
+    }
+  }
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const data = (await exportFn({
+        data: {
+          environment,
+          status,
+          eventType: eventType === "all" ? undefined : eventType,
+          sortBy,
+          sortDir,
+        },
+      })) as StripeWebhookEventRow[];
+      downloadCsv(data, buildCsvFilename({ environment, status, eventType }));
+      toast.success(`CSV exportado (${data.length} registros)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao exportar CSV");
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
         title="Eventos do Stripe"
-        description="Auditoria dos webhooks recebidos em /api/public/payments/webhook, com filtros por ambiente, tipo e status."
+        description="Auditoria dos webhooks recebidos em /api/public/payments/webhook, com filtros, ordenação e exportação."
         actions={
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => eventsQuery.refetch()}
-            disabled={eventsQuery.isFetching}
-          >
-            <RefreshCw className={`mr-2 h-4 w-4 ${eventsQuery.isFetching ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+              Auto-refresh 5s
+            </label>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => eventsQuery.refetch()}
+              disabled={eventsQuery.isFetching}
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${eventsQuery.isFetching ? "animate-spin" : ""}`} />
+              Atualizar
+            </Button>
+            <Button size="sm" onClick={handleExport} disabled={exporting || total === 0}>
+              <Download className={`mr-2 h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
+              Exportar CSV
+            </Button>
+          </div>
         }
       />
 
       <Card>
         <CardHeader>
           <CardTitle>Filtros</CardTitle>
-          <CardDescription>Últimos 100 eventos que casam com os filtros.</CardDescription>
+          <CardDescription>
+            {total.toLocaleString("pt-BR")} registros no total · página {page + 1} de {totalPages}
+          </CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-4">
             <FilterSelect
               label="Ambiente"
               value={environment}
@@ -118,13 +191,19 @@ function AdminStripeEventsPage() {
                 ...(typesQuery.data ?? []).map((t) => ({ value: t, label: t })),
               ]}
             />
+            <FilterSelect
+              label="Por página"
+              value={String(pageSize)}
+              onChange={(v) => setPageSize(Number(v))}
+              options={PAGE_SIZE_OPTIONS.map((n) => ({ value: String(n), label: String(n) }))}
+            />
           </div>
         </CardContent>
       </Card>
 
       <Card>
         <CardHeader>
-          <CardTitle>Eventos recentes</CardTitle>
+          <CardTitle>Eventos</CardTitle>
           <CardDescription>Clique numa linha para inspecionar o payload resumido.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -139,10 +218,11 @@ function AdminStripeEventsPage() {
               <TableHeader>
                 <TableRow>
                   <TableHead className="w-8" />
-                  <TableHead>Recebido em</TableHead>
-                  <TableHead>Tipo</TableHead>
+                  <SortableHead label="Recebido em" col="received_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="Tipo" col="event_type" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   <TableHead>Ambiente</TableHead>
-                  <TableHead>Status</TableHead>
+                  <SortableHead label="Status" col="status" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                  <SortableHead label="Processado em" col="processed_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                   <TableHead className="font-mono text-xs">stripe_event_id</TableHead>
                 </TableRow>
               </TableHeader>
@@ -158,6 +238,33 @@ function AdminStripeEventsPage() {
               </TableBody>
             </Table>
           )}
+
+          <div className="mt-4 flex items-center justify-between gap-2 text-sm text-muted-foreground">
+            <div>
+              {total === 0
+                ? "0 registros"
+                : `Mostrando ${showingFrom.toLocaleString("pt-BR")}–${showingTo.toLocaleString("pt-BR")} de ${total.toLocaleString("pt-BR")}`}
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={page === 0 || eventsQuery.isFetching}
+              >
+                <ChevronLeft className="mr-1 h-4 w-4" /> Anterior
+              </Button>
+              <span className="tabular-nums">{page + 1} / {totalPages}</span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                disabled={page >= totalPages - 1 || eventsQuery.isFetching}
+              >
+                Próxima <ChevronRight className="ml-1 h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -187,6 +294,31 @@ function FilterSelect({
   );
 }
 
+function SortableHead({
+  label, col, sortBy, sortDir, onSort,
+}: {
+  label: string;
+  col: SortCol;
+  sortBy: SortCol;
+  sortDir: SortDir;
+  onSort: (c: SortCol) => void;
+}) {
+  const active = sortBy === col;
+  const Icon = !active ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <TableHead>
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+      >
+        {label}
+        <Icon className={`h-3.5 w-3.5 ${active ? "text-foreground" : "text-muted-foreground/60"}`} />
+      </button>
+    </TableHead>
+  );
+}
+
 function statusVariant(status: string): "default" | "secondary" | "destructive" | "outline" {
   if (status === "processed") return "default";
   if (status === "error") return "destructive";
@@ -197,6 +329,21 @@ function statusVariant(status: string): "default" | "secondary" | "destructive" 
 function EventRow({
   row, expanded, onToggle,
 }: { row: StripeWebhookEventRow; expanded: boolean; onToggle: () => void }) {
+  const jsonText = useMemo(() => JSON.stringify(row.payload_summary ?? {}, null, 2), [row.payload_summary]);
+  const [copied, setCopied] = useState(false);
+
+  async function copyPayload(e: React.MouseEvent) {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(jsonText);
+      setCopied(true);
+      toast.success("Payload copiado");
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      toast.error("Não foi possível copiar");
+    }
+  }
+
   return (
     <>
       <TableRow className="cursor-pointer" onClick={onToggle}>
@@ -211,22 +358,83 @@ function EventRow({
           </Badge>
         </TableCell>
         <TableCell><Badge variant={statusVariant(row.status)}>{row.status}</Badge></TableCell>
+        <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
+          {row.processed_at ? new Date(row.processed_at).toLocaleString("pt-BR") : "—"}
+        </TableCell>
         <TableCell className="font-mono text-xs text-muted-foreground">{row.stripe_event_id}</TableCell>
       </TableRow>
       {expanded && (
         <TableRow>
-          <TableCell colSpan={6} className="bg-muted/30">
+          <TableCell colSpan={7} className="bg-muted/30">
             {row.error_message && (
               <p className="mb-2 text-sm text-destructive">
                 <span className="font-medium">Erro:</span> {row.error_message}
               </p>
             )}
-            <pre className="max-h-80 overflow-auto rounded bg-background p-3 text-xs">
-              {JSON.stringify(row.payload_summary ?? {}, null, 2)}
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">payload_summary</span>
+              <Button size="sm" variant="outline" onClick={copyPayload}>
+                {copied ? <Check className="mr-2 h-3.5 w-3.5" /> : <Copy className="mr-2 h-3.5 w-3.5" />}
+                {copied ? "Copiado" : "Copiar JSON"}
+              </Button>
+            </div>
+            <pre className="max-h-96 overflow-auto rounded border bg-background p-3 text-xs leading-relaxed">
+              {jsonText}
             </pre>
           </TableCell>
         </TableRow>
       )}
     </>
   );
+}
+
+// ------------------------- CSV helpers -------------------------
+
+const CSV_COLUMNS: (keyof StripeWebhookEventRow)[] = [
+  "received_at",
+  "processed_at",
+  "environment",
+  "event_type",
+  "status",
+  "stripe_event_id",
+  "error_message",
+  "payload_summary",
+  "id",
+];
+
+function csvEscape(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  const s = typeof value === "string" ? value : JSON.stringify(value);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function toCsv(rows: StripeWebhookEventRow[]): string {
+  const header = CSV_COLUMNS.join(",");
+  const lines = rows.map((r) => CSV_COLUMNS.map((c) => csvEscape(r[c])).join(","));
+  return [header, ...lines].join("\n");
+}
+
+function buildCsvFilename(filters: { environment: string; status: string; eventType: string }): string {
+  const parts = [
+    "stripe-webhook-events",
+    filters.environment !== "all" && filters.environment,
+    filters.status !== "all" && filters.status,
+    filters.eventType !== "all" && filters.eventType.replace(/[^a-z0-9_.-]+/gi, "_"),
+    new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-"),
+  ].filter(Boolean);
+  return `${parts.join("_")}.csv`;
+}
+
+function downloadCsv(rows: StripeWebhookEventRow[], filename: string) {
+  // BOM garante que Excel abra em UTF-8
+  const blob = new Blob(["\uFEFF" + toCsv(rows)], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }
