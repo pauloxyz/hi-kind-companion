@@ -10,6 +10,7 @@ import {
   listReprocessLog,
   listStripeWebhookEvents,
   listStripeWebhookEventTypes,
+  reprocessFromLogFilteredBatch,
   reprocessStripeWebhookEvent,
   reprocessStripeWebhookEventsBatch,
   type BatchReprocessResult,
