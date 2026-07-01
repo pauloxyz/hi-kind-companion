@@ -926,17 +926,20 @@ function downloadBlob(blob: Blob, filename: string) {
 // ------------------------- Batch progress panel -------------------------
 
 function BatchProgressPanel({
-  pending, summary, onDismiss,
+  pending, summary, onDismiss, onRetryFailures, retryingFailures,
 }: {
   pending: boolean;
   summary: BatchReprocessResult | null;
   onDismiss: () => void;
+  onRetryFailures?: () => void | Promise<void>;
+  retryingFailures?: boolean;
 }) {
   const attempted = summary?.attempted ?? 0;
   const succeeded = summary?.succeeded ?? 0;
   const failed = summary?.failed ?? 0;
   const progress = pending ? 0 : attempted === 0 ? 100 : Math.round((succeeded + failed) / attempted * 100);
   const errors = (summary?.results ?? []).filter((r) => !r.ok).slice(0, 5);
+  const canRetryFailures = !pending && failed > 0 && !!onRetryFailures;
 
   return (
     <Card className={pending ? "border-primary/40" : failed > 0 ? "border-destructive/40" : "border-emerald-500/40"}>
@@ -948,17 +951,31 @@ function BatchProgressPanel({
             </CardTitle>
             <CardDescription>
               {pending
-                ? "Isto pode levar alguns segundos por evento."
+                ? "Isto pode levar alguns segundos por evento. A tabela atualiza automaticamente."
                 : attempted === 0
                   ? "Nenhum evento com status=error nos filtros atuais."
                   : `Tentativas: ${attempted} · Sucesso: ${succeeded} · Falhas: ${failed}`}
             </CardDescription>
           </div>
-          {!pending && (
-            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDismiss} aria-label="Fechar">
-              <X className="h-4 w-4" />
-            </Button>
-          )}
+          <div className="flex items-center gap-1">
+            {canRetryFailures && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onRetryFailures?.()}
+                disabled={retryingFailures}
+                title="Reprocessar somente as falhas do último batch"
+              >
+                <RotateCcw className={`mr-2 h-3.5 w-3.5 ${retryingFailures ? "animate-spin" : ""}`} />
+                Retentar falhas ({failed})
+              </Button>
+            )}
+            {!pending && (
+              <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDismiss} aria-label="Fechar">
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -987,6 +1004,7 @@ function BatchProgressPanel({
     </Card>
   );
 }
+
 
 // ------------------------- Reprocess-log panel -------------------------
 
