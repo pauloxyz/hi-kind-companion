@@ -50,6 +50,15 @@ export type FunnelSnapshot = {
   completion_rate_pct: number;
   current_step_distribution: Array<{ step: number; users: number }>;
   funnel: FunnelRow[];
+  by_lang: {
+    pt: { reached_by_step: number[]; completed_users: number; toggles_to: number };
+    en: { reached_by_step: number[]; completed_users: number; toggles_to: number };
+  };
+  variant_switches: {
+    total_events: number;
+    unique_users: number;
+    unique_variants: number;
+  };
   recent_events: Array<{
     id: string;
     user_id: string;
@@ -75,21 +84,62 @@ export const getOnboardingFunnel = createServerFn({ method: "GET" })
     await assertAdminWithAudit(context as never, "admin/onboarding");
 
     // 1) unique users that hit each step (from events, robust to nav-away)
+    //    We also pull `props` so we can slice the funnel by lang (PT/EN) and
+    //    count variant switches / lang toggles.
     const { data: events, error: evErr } = await context.supabase
       .from("onboarding_events")
-      .select("user_id,event,step_index,created_at")
-      .in("event", ["onboarding_started", "onboarding_step_advanced", "onboarding_completed"])
+      .select("user_id,event,step_index,props,created_at")
+      .in("event", [
+        "onboarding_started",
+        "onboarding_step_advanced",
+        "onboarding_completed",
+        "onboarding_lang_toggled",
+        "onboarding_variant_selected",
+        "onboarding_variant_activated",
+      ])
       .order("created_at", { ascending: false })
-      .limit(10000);
+      .limit(20000);
     if (evErr) throw new Error(evErr.message);
 
     const usersByStep = new Map<number, Set<string>>();
     const started = new Set<string>();
     const completed = new Set<string>();
-    for (const e of events ?? []) {
+    /** last known language for a user, derived from the most recent lang toggle. */
+    const userLang = new Map<string, "pt" | "en">();
+    const stepsByLang = { pt: new Map<number, Set<string>>(), en: new Map<number, Set<string>>() };
+    const completedByLang = { pt: new Set<string>(), en: new Set<string>() };
+    const togglesTo = { pt: 0, en: 0 };
+    const variantUsers = new Set<string>();
+    const variantIds = new Set<string>();
+    let variantEvents = 0;
+
+    // Events came back DESC; iterate ASC so "last known lang" for a user is
+    // really the latest toggle that preceded their subsequent step events.
+    const asc = [...(events ?? [])].reverse();
+    for (const e of asc) {
       const uid = (e as { user_id: string }).user_id;
-      if (e.event === "onboarding_started") started.add(uid);
-      if (e.event === "onboarding_completed") completed.add(uid);
+      const evt = (e as { event: string }).event;
+      const props = ((e as { props?: Record<string, unknown> | null }).props ?? {}) as Record<string, unknown>;
+
+      if (evt === "onboarding_lang_toggled") {
+        const to = (props.to === "en" ? "en" : "pt") as "pt" | "en";
+        userLang.set(uid, to);
+        togglesTo[to] += 1;
+        continue;
+      }
+      if (evt === "onboarding_variant_selected" || evt === "onboarding_variant_activated") {
+        variantEvents += 1;
+        variantUsers.add(uid);
+        const vid = typeof props.variant_id === "string" ? props.variant_id : null;
+        if (vid) variantIds.add(vid);
+        continue;
+      }
+      if (evt === "onboarding_started") started.add(uid);
+      if (evt === "onboarding_completed") {
+        completed.add(uid);
+        const lang = userLang.get(uid) ?? "pt";
+        completedByLang[lang].add(uid);
+      }
       const idx =
         typeof (e as { step_index?: number | null }).step_index === "number"
           ? (e as { step_index: number }).step_index
@@ -97,6 +147,9 @@ export const getOnboardingFunnel = createServerFn({ method: "GET" })
       if (idx !== null && idx >= 0 && idx < STEP_LABELS.length) {
         if (!usersByStep.has(idx)) usersByStep.set(idx, new Set());
         usersByStep.get(idx)!.add(uid);
+        const lang = userLang.get(uid) ?? "pt";
+        if (!stepsByLang[lang].has(idx)) stepsByLang[lang].set(idx, new Set());
+        stepsByLang[lang].get(idx)!.add(uid);
       }
     }
 
@@ -115,6 +168,9 @@ export const getOnboardingFunnel = createServerFn({ method: "GET" })
         drop_rate_pct: drop,
       };
     });
+
+    const reachedByLang = (lang: "pt" | "en") =>
+      STEP_LABELS.map((_, i) => stepsByLang[lang].get(i)?.size ?? 0);
 
     // 2) current snapshot from my_profile (where each user is parked right now)
     const { data: snap, error: snapErr } = await context.supabase
@@ -151,6 +207,23 @@ export const getOnboardingFunnel = createServerFn({ method: "GET" })
         .sort((a, b) => a[0] - b[0])
         .map(([step, users]) => ({ step, users })),
       funnel,
+      by_lang: {
+        pt: {
+          reached_by_step: reachedByLang("pt"),
+          completed_users: completedByLang.pt.size,
+          toggles_to: togglesTo.pt,
+        },
+        en: {
+          reached_by_step: reachedByLang("en"),
+          completed_users: completedByLang.en.size,
+          toggles_to: togglesTo.en,
+        },
+      },
+      variant_switches: {
+        total_events: variantEvents,
+        unique_users: variantUsers.size,
+        unique_variants: variantIds.size,
+      },
       recent_events: (recent ?? []) as FunnelSnapshot["recent_events"],
     };
   });

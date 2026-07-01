@@ -124,15 +124,50 @@ test.describe("Onboarding · Pro + EN + variante", () => {
     );
     if (values.length === 0) test.skip(true, "Sem variantes disponíveis.");
     await variantSelect.selectOption(values[0]);
+    const selectedName = (await variantSelect.locator(`option[value="${values[0]}"]`).innerText()).trim();
 
     await page.getByTestId("onb-lang-en").click();
     await expect(page.getByTestId("onb-lang-translating")).toBeHidden({ timeout: 10_000 });
 
-    const enMessage = await page.getByTestId("onb-wa-message").innerText();
+    const enMessage = (await page.getByTestId("onb-wa-message").innerText()).trim();
     const waHref = await page.getByTestId("onb-wa-link").getAttribute("href");
     expect(waHref).toContain("https://wa.me/?text=");
-    expect(decodeURIComponent(waHref!)).toContain(enMessage.split("\n")[0]);
-    // Heurística: mensagem EN deve começar com "Hi!" ou "Hello"
-    expect(/^(hi|hello)/i.test(enMessage.trim())).toBe(true);
+
+    // Encoding: o href precisa ser URL-encoded (espaços viram %20 ou +,
+    // quebras de linha viram %0A). Decodificado, deve bater com a mensagem.
+    expect(waHref).toMatch(/%0A|%20|\+/);
+    const decoded = decodeURIComponent(waHref!.replace(/^https:\/\/wa\.me\/\?text=/, ""));
+    expect(decoded).toBe(enMessage);
+
+    // Mensagem EN: começa com "Hi!" e traz linhas de perfil/experience.
+    expect(/^(hi|hello)/i.test(enMessage)).toBe(true);
+
+    // Se a variante tem job_title_en/summary_en pré-preenchidos, a mensagem
+    // EN deve contê-los. Caso a variante não tenha esses campos, o teste
+    // aceita a tradução via IA (heurística acima).
+    const variantMeta = selectedName; // ex: "Colheita — Harvester"
+    const dashIdx = variantMeta.indexOf("—");
+    if (dashIdx > 0) {
+      const titlePt = variantMeta.slice(dashIdx + 1).trim();
+      // A mensagem EN não deve conter o job_title em PT bruto — ou ela usa
+      // o job_title_en da variante, ou a IA traduziu.
+      expect(enMessage.includes(titlePt)).toBe(false);
+    }
+
+    // Skills da variante ativa: se aparecem no PT como "Experiência: X, Y.",
+    // devem aparecer no EN como "Experience: X, Y." (mesmos tokens).
+    await page.getByTestId("onb-lang-pt").click();
+    const ptMessage = (await page.getByTestId("onb-wa-message").innerText()).trim();
+    const ptSkillsMatch = ptMessage.match(/Experiência:\s*(.+)\./);
+    if (ptSkillsMatch) {
+      const skills = ptSkillsMatch[1].split(",").map((s) => s.trim());
+      await page.getByTestId("onb-lang-en").click();
+      await expect(page.getByTestId("onb-lang-translating")).toBeHidden({ timeout: 10_000 });
+      const enAgain = (await page.getByTestId("onb-wa-message").innerText()).trim();
+      for (const s of skills) {
+        expect(enAgain).toContain(s);
+      }
+      expect(enAgain).toMatch(/Experience:/i);
+    }
   });
 });
