@@ -57,43 +57,52 @@ function AdminOnboardingPage() {
         title="Funil de onboarding"
         description="Métricas agregadas dos eventos do servidor + snapshot atual dos perfis."
         actions={
-          q.data ? (
-            <div className="flex flex-wrap items-center gap-2" data-testid="funnel-export-group">
-              <span className="text-xs text-muted-foreground">Exportar CSV:</span>
-              {(["pt", "en", "es"] as const).map((loc) => (
+          <div
+            className="flex flex-wrap items-center gap-2"
+            data-testid="funnel-export-group"
+            data-loading={q.isLoading ? "true" : "false"}
+            data-empty={isEmpty ? "true" : "false"}
+          >
+            <span className="text-xs text-muted-foreground">Exportar CSV:</span>
+            {(["pt", "en", "es"] as const).map((loc) => {
+              const disabled = q.isLoading || !q.data || isEmpty;
+              return (
                 <Button
                   key={loc}
                   variant="outline"
                   size="sm"
-                  disabled={isEmpty}
-                  aria-disabled={isEmpty}
+                  disabled={disabled}
+                  aria-disabled={disabled}
                   data-testid={loc === "pt" ? "funnel-export-csv" : `funnel-export-csv-${loc}`}
                   data-locale={loc}
                   title={
-                    isEmpty
+                    q.isLoading
+                      ? "Carregando dados do funil…"
+                      : isEmpty
                       ? "Nada para exportar — ainda não há eventos de onboarding."
                       : `Baixar funil em ${loc.toUpperCase()}`
                   }
                   onClick={() => {
-                    if (isEmpty) return;
+                    if (disabled || !q.data) return;
                     downloadFunnelCsv(q.data, loc);
                   }}
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" /> {loc.toUpperCase()}
                 </Button>
-              ))}
-            </div>
-          ) : null
+              );
+            })}
+          </div>
         }
       />
 
       {q.isLoading && (
-        <div className="grid sm:grid-cols-3 gap-4" data-testid="funnel-loading">
+        <div className="grid sm:grid-cols-3 gap-4" data-testid="funnel-loading" aria-busy="true" aria-live="polite">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
         </div>
       )}
+
 
       {q.error && (
         <Card data-testid="funnel-error">
