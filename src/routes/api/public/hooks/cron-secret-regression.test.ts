@@ -112,11 +112,13 @@ describe("cron hooks — runtime rejects without correct CRON_SECRET", () => {
 
   const importHook = async (file: string) => {
     const modulePath = "./" + file.replace(/\.ts$/, "");
-    const mod = await import(modulePath);
-    // @ts-expect-error — Route.options is untyped in @tanstack/react-router runtime shape
-    const post = mod.Route?.options?.server?.handlers?.POST;
+    const mod = (await import(modulePath)) as { Route: { options: unknown } };
+    const opts = mod.Route.options as {
+      server?: { handlers?: { POST?: (ctx: { request: Request }) => Promise<Response> } };
+    };
+    const post = opts.server?.handlers?.POST;
     expect(typeof post, `${file} must expose a POST handler`).toBe("function");
-    return post as (ctx: { request: Request }) => Promise<Response>;
+    return post!;
   };
 
   for (const file of CRON_HOOKS) {
