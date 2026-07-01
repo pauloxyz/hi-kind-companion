@@ -229,3 +229,40 @@ export async function ensureSignedIn(
   await applySessionToPage(page, s);
   return s;
 }
+
+/**
+ * Provision a brand-new user (unique email per call) and seed localStorage
+ * on the given page. Use this when the test needs a clean onboarding state
+ * (`/app/comecar` at step 0). Requires email auto-confirm to be enabled —
+ * throws with actionable guidance otherwise.
+ */
+export async function signInFreshUser(page: Page): Promise<E2ESession> {
+  const rand = Math.random().toString(36).slice(2, 10);
+  const email = `playwright+fresh-${Date.now()}-${rand}@vplusa.test`;
+  const password = "Playwright!Fresh#2025";
+
+  const client = makeClient();
+  const signUp = await client.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: undefined },
+  });
+  const session = signUp.data.session ?? null;
+  if (signUp.error || !session) {
+    throw new Error(
+      `Fresh E2E user provisioning failed for ${email}: ${
+        signUp.error?.message ?? "no session returned — enable email auto-confirm."
+      }`,
+    );
+  }
+  const s: E2ESession = {
+    storageKey: storageKeyFromUrl(SUPABASE_URL),
+    session,
+    storageValue: JSON.stringify(session),
+    email,
+  };
+  await page.goto("/");
+  await applySessionToPage(page, s);
+  return s;
+}
+
