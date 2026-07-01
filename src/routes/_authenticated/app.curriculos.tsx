@@ -11,8 +11,10 @@ import {
   attachVariantPdf,
   type ProfileVariant,
 } from "@/lib/profile-variants.functions";
+import { translateToEnglish } from "@/lib/translate.functions";
 import { PageHeader } from "@/components/page-header";
 import { ProGate } from "@/components/ProGate";
+import { usePro } from "@/hooks/usePro";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
-import { Plus, Star, Trash2, Upload, FileText, Pencil, X } from "lucide-react";
+import { Plus, Star, Trash2, Upload, FileText, Pencil, X, Languages } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/curriculos")({
   component: CurriculosPage,
