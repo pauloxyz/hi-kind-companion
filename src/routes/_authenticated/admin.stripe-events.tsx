@@ -9,10 +9,12 @@ import {
   listStripeWebhookEvents,
   listStripeWebhookEventTypes,
   reprocessStripeWebhookEvent,
+  reprocessStripeWebhookEventsBatch,
   type StripeWebhookEventRow,
   type StripeWebhookEventStats,
   type StripeWebhookEventsPage,
   type ReprocessResult,
+  type BatchReprocessResult,
 } from "@/lib/stripe-webhook-events.functions";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
