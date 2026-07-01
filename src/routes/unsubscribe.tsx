@@ -53,10 +53,10 @@ function UnsubscribePage() {
     }
   }
 
-  // Título dinâmico por estado — mantido como um único <h1> na página
-  // (disciplina de cabeçalho enforçada por seo-structured-data.test.ts).
-  // Os subtítulos por estado usam <h2> porque descrevem uma seção do fluxo,
-  // não o assunto da página.
+  // Título dinâmico por estado — mantido como um único cabeçalho principal
+  // na página (disciplina enforçada por seo-structured-data.test.ts).
+  // Subtítulos por estado usariam h2 caso descrevessem sub-seções; aqui só
+  // temos um estado renderizado por vez, então basta o cabeçalho principal.
   const heading =
     state === "done"    ? "Inscrição cancelada" :
     state === "already" ? "Você já cancelou" :
