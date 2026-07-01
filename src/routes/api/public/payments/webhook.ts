@@ -197,7 +197,7 @@ async function logEvent(
         environment: env,
         status,
         error_message: errorMessage ?? null,
-        payload_summary: summarizePayload(event),
+        payload_summary: summarizePayload(event) as Json,
         processed_at: new Date().toISOString(),
       },
       { onConflict: "stripe_event_id,environment" },
