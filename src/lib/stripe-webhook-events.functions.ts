@@ -22,6 +22,7 @@ const baseFilters = z.object({
   status: z.enum(["all", "processed", "ignored", "error"]).default("all"),
   eventType: z.string().trim().max(120).optional(),
   search: z.string().trim().max(200).optional(),
+  errorMessage: z.string().trim().max(200).optional(),
 });
 
 const listSchema = baseFilters.extend({
@@ -69,8 +70,14 @@ function sanitizeSearch(raw: string): string {
   return raw.replace(/[^\w:-]/g, "").slice(0, 100);
 }
 
+// error_message aceita texto livre — escapamos `%`, `_`, `*`, `,` e `(` p/ ILIKE + PostgREST.
+function sanitizeIlikeText(raw: string): string {
+  return raw.replace(/[%_*,()]/g, " ").trim().slice(0, 100);
+}
+
 type SupabaseFilterable = {
   eq: (col: string, val: string) => SupabaseFilterable;
+  ilike: (col: string, val: string) => SupabaseFilterable;
   or: (expr: string) => SupabaseFilterable;
 };
 
@@ -82,6 +89,10 @@ function applyFilters<T extends SupabaseFilterable>(
   if (data.environment !== "all") out = out.eq("environment", data.environment) as T;
   if (data.status !== "all") out = out.eq("status", data.status) as T;
   if (data.eventType) out = out.eq("event_type", data.eventType) as T;
+  if (data.errorMessage) {
+    const em = sanitizeIlikeText(data.errorMessage);
+    if (em.length > 0) out = out.ilike("error_message", `%${em}%`) as T;
+  }
   if (data.search) {
     const s = sanitizeSearch(data.search);
     if (s.length > 0) {
@@ -92,6 +103,8 @@ function applyFilters<T extends SupabaseFilterable>(
           `payload_summary->>customer.ilike.%${s}%`,
           `payload_summary->>subscription.ilike.%${s}%`,
           `payload_summary->>user_id.ilike.%${s}%`,
+          `payload_summary->>request_id.ilike.%${s}%`,
+          `payload_summary->>trace_id.ilike.%${s}%`,
         ].join(","),
       ) as T;
     }
@@ -447,24 +460,54 @@ export type ReprocessLogEntry = {
   created_at: string;
 };
 
+export type ReprocessLogPage = {
+  rows: ReprocessLogEntry[];
+  total: number;
+};
+
+const reprocessLogSchema = z.object({
+  stripe_event_id: z.string().trim().max(120).optional(),
+  actor_user_id: z.string().trim().max(120).optional(),
+  outcome: z.enum(["all", "success", "error"]).default("all"),
+  since: z.string().datetime().optional(),
+  until: z.string().datetime().optional(),
+  event_row_id: z.string().uuid().optional(),
+  limit: z.number().int().min(1).max(200).default(25),
+  offset: z.number().int().min(0).default(0),
+});
+
 export const listReprocessLog = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((raw: unknown) =>
-    z.object({
-      event_row_id: z.string().uuid().optional(),
-      limit: z.number().int().min(1).max(200).default(50),
-    }).parse(raw ?? {}),
-  )
-  .handler(async ({ data, context }): Promise<ReprocessLogEntry[]> => {
+  .inputValidator((raw: unknown) => reprocessLogSchema.parse(raw ?? {}))
+  .handler(async ({ data, context }): Promise<ReprocessLogPage> => {
     await assertAdminWithAudit(context as never, "stripe_webhook_events.reprocess_log.fn");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     let q = supabaseAdmin
       .from("stripe_webhook_reprocess_log")
-      .select("id,event_row_id,stripe_event_id,event_type,environment,actor_user_id,outcome,message,duration_ms,created_at")
+      .select(
+        "id,event_row_id,stripe_event_id,event_type,environment,actor_user_id,outcome,message,duration_ms,created_at",
+        { count: "exact" },
+      )
       .order("created_at", { ascending: false })
-      .limit(data.limit);
+      .range(data.offset, data.offset + data.limit - 1);
+
     if (data.event_row_id) q = q.eq("event_row_id", data.event_row_id);
-    const { data: rows, error } = await q;
+    if (data.outcome !== "all") q = q.eq("outcome", data.outcome);
+    if (data.stripe_event_id) {
+      const s = data.stripe_event_id.replace(/[^\w:-]/g, "").slice(0, 100);
+      if (s) q = q.ilike("stripe_event_id", `%${s}%`);
+    }
+    if (data.actor_user_id) {
+      const a = data.actor_user_id.replace(/[^\w-]/g, "").slice(0, 60);
+      if (a) q = q.eq("actor_user_id", a);
+    }
+    if (data.since) q = q.gte("created_at", data.since);
+    if (data.until) q = q.lte("created_at", data.until);
+
+    const { data: rows, error, count } = await q;
     if (error) throw new Error(error.message);
-    return (rows ?? []) as unknown as ReprocessLogEntry[];
+    return {
+      rows: (rows ?? []) as unknown as ReprocessLogEntry[],
+      total: count ?? 0,
+    };
   });
