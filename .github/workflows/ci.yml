@@ -18,6 +18,12 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Typecheck
         run: bunx tsgo --noEmit
+      - name: Validate security config (src/config/security-internal-ids.ts)
+        # Fails the build if the single source of truth is malformed,
+        # empty, or drifted (duplicates, allow/deny overlap, missing hook
+        # files). This runs before the regression suite so we fail fast on
+        # config drift instead of on downstream test noise.
+        run: bun run security:validate-config
       - name: SEO checks (sitemap, robots, JSON-LD, canonical, headings)
         run: bunx vitest run src/lib/sitemap-entries.test.ts src/lib/seo-structured-data.test.ts --reporter=verbose
       - name: Unit tests
