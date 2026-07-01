@@ -6,11 +6,11 @@
  * retorna 404 para não expor superfície de teste.
  *
  * Uso:
- *   POST /api/public/payments/_dev-selftest?userId=<uuid>
+ *   POST /api/public/payments/dev-selftest?userId=<uuid>
  */
 import { createFileRoute } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/api/public/payments/_dev-selftest")({
+export const Route = createFileRoute("/api/public/payments/dev-selftest")({
   server: {
     handlers: {
       POST: async ({ request }) => {
