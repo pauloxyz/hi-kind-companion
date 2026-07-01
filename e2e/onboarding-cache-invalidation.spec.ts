@@ -102,6 +102,11 @@ test.describe("Onboarding · cache de tradução e invalidação por variante", 
         expect(calls.length, "trocar variante deve invalidar o cache").toBeGreaterThanOrEqual(
           baselineCalls + (baselineCalls === 0 ? 0 : 1),
         );
+        // Após invalidar, o próximo lang_toggled p/ EN deve reportar had_cached_en=false
+        const afterInvalidation = langEvents.filter((e) => e.props.to === "en").pop();
+        if (afterInvalidation) {
+          expect(afterInvalidation.props.had_cached_en).toBe(false);
+        }
       }
     }
   });
