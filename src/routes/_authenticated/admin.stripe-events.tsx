@@ -892,10 +892,11 @@ function ReprocessLogPanel({
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [confirmRow, setConfirmRow] = useState<ReprocessLogEntry | null>(null);
-  const [confirmBatch, setConfirmBatch] = useState(false);
+  const [confirmBatch, setConfirmBatch] = useState<null | "all" | "errors">(null);
   const [batchSummary, setBatchSummary] = useState<BatchReprocessResult | null>(null);
   const [batchPending, setBatchPending] = useState(false);
-  const BATCH_LIMIT = 50;
+  const [batchLimit, setBatchLimit] = useState<number>(50);
+  const BATCH_LIMIT_OPTIONS = [50, 100, 500];
 
   useEffect(() => {
     setPage(0);
@@ -994,12 +995,15 @@ function ReprocessLogPanel({
     }
   }
 
-  async function runBatchFromLog() {
+  async function runBatchFromLog(scope: "all" | "errors") {
     setBatchPending(true);
     setBatchSummary(null);
     try {
+      const payload = scope === "errors"
+        ? { ...filterPayload, outcome: "error" as const }
+        : filterPayload;
       const res = (await reprocessLogBatchFn({
-        data: { ...filterPayload, limit: BATCH_LIMIT },
+        data: { ...payload, limit: batchLimit },
       })) as BatchReprocessResult;
       setBatchSummary(res);
       if (res.attempted === 0) {
@@ -1031,28 +1035,53 @@ function ReprocessLogPanel({
             </CardDescription>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button size="sm" variant="ghost" onClick={resetFilters} disabled={!filtersDirty}>
+            <Button size="sm" variant="ghost" onClick={resetFilters} disabled={!filtersDirty || batchPending}>
               <X className="mr-2 h-4 w-4" />
               Limpar filtros
             </Button>
-            <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>
+            <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching || batchPending}>
               <RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
               Atualizar
+            </Button>
+            <div className="flex items-center gap-1">
+              <span className="text-xs text-muted-foreground">Lote:</span>
+              <Select
+                value={String(batchLimit)}
+                onValueChange={(v) => setBatchLimit(Number(v))}
+                disabled={batchPending}
+              >
+                <SelectTrigger className="h-8 w-[84px]"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {BATCH_LIMIT_OPTIONS.map((n) => (
+                    <SelectItem key={n} value={String(n)}>{n}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmBatch("all")}
+              disabled={batchPending || total === 0}
+            >
+              <RotateCcw className={`mr-2 h-4 w-4 ${batchPending ? "animate-spin" : ""}`} />
+              Reprocessar filtrados
             </Button>
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setConfirmBatch(true)}
-              disabled={batchPending || total === 0}
+              onClick={() => setConfirmBatch("errors")}
+              disabled={batchPending}
+              title="Reprocessar apenas eventos com outcome=error dentro dos filtros ativos"
             >
-              <RotateCcw className={`mr-2 h-4 w-4 ${batchPending ? "animate-spin" : ""}`} />
-              Reprocessar filtrados (até {BATCH_LIMIT})
+              <AlertCircle className={`mr-2 h-4 w-4 ${batchPending ? "animate-spin" : ""}`} />
+              Reprocessar só erros
             </Button>
-            <Button size="sm" onClick={() => handleExport("csv")} disabled={exporting !== null || total === 0}>
+            <Button size="sm" onClick={() => handleExport("csv")} disabled={exporting !== null || total === 0 || batchPending}>
               <Download className={`mr-2 h-4 w-4 ${exporting === "csv" ? "animate-pulse" : ""}`} />
               Exportar CSV
             </Button>
-            <Button size="sm" variant="outline" onClick={() => handleExport("json")} disabled={exporting !== null || total === 0}>
+            <Button size="sm" variant="outline" onClick={() => handleExport("json")} disabled={exporting !== null || total === 0 || batchPending}>
               <FileJson className={`mr-2 h-4 w-4 ${exporting === "json" ? "animate-pulse" : ""}`} />
               Exportar JSON
             </Button>
@@ -1165,7 +1194,7 @@ function ReprocessLogPanel({
                             size="sm"
                             variant="outline"
                             className="h-7"
-                            disabled={reprocessingId === r.id}
+                            disabled={reprocessingId === r.id || batchPending}
                             onClick={() => setConfirmRow(r)}
                           >
                             <RotateCcw className={`mr-1 h-3.5 w-3.5 ${reprocessingId === r.id ? "animate-spin" : ""}`} />
@@ -1231,25 +1260,41 @@ function ReprocessLogPanel({
       </AlertDialog>
 
       {/* Confirmação: reprocessar em lote */}
-      <AlertDialog open={confirmBatch} onOpenChange={setConfirmBatch}>
+      <AlertDialog open={confirmBatch !== null} onOpenChange={(o) => { if (!o) setConfirmBatch(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Reprocessar filtrados em lote?</AlertDialogTitle>
+            <AlertDialogTitle>
+              {confirmBatch === "errors"
+                ? "Reprocessar somente erros filtrados?"
+                : "Reprocessar filtrados em lote?"}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Serão reprocessados até <strong>{BATCH_LIMIT}</strong> eventos distintos correspondentes aos filtros
-              atuais do log (stripe_event_id, usuário, resultado, intervalo). Cada replay é best-effort e gera
-              auditoria.
+              {confirmBatch === "errors" ? (
+                <>
+                  Serão reprocessados até <strong>{batchLimit}</strong> eventos distintos com{" "}
+                  <code className="font-mono">outcome=error</code> dentro dos filtros ativos do log
+                  (stripe_event_id, usuário, intervalo). Cada replay é best-effort e gera auditoria.
+                </>
+              ) : (
+                <>
+                  Serão reprocessados até <strong>{Math.min(batchLimit, total)}</strong> de{" "}
+                  <strong>{total.toLocaleString("pt-BR")}</strong> registro(s) correspondentes aos filtros
+                  atuais do log (stripe_event_id, usuário, resultado, intervalo). Cada replay é best-effort
+                  e gera auditoria.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                setConfirmBatch(false);
-                void runBatchFromLog();
+                const scope = confirmBatch ?? "all";
+                setConfirmBatch(null);
+                void runBatchFromLog(scope);
               }}
             >
-              Reprocessar em lote
+              {confirmBatch === "errors" ? "Reprocessar erros" : "Reprocessar em lote"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
