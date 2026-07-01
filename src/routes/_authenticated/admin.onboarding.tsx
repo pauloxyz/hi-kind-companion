@@ -65,6 +65,7 @@ function AdminOnboardingPage() {
   const [exportingLocale, setExportingLocale] = useState<CsvLocale | null>(null);
   const dismissRef = useRef<HTMLButtonElement | null>(null);
   const lastExportBtnRef = useRef<HTMLButtonElement | null>(null);
+  const errorCardRef = useRef<HTMLDivElement | null>(null);
 
   // Quando um erro de export aparece, move o foco para "Fechar" para que
   // usuários de teclado / leitores de tela consigam continuar imediatamente.
@@ -96,7 +97,27 @@ function AdminOnboardingPage() {
       }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Clique fora do card fecha o alerta e devolve o foco ao botão de
+    // export — trata o card como um popover dismissível, mas mantendo o
+    // trap de teclado enquanto ele estiver aberto.
+    const onPointerDown = (e: MouseEvent) => {
+      const card = errorCardRef.current;
+      if (!card) return;
+      const target = e.target as Node | null;
+      if (target && card.contains(target)) return;
+      // Ignora clique no próprio botão de export — ele tem seu próprio
+      // handler e já reabre/atualiza o erro se necessário.
+      if (target instanceof Element && target.closest('[data-testid^="funnel-export-csv"]')) {
+        return;
+      }
+      setExportError(null);
+      queueMicrotask(() => lastExportBtnRef.current?.focus());
+    };
+    document.addEventListener("mousedown", onPointerDown);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onPointerDown);
+    };
   }, [exportError]);
 
   return (
@@ -176,6 +197,7 @@ function AdminOnboardingPage() {
 
       {exportError && (
         <Card
+          ref={errorCardRef}
           data-testid="funnel-export-error"
           role="alert"
           aria-live="assertive"
