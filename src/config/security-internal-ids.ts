@@ -58,7 +58,24 @@ export const MY_PROFILE_ALLOWED_COLUMNS = [
   "full_name",
 ] as const;
 
-/** SECURITY DEFINER functions that must NOT be callable by anon. */
+/**
+ * SECURITY DEFINER functions that must NOT be callable by anon.
+ *
+ * Each entry pairs the function name with a set of `args` that will be
+ * passed by the coherence probe. Args only need to be *type-valid* —
+ * the goal is to trigger PostgREST's permission check before it ever
+ * reaches the function body, so we intentionally use throwaway values
+ * (zero UUIDs, placeholder keys) that can never match real data.
+ *
+ * Grouped by concern (in list order):
+ *   1. Abuse guards — check_rate_limit / record_admin_denial
+ *   2. Data-retention purges — purge_* (destructive, admin-only)
+ *   3. Alert escalation jobs — escalate_* (called by pg_cron)
+ *   4. Role & entitlement checks — has_role / is_pro / is_pro_feature_enabled
+ *      (leaking these enables role probing across arbitrary user_ids)
+ *   5. PGMQ email queue helpers — enqueue_email / delete_email / read_email_batch
+ *      (an anon caller could flood the queue or drain unsent messages)
+ */
 export const FORBIDDEN_ANON_RPCS: ReadonlyArray<{ fn: string; args: Record<string, unknown> }> = [
   { fn: "check_rate_limit", args: { _key: "regression-probe", _max: 1, _window_seconds: 60 } },
   { fn: "record_admin_denial", args: { _resource: "regression-probe" } },
@@ -77,12 +94,33 @@ export const FORBIDDEN_ANON_RPCS: ReadonlyArray<{ fn: string; args: Record<strin
   { fn: "read_email_batch", args: { queue_name: "regression", batch_size: 1, vt: 1 } },
 ];
 
-/** SECURITY DEFINER functions that MUST remain callable by anon. */
+/**
+ * SECURITY DEFINER functions that MUST remain callable by anon.
+ *
+ * These are the deliberate escape hatches — features that unauthenticated
+ * visitors legitimately need. Any regression here means an over-eager
+ * REVOKE broke a public-facing feature and must be reverted.
+ *
+ * `get_public_profile_whatsapp` powers the WhatsApp CTA on the public
+ * profile share page `/v/:slug`; the probe uses a nonsense slug that
+ * cannot collide with real user data.
+ */
 export const ALLOWED_ANON_RPCS: ReadonlyArray<{ fn: string; args: Record<string, unknown> }> = [
   { fn: "get_public_profile_whatsapp", args: { _slug: "___regression_probe___" } },
 ];
 
-/** Tables that must NOT be anon-readable at all. */
+/**
+ * Tables that must NOT be anon-readable at all.
+ *
+ * Split by category:
+ *   - email_* + suppressed_emails    → outbound queue / delivery metadata
+ *                                      (would leak recipients + bounce state)
+ *   - security_audit_log + scan_runs → internal audit trail (admin-only)
+ *   - rate_limit_buckets             → would reveal traffic patterns
+ *   - user_roles                     → role assignments (never expose to
+ *                                      clients; roles must be resolved
+ *                                      server-side via has_role())
+ */
 export const FORBIDDEN_ANON_TABLE_READS = [
   "email_send_log",
   "email_send_state",
@@ -94,7 +132,15 @@ export const FORBIDDEN_ANON_TABLE_READS = [
   "user_roles",
 ] as const;
 
-/** Public hooks (POST) that must enforce CRON_SECRET before any I/O. */
+/**
+ * Public hooks (POST) that must enforce CRON_SECRET before any I/O.
+ *
+ * These live under `/api/public/hooks/*` — a path prefix that Lovable
+ * exempts from auth for published sites. The CRON_SECRET header is the
+ * only remaining gate; the regression tests confirm each of these hooks
+ * calls `verifyCronSecret` before reading the request body, touching the
+ * database or making outbound network calls.
+ */
 export const CRON_PROTECTED_HOOKS = [
   "uptime.ts",
   "check-replies.ts",
@@ -102,3 +148,4 @@ export const CRON_PROTECTED_HOOKS = [
   "seo-scan.ts",
   "visa-reminders.ts",
 ] as const;
+
