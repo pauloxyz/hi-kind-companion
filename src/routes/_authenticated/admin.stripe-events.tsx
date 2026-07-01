@@ -995,12 +995,15 @@ function ReprocessLogPanel({
     }
   }
 
-  async function runBatchFromLog() {
+  async function runBatchFromLog(scope: "all" | "errors") {
     setBatchPending(true);
     setBatchSummary(null);
     try {
+      const payload = scope === "errors"
+        ? { ...filterPayload, outcome: "error" as const }
+        : filterPayload;
       const res = (await reprocessLogBatchFn({
-        data: { ...filterPayload, limit: BATCH_LIMIT },
+        data: { ...payload, limit: batchLimit },
       })) as BatchReprocessResult;
       setBatchSummary(res);
       if (res.attempted === 0) {
