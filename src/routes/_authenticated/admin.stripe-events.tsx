@@ -430,11 +430,13 @@ function AdminStripeEventsPage() {
         </div>
 
         {/* Painel de progresso do batch reprocess */}
-        {(batchMut.isPending || batchSummary) && (
+        {(batchMut.isPending || retryingFailures || batchSummary) && (
           <BatchProgressPanel
-            pending={batchMut.isPending}
+            pending={batchMut.isPending || retryingFailures}
             summary={batchSummary}
             onDismiss={() => setBatchSummary(null)}
+            onRetryFailures={retryLastBatchFailures}
+            retryingFailures={retryingFailures}
           />
         )}
 
