@@ -52,6 +52,20 @@ const anon = createClient(URL, KEY, {
   auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
 });
 
+/**
+ * PostgREST + Supabase surface "permission denied" in several shapes
+ * depending on whether the role has any grant at all vs. RLS blocking
+ * the row vs. the function/table not being visible in the API schema
+ * cache. Any of these shapes is a valid "denied" outcome for us — the
+ * important assertion is that the call did NOT return data.
+ *
+ * Shapes we treat as denial:
+ *   - 42501         → SQL permission denied (no GRANT on function/table)
+ *   - PGRST202      → PostgREST could not find the function (revoked)
+ *   - "permission denied" / "insufficient" → generic RLS + role denials
+ *   - "no function matches" / "not find the function" → schema cache miss
+ *     after REVOKE removes the function from the API surface
+ */
 function isPermissionErrorShape(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   const code = error.code ?? "";
@@ -65,6 +79,7 @@ function isPermissionErrorShape(error: { code?: string; message?: string } | nul
     msg.includes("insufficient")
   );
 }
+
 
 
 const failures: string[] = [];
