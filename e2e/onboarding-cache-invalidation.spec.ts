@@ -78,6 +78,12 @@ test.describe("Onboarding · cache de tradução e invalidação por variante", 
     await page.waitForTimeout(1500);
     expect(calls.length, "cache EN deve ser reutilizado").toBe(baselineCalls);
 
+    // Segundo PT→EN precisa carregar had_cached_en=true no payload do evento
+    const enTogglesCached = langEvents.filter((e) => e.props.to === "en");
+    if (enTogglesCached.length >= 2 && baselineCalls > 0) {
+      expect(enTogglesCached[enTogglesCached.length - 1].props.had_cached_en).toBe(true);
+    }
+
     // 3) Troca de variante ativa (se houver): invalida cache e força nova tradução
     const select = page.getByTestId("onb-variant-select");
     if (await select.isVisible().catch(() => false)) {
