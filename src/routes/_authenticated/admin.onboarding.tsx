@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import { getOnboardingFunnel } from "@/lib/onboarding-events.functions";
 import { buildFunnelCsv, type CsvLocale } from "@/lib/onboarding-funnel.helpers";
