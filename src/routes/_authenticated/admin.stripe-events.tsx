@@ -846,16 +846,30 @@ function BatchProgressPanel({
 
 const REPROCESS_PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
+const REPROCESS_LOG_DEFAULTS = {
+  stripeEventId: "",
+  actorUserId: "",
+  outcome: "all" as "all" | "success" | "error",
+  since: "",
+  until: "",
+  pageSize: 25,
+};
+
 function ReprocessLogPanel() {
   const listLog = useServerFn(listReprocessLog);
+  const exportLog = useServerFn(exportReprocessLog);
+  const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
+  const qc = useQueryClient();
 
-  const [stripeEventId, setStripeEventId] = useState("");
-  const [actorUserId, setActorUserId] = useState("");
-  const [outcome, setOutcome] = useState<"all" | "success" | "error">("all");
-  const [since, setSince] = useState<string>("");
-  const [until, setUntil] = useState<string>("");
-  const [pageSize, setPageSize] = useState<number>(25);
+  const [stripeEventId, setStripeEventId] = useState(REPROCESS_LOG_DEFAULTS.stripeEventId);
+  const [actorUserId, setActorUserId] = useState(REPROCESS_LOG_DEFAULTS.actorUserId);
+  const [outcome, setOutcome] = useState<"all" | "success" | "error">(REPROCESS_LOG_DEFAULTS.outcome);
+  const [since, setSince] = useState<string>(REPROCESS_LOG_DEFAULTS.since);
+  const [until, setUntil] = useState<string>(REPROCESS_LOG_DEFAULTS.until);
+  const [pageSize, setPageSize] = useState<number>(REPROCESS_LOG_DEFAULTS.pageSize);
   const [page, setPage] = useState<number>(0);
+  const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
+  const [reprocessingId, setReprocessingId] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(0);
@@ -867,19 +881,19 @@ function ReprocessLogPanel() {
     return isNaN(d.getTime()) ? undefined : d.toISOString();
   };
 
+  const filterPayload = {
+    stripe_event_id: stripeEventId.trim() || undefined,
+    actor_user_id: actorUserId.trim() || undefined,
+    outcome,
+    since: toIso(since),
+    until: toIso(until),
+  };
+
   const query = useQuery({
     queryKey: ["admin", "stripe-reprocess-log", stripeEventId, actorUserId, outcome, since, until, page, pageSize],
     queryFn: () =>
       listLog({
-        data: {
-          stripe_event_id: stripeEventId.trim() || undefined,
-          actor_user_id: actorUserId.trim() || undefined,
-          outcome,
-          since: toIso(since),
-          until: toIso(until),
-          limit: pageSize,
-          offset: page * pageSize,
-        },
+        data: { ...filterPayload, limit: pageSize, offset: page * pageSize },
       }) as Promise<ReprocessLogPage>,
   });
 
@@ -887,20 +901,96 @@ function ReprocessLogPanel() {
   const total = query.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
+  const filtersDirty =
+    stripeEventId !== REPROCESS_LOG_DEFAULTS.stripeEventId ||
+    actorUserId !== REPROCESS_LOG_DEFAULTS.actorUserId ||
+    outcome !== REPROCESS_LOG_DEFAULTS.outcome ||
+    since !== REPROCESS_LOG_DEFAULTS.since ||
+    until !== REPROCESS_LOG_DEFAULTS.until;
+
+  function resetFilters() {
+    setStripeEventId(REPROCESS_LOG_DEFAULTS.stripeEventId);
+    setActorUserId(REPROCESS_LOG_DEFAULTS.actorUserId);
+    setOutcome(REPROCESS_LOG_DEFAULTS.outcome);
+    setSince(REPROCESS_LOG_DEFAULTS.since);
+    setUntil(REPROCESS_LOG_DEFAULTS.until);
+    setPageSize(REPROCESS_LOG_DEFAULTS.pageSize);
+    toast.success("Filtros restaurados");
+  }
+
+  async function handleExport(format: "csv" | "json") {
+    setExporting(format);
+    try {
+      const data = (await exportLog({ data: filterPayload })) as ReprocessLogEntry[];
+      const filename = buildReprocessLogFilename(
+        { outcome, stripe_event_id: stripeEventId, actor_user_id: actorUserId },
+        format,
+      );
+      if (format === "csv") {
+        downloadBlob(
+          new Blob(["\uFEFF" + reprocessLogToCsv(data)], { type: "text/csv;charset=utf-8" }),
+          filename,
+        );
+      } else {
+        downloadBlob(
+          new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
+          filename,
+        );
+      }
+      toast.success(`${format.toUpperCase()} exportado (${data.length} registros)`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : `Falha ao exportar ${format.toUpperCase()}`);
+    } finally {
+      setExporting(null);
+    }
+  }
+
+  async function handleReprocessRow(row: ReprocessLogEntry) {
+    setReprocessingId(row.id);
+    try {
+      const res = (await reprocessFn({ data: { id: row.event_row_id } })) as ReprocessResult;
+      toast.success(
+        `Reprocessado ${row.stripe_event_id}: ${res.message}${res.is_pro === null ? "" : ` · is_pro=${res.is_pro}`}`,
+      );
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] }),
+        query.refetch(),
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao reprocessar");
+    } finally {
+      setReprocessingId(null);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <CardTitle>Log de Reprocessamento</CardTitle>
             <CardDescription>
               Auditoria de replays manuais em stripe_webhook_reprocess_log.
             </CardDescription>
           </div>
-          <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>
-            <RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
-            Atualizar
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={resetFilters} disabled={!filtersDirty}>
+              <X className="mr-2 h-4 w-4" />
+              Limpar filtros
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
+              Atualizar
+            </Button>
+            <Button size="sm" onClick={() => handleExport("csv")} disabled={exporting !== null || total === 0}>
+              <Download className={`mr-2 h-4 w-4 ${exporting === "csv" ? "animate-pulse" : ""}`} />
+              Exportar CSV
+            </Button>
+            <Button size="sm" variant="outline" onClick={() => handleExport("json")} disabled={exporting !== null || total === 0}>
+              <FileJson className={`mr-2 h-4 w-4 ${exporting === "json" ? "animate-pulse" : ""}`} />
+              Exportar JSON
+            </Button>
+          </div>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -954,6 +1044,7 @@ function ReprocessLogPanel() {
                 <TableHead>Usuário</TableHead>
                 <TableHead className="text-right">Duração</TableHead>
                 <TableHead>Mensagem</TableHead>
+                <TableHead className="text-right">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -981,6 +1072,26 @@ function ReprocessLogPanel() {
                   <TableCell className={r.outcome === "error" ? "text-xs text-destructive" : "text-xs text-muted-foreground"}>
                     <span className="line-clamp-2" title={r.message ?? undefined}>{r.message ?? "—"}</span>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <div className="inline-flex items-center gap-1">
+                      <CopyButton value={r.stripe_event_id} label="stripe_event_id" />
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7"
+                            disabled={reprocessingId === r.id}
+                            onClick={() => handleReprocessRow(r)}
+                          >
+                            <RotateCcw className={`mr-1 h-3.5 w-3.5 ${reprocessingId === r.id ? "animate-spin" : ""}`} />
+                            Reprocessar
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>Replay best-effort deste stripe_event_id</TooltipContent>
+                      </Tooltip>
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1006,4 +1117,32 @@ function ReprocessLogPanel() {
       </CardContent>
     </Card>
   );
+}
+
+// ------------------------- Reprocess-log CSV helpers -------------------------
+
+const REPROCESS_LOG_CSV_COLUMNS: (keyof ReprocessLogEntry)[] = [
+  "created_at", "outcome", "environment", "event_type",
+  "stripe_event_id", "actor_user_id", "duration_ms", "message",
+  "event_row_id", "id",
+];
+
+function reprocessLogToCsv(rows: ReprocessLogEntry[]): string {
+  const header = REPROCESS_LOG_CSV_COLUMNS.join(",");
+  const lines = rows.map((r) => REPROCESS_LOG_CSV_COLUMNS.map((c) => csvEscape(r[c])).join(","));
+  return [header, ...lines].join("\n");
+}
+
+function buildReprocessLogFilename(
+  filters: { outcome: string; stripe_event_id: string; actor_user_id: string },
+  format: "csv" | "json",
+): string {
+  const parts = [
+    "stripe-reprocess-log",
+    filters.outcome !== "all" && filters.outcome,
+    filters.stripe_event_id && filters.stripe_event_id.replace(/[^a-z0-9_.-]+/gi, "_"),
+    filters.actor_user_id && filters.actor_user_id.slice(0, 8),
+    new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-"),
+  ].filter(Boolean);
+  return `${parts.join("_")}.${format}`;
 }
