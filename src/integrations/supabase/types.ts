@@ -1340,6 +1340,53 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_webhook_reprocess_log: {
+        Row: {
+          actor_user_id: string | null
+          created_at: string
+          duration_ms: number | null
+          environment: string
+          event_row_id: string
+          event_type: string
+          id: string
+          message: string | null
+          outcome: string
+          stripe_event_id: string
+        }
+        Insert: {
+          actor_user_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          environment: string
+          event_row_id: string
+          event_type: string
+          id?: string
+          message?: string | null
+          outcome: string
+          stripe_event_id: string
+        }
+        Update: {
+          actor_user_id?: string | null
+          created_at?: string
+          duration_ms?: number | null
+          environment?: string
+          event_row_id?: string
+          event_type?: string
+          id?: string
+          message?: string | null
+          outcome?: string
+          stripe_event_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stripe_webhook_reprocess_log_event_row_id_fkey"
+            columns: ["event_row_id"]
+            isOneToOne: false
+            referencedRelation: "stripe_webhook_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       subscriptions: {
         Row: {
           amount_cents: number | null
