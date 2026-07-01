@@ -197,6 +197,7 @@ function AdminOnboardingPage() {
 
       {exportError && (
         <Card
+          ref={errorCardRef}
           data-testid="funnel-export-error"
           role="alert"
           aria-live="assertive"
