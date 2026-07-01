@@ -62,6 +62,7 @@ function AdminStripeEventsPage() {
   const exportFn = useServerFn(exportStripeWebhookEvents);
   const statsFn = useServerFn(getStripeWebhookEventStats);
   const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
+  const reprocessBatchFn = useServerFn(reprocessStripeWebhookEventsBatch);
   const qc = useQueryClient();
 
   const [environment, setEnvironment] = useState<EnvFilter>("all");
