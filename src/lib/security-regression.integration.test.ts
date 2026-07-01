@@ -28,81 +28,19 @@
  */
 import { describe, expect, it, beforeAll } from "vitest";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import {
+  JOBS_FORBIDDEN_COLUMNS as JOBS_FORBIDDEN,
+  MY_PROFILE_FORBIDDEN_COLUMNS as MY_PROFILE_FORBIDDEN,
+  JOBS_ALLOWED_COLUMNS as JOBS_ALLOWED,
+  MY_PROFILE_ALLOWED_COLUMNS as MY_PROFILE_ALLOWED,
+  FORBIDDEN_ANON_RPCS,
+  ALLOWED_ANON_RPCS,
+  FORBIDDEN_ANON_TABLE_READS,
+} from "@/config/security-internal-ids";
 
 const URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY;
 const hasCreds = Boolean(URL && KEY);
-
-// Anything in this list MUST NOT be readable by anon on the base table.
-// If a future migration re-GRANTs SELECT (col) TO anon, the test fails.
-const JOBS_FORBIDDEN = [
-  "recruitment_email",
-  "recruitment_phone",
-  "recruitment_contact_name",
-  "employer_address",
-  "raw_feed_data",
-] as const;
-
-const MY_PROFILE_FORBIDDEN = [
-  "birth_date",
-  "phone",
-  "application_quality_score",
-  "resume_completion_pct",
-  "onboarding_step",
-  "onboarding_completed_at",
-  "video_script_pt",
-  "video_script_en",
-  "video_script_blocks",
-  "field_experience",
-  "physical_conditions",
-  "has_prior_h2_experience",
-] as const;
-
-// Columns we WANT anon to keep reading — proves the revoke didn't nuke
-// legitimate public reads.
-const JOBS_ALLOWED = ["id", "job_title", "worksite_state", "worksite_city"] as const;
-const MY_PROFILE_ALLOWED = [
-  "id",
-  "public_slug",
-  "public_headline",
-  "public_page_enabled",
-  "full_name",
-] as const;
-
-// SECURITY DEFINER functions that MUST NOT be callable by anon after the
-// hardening migration. Any regression flips at least one of these to a
-// non-permission-error response.
-const FORBIDDEN_ANON_RPCS: Array<{ fn: string; args: Record<string, unknown> }> = [
-  { fn: "check_rate_limit", args: { _key: "regression-probe", _max: 1, _window_seconds: 60 } },
-  { fn: "record_admin_denial", args: { _resource: "regression-probe" } },
-  { fn: "purge_uptime_checks", args: {} },
-  { fn: "purge_security_audit_log", args: {} },
-  { fn: "purge_security_scan_runs", args: {} },
-  { fn: "purge_rate_limit_buckets", args: {} },
-  { fn: "escalate_admin_denied_spikes", args: {} },
-  { fn: "escalate_high_risk_alerts", args: {} },
-  { fn: "run_security_linter", args: {} },
-  { fn: "has_role", args: { _user_id: "00000000-0000-0000-0000-000000000000", _role: "admin" } },
-  { fn: "is_pro", args: { _user_id: "00000000-0000-0000-0000-000000000000" } },
-  { fn: "is_pro_feature_enabled", args: { _user_id: "00000000-0000-0000-0000-000000000000", _feature_key: "any" } },
-  { fn: "enqueue_email", args: { queue_name: "regression", payload: {} } },
-  { fn: "delete_email", args: { queue_name: "regression", message_id: 0 } },
-  { fn: "read_email_batch", args: { queue_name: "regression", batch_size: 1, vt: 1 } },
-];
-
-// Tables that MUST NOT be anon-readable at all (no column-level GRANT to
-// anon, RLS should not matter — the outer table GRANT is the cliff).
-// Covers the email queue / suppression surface plus my_profile writes.
-const FORBIDDEN_ANON_TABLE_READS = [
-  "email_send_log",
-  "email_send_state",
-  "suppressed_emails",
-  "email_unsubscribe_tokens",
-  "security_audit_log",
-  "security_scan_runs",
-  "rate_limit_buckets",
-  "user_roles",
-] as const;
 
 // my_profile: anon has SELECT on a narrow column allowlist only. Writes
 // (INSERT/UPDATE/DELETE) must be denied — regression would let a public
