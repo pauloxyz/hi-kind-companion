@@ -52,7 +52,7 @@ test.describe("Admin · impacto de troca de variante e exportação CSV", () => 
       page.waitForEvent("download"),
       btn.click(),
     ]);
-    expect(download.suggestedFilename()).toMatch(/^onboarding-funnel-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(download.suggestedFilename()).toMatch(/^onboarding-funnel-(pt|en|es)-\d{4}-\d{2}-\d{2}\.csv$/);
     const path = await download.path();
     if (path) {
       const fs = await import("fs/promises");
