@@ -55,8 +55,14 @@ test.describe("Onboarding · cache de tradução e invalidação por variante", 
     await expect(wa).toBeVisible();
 
     const calls: string[] = [];
+    const langEvents: LangEvent[] = [];
     page.on("request", (req) => {
       if (isTranslateCall(req)) calls.push(req.url());
+      const body = req.postData();
+      if (body) {
+        const ev = tryParseLangEvent(body);
+        if (ev) langEvents.push(ev);
+      }
     });
 
     // 1) PT→EN (pode gerar 1 chamada; ou 0 se variante ativa já tem EN)
