@@ -607,11 +607,7 @@ function AdminStripeEventsPage() {
             <ReprocessLogPanel
               onOpenEventInEvents={(id) => {
                 setSearchInput(id);
-                setSearch(id);
-                setStatus("all");
-                setEventType("all");
-                setPage(0);
-                setTab("events");
+                patchSearch({ q: id, st: "all", et: "all", p: 0, tab: "events" });
               }}
             />
           </TabsContent>
