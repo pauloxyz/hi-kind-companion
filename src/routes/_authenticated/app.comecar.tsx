@@ -777,6 +777,41 @@ function Step4Physical({
 function Step5Done({ form }: { form: FormState }) {
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState(false);
+  const [lang, setLang] = useState<"pt" | "en">("pt");
+  const [enMessage, setEnMessage] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  const { has: hasFeat } = usePro();
+  const canTranslate = hasFeat("auto_translate");
+  const canMultiCv = hasFeat("multiple_resumes");
+
+  const fetchVariants = useServerFn(listMyVariants);
+  const activateVariant = useServerFn(setActiveVariant);
+  const translate = useServerFn(translateToEnglish);
+
+  const variantsQ = useQuery({
+    queryKey: ["my", "profile-variants", "onboarding"],
+    queryFn: () => fetchVariants(),
+    enabled: canMultiCv,
+    staleTime: 30_000,
+  });
+
+  const variants = variantsQ.data ?? [];
+  const activeVariant =
+    variants.find((v) => v.id === selectedVariantId) ??
+    variants.find((v) => v.is_active) ??
+    null;
+
+  const activateMut = useMutation({
+    mutationFn: (id: string) => activateVariant({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Currículo ativo atualizado.");
+      mirror("onboarding_variant_selected", undefined, undefined, { variant_id: selectedVariantId });
+      variantsQ.refetch();
+    },
+    onError: (e) => toastError(e),
+  });
 
   const tags = useMemo(
     () => form.field_experience.map((k) => LABEL_FOR_FIELD[k] ?? k),
@@ -795,19 +830,77 @@ function Step5Done({ form }: { form: FormState }) {
       ? `${window.location.origin}/v/${form.public_slug}`
       : null;
 
-  // Mensagem gerada automaticamente com os dados do perfil
-  const waMessage = useMemo(() => {
+  // Mensagem PT gerada automaticamente. Se houver variante ativa/selecionada,
+  // usa cargo/resumo/skills dela pra deixar a mensagem mais afiada.
+  const waMessagePt = useMemo(() => {
     if (!publicUrl) return "";
+    const role = activeVariant?.job_title_pt?.trim();
+    const summary = activeVariant?.summary_pt?.trim();
+    const skills = activeVariant?.skills ?? [];
     const lines = [
-      `Olá! Meu nome é ${firstName}${form.age ? `, ${form.age} anos` : ""}.`,
-      loc ? `Sou de ${loc} e tenho interesse em vagas H-2A no agro dos EUA.` : "Tenho interesse em vagas H-2A no agro dos EUA.",
+      role
+        ? `Olá! Meu nome é ${firstName}${form.age ? `, ${form.age} anos` : ""}. Sou ${role}.`
+        : `Olá! Meu nome é ${firstName}${form.age ? `, ${form.age} anos` : ""}.`,
+      loc
+        ? `Sou de ${loc} e tenho interesse em vagas H-2A no agro dos EUA.`
+        : "Tenho interesse em vagas H-2A no agro dos EUA.",
     ];
-    if (tags.length > 0) {
-      lines.push(`Experiência: ${tags.join(", ")}.`);
+    if (summary) lines.push(summary);
+    const showTags = skills.length > 0 ? skills : tags;
+    if (showTags.length > 0) {
+      lines.push(`Experiência: ${showTags.join(", ")}.`);
     }
     lines.push("", `Meu perfil completo: ${publicUrl}`);
     return lines.join("\n");
-  }, [publicUrl, firstName, form.age, loc, tags]);
+  }, [publicUrl, firstName, form.age, loc, tags, activeVariant]);
+
+  // Se o usuário alternar pra EN e ainda não tem tradução em cache, traduz.
+  useEffect(() => {
+    if (lang !== "en" || !canTranslate || !waMessagePt) return;
+    if (enMessage) return;
+    let cancelled = false;
+    (async () => {
+      setTranslating(true);
+      try {
+        // Se a variante já tem versão EN pronta, monta direto sem chamar a IA
+        const preEn =
+          activeVariant?.summary_en?.trim() || activeVariant?.job_title_en?.trim();
+        if (preEn && publicUrl) {
+          const role = activeVariant?.job_title_en?.trim();
+          const summary = activeVariant?.summary_en?.trim();
+          const skills = activeVariant?.skills ?? [];
+          const lines = [
+            role
+              ? `Hi! My name is ${firstName}${form.age ? `, ${form.age} years old` : ""}. I'm a ${role}.`
+              : `Hi! My name is ${firstName}${form.age ? `, ${form.age} years old` : ""}.`,
+            loc
+              ? `I'm from ${loc}, Brazil, and I'm looking for H-2A agricultural jobs in the US.`
+              : "I'm looking for H-2A agricultural jobs in the US.",
+          ];
+          if (summary) lines.push(summary);
+          if (skills.length > 0) lines.push(`Experience: ${skills.join(", ")}.`);
+          lines.push("", `My full profile: ${publicUrl}`);
+          if (!cancelled) setEnMessage(lines.join("\n"));
+        } else {
+          const { translations } = await translate({ data: { texts: [waMessagePt] } });
+          if (!cancelled) setEnMessage(translations[0] || waMessagePt);
+        }
+        mirror("onboarding_message_translated");
+      } catch (e) {
+        if (!cancelled) {
+          toastError(e);
+          setLang("pt");
+        }
+      } finally {
+        if (!cancelled) setTranslating(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, canTranslate, waMessagePt, enMessage, translate, activeVariant, firstName, form.age, loc, publicUrl]);
+
+  const waMessage = lang === "en" && enMessage ? enMessage : waMessagePt;
 
   const copyLink = async () => {
     if (!publicUrl) return;
@@ -823,7 +916,11 @@ function Step5Done({ form }: { form: FormState }) {
   };
 
   const handleSendWhatsApp = () => {
-    mirror("onboarding_whatsapp_send_clicked", undefined, undefined, { has_url: !!publicUrl });
+    mirror("onboarding_whatsapp_send_clicked", undefined, undefined, {
+      has_url: !!publicUrl,
+      lang,
+      variant_id: activeVariant?.id ?? null,
+    });
     setSent(true);
   };
 
