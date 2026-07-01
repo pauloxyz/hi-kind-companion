@@ -1,16 +1,17 @@
 name: Nightly Security Scan
 
-# Runs the same regression gate as CI every night at 06:00 UTC (03:00 BRT)
-# plus on-demand from the Actions tab. The five internal_ids hardened on
-# 2026-07-01 are all covered by src/lib/security-regression.integration.test.ts
-# and src/routes/api/public/hooks/cron-secret-regression.test.ts, so a nightly
-# failure here == one of those hardenings has regressed in production data.
-#
-# Alerting:
-#   1. On failure a GitHub Issue is opened (or reused) with the run URL and
-#      failed test list — this triggers the standard GitHub notifications
-#      (email + web + mobile) to repo watchers.
-#   2. Full JSON report + logs are uploaded as an artifact for post-mortem.
+# Runs the CI regression gate every night at 06:00 UTC (03:00 BRT) plus
+# on-demand. Compared to the CI job it also:
+#   1. Downloads the latest previous nightly artifact and runs
+#      scripts/compare-security-artifacts.ts against it to surface which
+#      targeted internal_ids reappeared and which tests regressed vs
+#      the previous run.
+#   2. Runs scripts/check-definer-coherence.ts as an independent
+#      schema-level probe.
+#   3. Notifies Slack via SLACK_SECURITY_WEBHOOK_URL when any regression
+#      is detected — either targeted internal_id reappearance or a
+#      failing regression test. The webhook is optional; when the secret
+#      is unset the workflow still opens a GitHub Issue as before.
 
 on:
   schedule:
@@ -23,6 +24,7 @@ jobs:
     permissions:
       contents: read
       issues: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -30,6 +32,18 @@ jobs:
           bun-version: latest
       - name: Install deps
         run: bun install --frozen-lockfile
+
+      - name: Download previous nightly report (best-effort)
+        id: prev
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: nightly-security.yml
+          workflow_conclusion: ""
+          name_is_regexp: true
+          name: nightly-security-report-.*
+          path: previous-security-report/
+          if_no_artifact_found: warn
 
       - name: Run security regression suite
         id: scan
@@ -52,6 +66,30 @@ jobs:
           SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
 
+      - name: SECURITY DEFINER / GRANT coherence probe
+        id: coherence
+        run: |
+          set +e
+          bun run security:coherence 2>&1 | tee -a security-report/coherence.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+        env:
+          VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+
+      - name: Compare against previous nightly artifact
+        id: compare
+        run: |
+          set +e
+          PREV=$(find previous-security-report -name regression-results.json -print -quit 2>/dev/null || true)
+          echo "previous_path=${PREV:-none}" >> "$GITHUB_OUTPUT"
+          bun run scripts/compare-security-artifacts.ts \
+            ${PREV:+--previous "$PREV"} \
+            --current security-report/regression-results.json \
+            --out security-report/delta.md
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+
       - name: Upload security report artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -66,26 +104,68 @@ jobs:
           {
             echo "# Nightly Security Scan"
             echo ""
-            echo "- Exit code: \`${{ steps.scan.outputs.exit_code }}\`"
+            echo "- Regression suite exit: \`${{ steps.scan.outputs.exit_code }}\`"
+            echo "- Coherence probe exit:  \`${{ steps.coherence.outputs.exit_code }}\`"
+            echo "- Compare vs previous exit: \`${{ steps.compare.outputs.exit_code }}\`"
+            echo "- Previous artifact:     \`${{ steps.compare.outputs.previous_path }}\`"
             echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
             echo ""
-            echo "## Log tail"
+            if [ -f security-report/delta.md ]; then
+              cat security-report/delta.md
+            fi
+            echo ""
+            echo "## Regression log tail"
             echo '```'
-            tail -n 80 security-report/regression.log || true
+            tail -n 60 security-report/regression.log || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Notify Slack on failure
+        if: >
+          env.SLACK_SECURITY_WEBHOOK_URL != '' &&
+          (steps.scan.outputs.exit_code != '0'
+           || steps.coherence.outputs.exit_code != '0'
+           || steps.compare.outputs.exit_code != '0')
+        env:
+          SLACK_SECURITY_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
+        run: |
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          DELTA=""
+          if [ -f security-report/delta.md ]; then
+            DELTA=$(head -c 2500 security-report/delta.md)
+          fi
+          jq -n \
+            --arg text "🔒 *Nightly security regression detected*
+Regression suite: exit ${{ steps.scan.outputs.exit_code }}
+Coherence probe:  exit ${{ steps.coherence.outputs.exit_code }}
+Delta vs previous: exit ${{ steps.compare.outputs.exit_code }}
+
+<${RUN_URL}|Open workflow run>
+
+\`\`\`
+$DELTA
+\`\`\`" \
+            '{text: $text}' \
+            | curl -sS -X POST -H "Content-Type: application/json" \
+                --data @- "$SLACK_SECURITY_WEBHOOK_URL" || true
+
       - name: Open / update alert issue on failure
-        if: steps.scan.outputs.exit_code != '0'
+        if: >
+          steps.scan.outputs.exit_code != '0'
+          || steps.coherence.outputs.exit_code != '0'
+          || steps.compare.outputs.exit_code != '0'
         uses: actions/github-script@v7
         with:
           script: |
+            const fs = require("fs");
             const title = "🔒 Nightly security regression detected";
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            let delta = "";
+            try { delta = fs.readFileSync("security-report/delta.md", "utf8").slice(0, 4000); } catch {}
             const body = [
               "The nightly security regression suite failed.",
               "",
-              "**One or more targeted findings may have reappeared:**",
+              "**Targeted findings under watch:**",
               "- `SUPA_anon_security_definer_function_executable`",
               "- `SUPA_authenticated_security_definer_function_executable`",
               "- `SUPA_function_search_path_mutable`",
@@ -96,6 +176,10 @@ jobs:
               `Run: ${runUrl}`,
               "",
               "Download the `nightly-security-report-*` artifact for full logs + JSON.",
+              "",
+              "---",
+              "",
+              delta || "_no delta.md available_",
             ].join("\n");
             const existing = await github.rest.issues.listForRepo({
               owner: context.repo.owner,
@@ -122,6 +206,9 @@ jobs:
               });
             }
 
-      - name: Fail the workflow if the scan failed
-        if: steps.scan.outputs.exit_code != '0'
+      - name: Fail the workflow if anything regressed
+        if: >
+          steps.scan.outputs.exit_code != '0'
+          || steps.coherence.outputs.exit_code != '0'
+          || steps.compare.outputs.exit_code != '0'
         run: exit 1
