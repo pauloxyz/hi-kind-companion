@@ -805,13 +805,31 @@ function Step5Done({ form }: { form: FormState }) {
 
   const activateMut = useMutation({
     mutationFn: (id: string) => activateVariant({ data: { id } }),
-    onSuccess: () => {
+    onSuccess: (_res, id) => {
       toast.success("Currículo ativo atualizado.");
-      mirror("onboarding_variant_selected", undefined, undefined, { variant_id: selectedVariantId });
+      mirror("onboarding_variant_activated", undefined, undefined, { variant_id: id });
       variantsQ.refetch();
     },
     onError: (e) => toastError(e),
   });
+
+  const toggleLang = (next: "pt" | "en") => {
+    if (next === lang) return;
+    setLang(next);
+    mirror("onboarding_lang_toggled", undefined, undefined, {
+      from: lang,
+      to: next,
+      variant_id: activeVariant?.id ?? null,
+      had_cached_en: !!enMessage,
+    });
+  };
+
+  const chooseVariant = (id: string | null) => {
+    setSelectedVariantId(id);
+    setEnMessage(null); // invalidate cached translation
+    mirror("onboarding_variant_selected", undefined, undefined, { variant_id: id });
+    if (id) activateMut.mutate(id);
+  };
 
   const tags = useMemo(
     () => form.field_experience.map((k) => LABEL_FOR_FIELD[k] ?? k),
