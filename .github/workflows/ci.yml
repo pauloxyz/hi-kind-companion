@@ -113,6 +113,24 @@ jobs:
             --out security-report/delta.md
           echo "exit_code=$?" >> "$GITHUB_OUTPUT"
           exit 0
+      - name: Emit GitHub Checks annotations per reintroduced internal_id
+        # Uses the ::warning:: workflow-command channel so each reappeared
+        # finding shows up as a discrete annotation in the Checks tab and
+        # inline on the "Files changed" view — no third-party action needed.
+        if: always()
+        run: |
+          if [ ! -f security-report/delta.json ]; then exit 0; fi
+          CONFIG_FILE=src/config/security-internal-ids.ts
+          jq -r '.reappearedInternalIds[]?' security-report/delta.json | while read -r id; do
+            [ -z "$id" ] && continue
+            LINE=$(grep -n "\"$id\"" "$CONFIG_FILE" | head -1 | cut -d: -f1)
+            LINE=${LINE:-1}
+            echo "::warning file=${CONFIG_FILE},line=${LINE},title=Security regression::Targeted internal_id \`$id\` reappeared on this run — see security-report/delta.md"
+          done
+          jq -r '.regressed[]?' security-report/delta.json | while read -r name; do
+            [ -z "$name" ] && continue
+            echo "::warning title=Regressed security test::${name} was passing on the previous artifact and failed on this run"
+          done
       - name: Render security summary (table)
         # Emits a structured Markdown table into the GitHub Actions job
         # summary listing reintroduced internal_ids and regressed tests
@@ -140,14 +158,14 @@ jobs:
               echo "| Still failing | ${STILL} |"
               echo "| Newly passing | ${NEWPASS} |"
               echo ""
-              echo "## Reintroduced internal_ids"
+              echo "## Reintroduced internal_ids (per finding)"
               echo ""
-              REAPPEARED_ROWS=$(jq -r '.reappearedInternalIds | if length == 0 then "" else map("| `" + . + "` | permission / RLS / cron_secret |") | join("\n") end' security-report/delta.json)
+              REAPPEARED_ROWS=$(jq -r '.reappearedInternalIds | if length == 0 then "" else map("| `" + . + "` | permission / RLS / cron_secret | see annotation |") | join("\n") end' security-report/delta.json)
               if [ -z "$REAPPEARED_ROWS" ]; then
                 echo "_None — all TARGET_INTERNAL_IDS still hardened._"
               else
-                echo "| internal_id | change class |"
-                echo "| --- | --- |"
+                echo "| internal_id | change class | source |"
+                echo "| --- | --- | --- |"
                 echo "$REAPPEARED_ROWS"
               fi
               echo ""
@@ -165,29 +183,74 @@ jobs:
               echo "_delta.json not produced — comparator did not run._"
             fi
           } >> "$GITHUB_STEP_SUMMARY"
-      - name: Comment security delta on PR
-        # Posts a single sticky comment on the PR summarising the delta
-        # whenever the comparator detects a regression. Comment is
-        # updated in-place across pushes so the PR thread stays clean.
+      - name: Upload security report artifact
+        # Uploaded BEFORE the PR comment step so we can embed
+        # artifact-url in the comment body.
+        id: upload_report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report-${{ github.run_number }}
+          path: security-report/
+          retention-days: 30
+      - name: Comment security delta on PR (sticky, hash-gated)
+        # Sticky comment strategy:
+        #   1. Compute a content hash of the current delta.json.
+        #   2. Look up any existing comment with marker <!-- lovable-security-delta -->.
+        #   3. If the existing comment already contains hash:<same> → skip
+        #      (no PR spam on pushes that didn't change the delta).
+        #   4. Otherwise create/update with links to delta.md, delta.json
+        #      and the security-report artifact just uploaded.
+        # Runs only on pull_request events AND only when the comparator
+        # detected drift (exit_code != 0) OR a previous comment exists
+        # that needs to be updated to "resolved".
         if: github.event_name == 'pull_request' && steps.compare.outputs.exit_code != '0'
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require("fs");
-            let delta = "";
+            const crypto = require("crypto");
+            let deltaMd = "";
             let json = null;
-            try { delta = fs.readFileSync("security-report/delta.md", "utf8"); } catch {}
+            try { deltaMd = fs.readFileSync("security-report/delta.md", "utf8"); } catch {}
             try { json = JSON.parse(fs.readFileSync("security-report/delta.json", "utf8")); } catch {}
             const reappeared = json?.reappearedInternalIds ?? [];
             const regressed = json?.regressed ?? [];
             const marker = "<!-- lovable-security-delta -->";
+            const hashSource = JSON.stringify({ reappeared, regressed, stillFailing: json?.stillFailing ?? [] });
+            const contentHash = crypto.createHash("sha256").update(hashSource).digest("hex").slice(0, 16);
+            const hashTag = `<!-- delta-hash:${contentHash} -->`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing && existing.body?.includes(hashTag)) {
+              core.info(`Delta content hash unchanged (${contentHash}) — leaving sticky comment as-is.`);
+              return;
+            }
+
             const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const artifactUrl = `${{ steps.upload_report.outputs.artifact-url }}`;
+            const artifactBrowseUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}#artifacts`;
             const body = [
               marker,
+              hashTag,
               "## 🔒 Security regression detected",
               "",
               `**Reintroduced internal_ids:** ${reappeared.length}`,
               `**Regressed tests:** ${regressed.length}`,
+              `**Delta hash:** \`${contentHash}\``,
+              "",
+              "### Reports",
+              "",
+              `- 📄 [Download \`delta.md\`](${artifactUrl}) — human-readable summary`,
+              `- 🧾 [Download \`delta.json\`](${artifactUrl}) — machine-readable diff`,
+              `- 📦 [Browse the \`security-report-${{ github.run_number }}\` artifact](${artifactBrowseUrl})`,
+              `- ⚙️  [Open workflow run](${runUrl})`,
               "",
               reappeared.length
                 ? "### Reintroduced internal_ids\n\n" +
@@ -201,17 +264,9 @@ jobs:
                   (regressed.length > 20 ? `\n\n_…and ${regressed.length - 20} more_` : "")
                 : "",
               "",
-              `[Open workflow run](${runUrl}) · Download the \`security-report-*\` artifact for full logs.`,
-              "",
-              "<details><summary>Full delta.md</summary>\n\n" + (delta || "_no delta_").slice(0, 30000) + "\n\n</details>",
+              "<details><summary>Full delta.md excerpt</summary>\n\n" + (deltaMd || "_no delta_").slice(0, 30000) + "\n\n</details>",
             ].filter(Boolean).join("\n");
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-            const existing = comments.find((c) => c.body?.includes(marker));
+
             if (existing) {
               await github.rest.issues.updateComment({
                 owner: context.repo.owner,
@@ -219,6 +274,7 @@ jobs:
                 comment_id: existing.id,
                 body,
               });
+              core.info(`Updated sticky comment with new delta hash ${contentHash}.`);
             } else {
               await github.rest.issues.createComment({
                 owner: context.repo.owner,
@@ -226,19 +282,15 @@ jobs:
                 issue_number: context.issue.number,
                 body,
               });
+              core.info(`Created sticky comment with delta hash ${contentHash}.`);
             }
       - name: Fail step if compare detected drift
         if: steps.compare.outputs.exit_code != '0'
         run: |
-          echo "❌ Security drift detected — see job summary and PR comment."
+          echo "❌ Security drift detected — see job summary, annotations and PR comment."
           exit 1
-      - name: Upload security report artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: security-report-${{ github.run_number }}
-          path: security-report/
-          retention-days: 30
+
+
 
       - name: Build
         run: bun run build
