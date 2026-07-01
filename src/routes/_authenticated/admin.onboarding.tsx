@@ -143,9 +143,9 @@ function AdminOnboardingPage() {
                       downloadFunnelCsv(q.data, loc);
                     } catch (err) {
                       const msg = err instanceof Error ? err.message : String(err);
-                      setExportError(
-                        `Não foi possível gerar o CSV agora (${msg || "erro desconhecido"}). Tente novamente em instantes.`,
-                      );
+                      // Mensagem traduzida (PT/EN/ES) + detalhe técnico
+                      // entre parênteses para diagnóstico.
+                      setExportError(`${t("funnel_export_error_message")} (${msg || "unknown"})`);
                     } finally {
                       setExportingLocale(null);
                     }
