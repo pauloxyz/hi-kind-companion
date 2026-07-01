@@ -1194,7 +1194,7 @@ function ReprocessLogPanel({
                             size="sm"
                             variant="outline"
                             className="h-7"
-                            disabled={reprocessingId === r.id}
+                            disabled={reprocessingId === r.id || batchPending}
                             onClick={() => setConfirmRow(r)}
                           >
                             <RotateCcw className={`mr-1 h-3.5 w-3.5 ${reprocessingId === r.id ? "animate-spin" : ""}`} />
