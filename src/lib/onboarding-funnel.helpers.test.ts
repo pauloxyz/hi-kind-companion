@@ -166,10 +166,10 @@ describe("formatCsvNumber", () => {
   it("não introduz separadores por locale ao rodar em ambientes não-en", () => {
     // Simula ambiente com locale pt-BR onde 1000 poderia virar "1.000".
     const original = Number.prototype.toLocaleString;
-    // @ts-expect-error patch temporário para provar independência de locale
-    Number.prototype.toLocaleString = function fake() {
-      return "1.000";
-    };
+    (Number.prototype as unknown as { toLocaleString: () => string }).toLocaleString =
+      function fake() {
+        return "1.000";
+      };
     try {
       expect(formatCsvNumber(1000)).toMatch(/^-?\d+$/);
       expect(formatCsvNumber(1000)).not.toContain(".");
