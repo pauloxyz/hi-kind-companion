@@ -470,7 +470,16 @@ function AdminStripeEventsPage() {
           </TabsContent>
 
           <TabsContent value="reprocess-log" className="mt-4">
-            <ReprocessLogPanel />
+            <ReprocessLogPanel
+              onOpenEventInEvents={(id) => {
+                setSearchInput(id);
+                setSearch(id);
+                setStatus("all");
+                setEventType("all");
+                setPage(0);
+                setTab("events");
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>
