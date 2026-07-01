@@ -72,17 +72,30 @@ describe("buildFunnelCsv", () => {
     },
   };
 
-  it("gera cabeçalho estável e uma linha por etapa", () => {
+  it("gera cabeçalho estável e uma linha por etapa (labels localizados em PT por padrão)", () => {
     const csv = buildFunnelCsv(base);
     const lines = csv.trim().split("\n");
     expect(lines[0]).toBe(
       "step_index,step_label,reached_total,reached_pt,reached_en,stuck_after_variant_switch",
     );
+    // step_label sempre vem do STEP_LABELS_I18N — não do que o server enviou
     expect(lines[1]).toBe("0,Boas-vindas,100,90,10,0");
-    // label com vírgula precisa vir entre aspas
-    expect(lines[2]).toBe(`1,"Como funciona, ok",80,70,10,2`);
+    expect(lines[2]).toBe("1,Como funciona,80,70,10,2");
     // etapa com valores altos de "travados após trocar"
     expect(lines[3]).toBe("2,Dados básicos,60,50,10,7");
+  });
+
+  it("faz escape correto de vírgulas quando step_index não tem label localizado", () => {
+    const withCustom = {
+      ...base,
+      funnel: [
+        ...base.funnel,
+        // etapa 99: fora do range → cai no fallback do row.step_label
+        { step_index: 99, step_label: "Custom, extra", reached_users: 5 },
+      ],
+    };
+    const csv = buildFunnelCsv(withCustom);
+    expect(csv).toContain(`99,"Custom, extra",5,0,0,0`);
   });
 
   it("inclui bloco de sumário com todos os totais esperados", () => {
