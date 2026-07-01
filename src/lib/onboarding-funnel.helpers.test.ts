@@ -179,20 +179,38 @@ describe("formatCsvNumber", () => {
     }
   });
 
-  it("não-inteiros preservam precisão sem trailing zeros nem exponencial", () => {
-    expect(formatCsvNumber(1.5)).toBe("1.5");
-    expect(formatCsvNumber(0.125)).toBe("0.125");
-    expect(formatCsvNumber(1.23456789)).toBe("1.23456789");
-    expect(formatCsvNumber(1.5)).not.toMatch(/e/i);
+  it("floats são sempre arredondados para inteiros — nunca casas decimais no CSV", () => {
+    // half-up para positivos, half-down para negativos (Math.round padrão)
+    expect(formatCsvNumber(1.9)).toBe("2");
+    expect(formatCsvNumber(-2.3)).toBe("-2");
+    expect(formatCsvNumber(0.5)).toBe("1");
+    expect(formatCsvNumber(-0.5)).toBe("0");
+    expect(formatCsvNumber(1.5)).toBe("2");
+    expect(formatCsvNumber(0.125)).toBe("0");
+    expect(formatCsvNumber(1.23456789)).toBe("1");
+    // Nenhum float pode gerar notação científica ou não-dígitos
+    for (const v of [1.9, -2.3, 0.5, 0.125, 1.5, 999.999, -0.0001]) {
+      const out = formatCsvNumber(v);
+      expect(out).toMatch(/^-?\d+$/);
+      expect(out).not.toMatch(/e/i);
+      expect(out).not.toContain(".");
+    }
+  });
+
+  it("floats muito grandes são arredondados sem virar notação científica", () => {
+    expect(formatCsvNumber(1e20 + 0.7)).toMatch(/^\d+$/);
+    expect(formatCsvNumber(1.5e21)).toMatch(/^\d+$/);
+    expect(formatCsvNumber(1.5e21)).not.toMatch(/e/i);
   });
 
   it("é seguro reusar diretamente em linhas de CSV — nunca introduz vírgulas ou aspas", () => {
-    const values = [0, 1, 100, 1_000_000, 1e21, 3.14, -7];
+    const values = [0, 1, 100, 1_000_000, 1e21, 3.14, -7, 0.5, -2.3];
     for (const v of values) {
       const out = formatCsvNumber(v);
       expect(out).not.toContain(",");
       expect(out).not.toContain('"');
       expect(out).not.toContain("\n");
+      expect(out).not.toContain(".");
     }
   });
 });
