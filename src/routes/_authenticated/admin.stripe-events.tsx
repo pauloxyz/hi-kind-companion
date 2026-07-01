@@ -1,5 +1,5 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { createFileRoute, getRouteApi, redirect, useNavigate } from "@tanstack/react-router";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
@@ -13,6 +13,7 @@ import {
   reprocessFromLogFilteredBatch,
   reprocessStripeWebhookEvent,
   reprocessStripeWebhookEventsBatch,
+  reprocessStripeWebhookEventsByIds,
   type BatchReprocessResult,
   type ReprocessLogEntry,
   type ReprocessLogPage,
@@ -53,10 +54,62 @@ type EnvFilter = "all" | "sandbox" | "live";
 type StatusFilter = "all" | "processed" | "ignored" | "error";
 type SortCol = "received_at" | "processed_at" | "event_type" | "status";
 type SortDir = "asc" | "desc";
+type TabId = "events" | "reprocess-log";
+type LogOutcome = "all" | "success" | "error";
+type LogSortCol = "created_at" | "outcome" | "duration_ms";
 
 const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
-export const Route = createFileRoute("/_authenticated/admin/stripe-events")({
+const ROUTE_ID = "/_authenticated/admin/stripe-events" as const;
+
+type SearchState = {
+  tab: TabId;
+  env: EnvFilter; st: StatusFilter; et: string; q: string; em: string;
+  sb: SortCol; sd: SortDir; p: number; ps: number;
+  l_sid: string; l_uid: string; l_oc: LogOutcome;
+  l_since: string; l_until: string;
+  l_sb: LogSortCol; l_sd: SortDir; l_p: number; l_ps: number;
+};
+
+function asEnum<T extends string>(v: unknown, allowed: readonly T[], d: T): T {
+  return typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : d;
+}
+function asStr(v: unknown, d = ""): string {
+  return typeof v === "string" ? v : d;
+}
+function asInt(v: unknown, d: number, min: number, max: number): number {
+  const n = typeof v === "number" ? v : Number(v);
+  if (!Number.isFinite(n)) return d;
+  return Math.min(max, Math.max(min, Math.trunc(n)));
+}
+
+function validateSearchState(raw: Record<string, unknown>): SearchState {
+  const s = raw ?? {};
+  return {
+    tab: asEnum(s.tab, ["events", "reprocess-log"] as const, "events"),
+    env: asEnum(s.env, ["all", "sandbox", "live"] as const, "all"),
+    st: asEnum(s.st, ["all", "processed", "ignored", "error"] as const, "all"),
+    et: asStr(s.et, "all"),
+    q: asStr(s.q, ""),
+    em: asStr(s.em, ""),
+    sb: asEnum(s.sb, ["received_at", "processed_at", "event_type", "status"] as const, "received_at"),
+    sd: asEnum(s.sd, ["asc", "desc"] as const, "desc"),
+    p: asInt(s.p, 0, 0, 100000),
+    ps: asInt(s.ps, 25, 1, 500),
+    l_sid: asStr(s.l_sid, ""),
+    l_uid: asStr(s.l_uid, ""),
+    l_oc: asEnum(s.l_oc, ["all", "success", "error"] as const, "all"),
+    l_since: asStr(s.l_since, ""),
+    l_until: asStr(s.l_until, ""),
+    l_sb: asEnum(s.l_sb, ["created_at", "outcome", "duration_ms"] as const, "created_at"),
+    l_sd: asEnum(s.l_sd, ["asc", "desc"] as const, "desc"),
+    l_p: asInt(s.l_p, 0, 0, 100000),
+    l_ps: asInt(s.l_ps, 25, 1, 200),
+  };
+}
+
+export const Route = createFileRoute(ROUTE_ID)({
+  validateSearch: validateSearchState,
   beforeLoad: async () => {
     try {
       await requireAdminAccess({ data: { route: "admin/stripe-events" } });
@@ -66,6 +119,9 @@ export const Route = createFileRoute("/_authenticated/admin/stripe-events")({
   },
   component: AdminStripeEventsPage,
 });
+
+const routeApi = getRouteApi(ROUTE_ID);
+
 
 function AdminStripeEventsPage() {
   const list = useServerFn(listStripeWebhookEvents);
