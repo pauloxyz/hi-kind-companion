@@ -13,7 +13,10 @@
  * credentials. Missing creds → skip (exit 0) with a warning, matching the
  * existing integration-test skip behaviour on fresh clones.
  *
- * Usage:  bun scripts/check-definer-coherence.ts
+ * Usage:  bun scripts/check-definer-coherence.ts [--verbose] [--dry-run]
+ *   --verbose : log every probe (denied + allowed), not just failures.
+ *   --dry-run : print the probe plan (which rpcs/tables would be tested)
+ *               and exit 0 without hitting the Data API.
  */
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -21,6 +24,21 @@ import {
   ALLOWED_ANON_RPCS,
   FORBIDDEN_ANON_TABLE_READS,
 } from "../src/config/security-internal-ids";
+
+const argv = process.argv.slice(2);
+const VERBOSE = argv.includes("--verbose");
+const DRY_RUN = argv.includes("--dry-run");
+
+if (DRY_RUN) {
+  console.log("[dry-run] Coherence probe plan:");
+  console.log(`  FORBIDDEN_ANON_RPCS  (${FORBIDDEN_ANON_RPCS.length}):`);
+  for (const r of FORBIDDEN_ANON_RPCS) console.log(`    · anon.rpc(${r.fn}) MUST be denied`);
+  console.log(`  ALLOWED_ANON_RPCS   (${ALLOWED_ANON_RPCS.length}):`);
+  for (const r of ALLOWED_ANON_RPCS) console.log(`    · anon.rpc(${r.fn}) MUST remain callable`);
+  console.log(`  FORBIDDEN_ANON_TABLE_READS (${FORBIDDEN_ANON_TABLE_READS.length}):`);
+  for (const t of FORBIDDEN_ANON_TABLE_READS) console.log(`    · anon.from(${t}).select() MUST be denied or empty`);
+  process.exit(0);
+}
 
 const URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -48,6 +66,7 @@ function isPermissionErrorShape(error: { code?: string; message?: string } | nul
   );
 }
 
+
 const failures: string[] = [];
 
 console.log("▶ SECURITY DEFINER EXECUTE grants (must be locked down for anon)");
@@ -55,8 +74,8 @@ for (const { fn, args } of FORBIDDEN_ANON_RPCS) {
   const { error } = await anon.rpc(fn, args);
   if (!isPermissionErrorShape(error)) {
     failures.push(`  ❌ rpc(${fn}) is callable by anon (regression!) — error=${error?.message ?? "none"}`);
-  } else {
-    console.log(`  ✓ ${fn} denied`);
+  } else if (VERBOSE) {
+    console.log(`  ✓ ${fn} denied (${error?.code ?? "no-code"})`);
   }
 }
 
@@ -66,7 +85,7 @@ for (const { fn, args } of ALLOWED_ANON_RPCS) {
   const { error } = await anon.rpc(fn, args);
   if (error) {
     failures.push(`  ❌ rpc(${fn}) MUST remain anon-callable — error=${error.message}`);
-  } else {
+  } else if (VERBOSE) {
     console.log(`  ✓ ${fn} still allowed`);
   }
 }
@@ -79,10 +98,11 @@ for (const table of FORBIDDEN_ANON_TABLE_READS) {
     failures.push(`  ❌ ${table} returned unexpected error shape: ${error.message}`);
   } else if (!error && (data?.length ?? 0) > 0) {
     failures.push(`  ❌ ${table} leaked rows to anon (regression!)`);
-  } else {
+  } else if (VERBOSE) {
     console.log(`  ✓ ${table} not readable by anon`);
   }
 }
+
 
 console.log("");
 if (failures.length > 0) {

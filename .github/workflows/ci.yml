@@ -9,6 +9,11 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2
@@ -73,19 +78,160 @@ jobs:
           name: security-report-.*
           path: previous-security-report/
           if_no_artifact_found: warn
+      - name: Resolve previous artifact path (safe fallback)
+        id: prev_path
+        # Explicit fallback: when no previous artifact exists (first run
+        # on a fresh branch, deleted retention, download failure) we log
+        # "baseline mode" and pass no --previous flag. The comparator
+        # then produces a valid delta and exits 0 without masking any
+        # real failure — the current-run test failures still surface via
+        # the regression step's own exit code.
+        run: |
+          PREV=$(find previous-security-report -name regression-results.json -print -quit 2>/dev/null || true)
+          if [ -z "$PREV" ]; then
+            echo "⚠ No previous CI security artifact found — running comparator in baseline mode."
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "baseline=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Previous artifact: $PREV"
+            echo "path=$PREV" >> "$GITHUB_OUTPUT"
+            echo "baseline=false" >> "$GITHUB_OUTPUT"
+          fi
       - name: Compare against previous CI artifact (fail on drift)
         # Diffs the current regression-results.json against the last CI
         # artifact and fails the build if any TARGET_INTERNAL_IDS
-        # reappear or previously-passing tests regressed. Delta is
-        # written to security-report/delta.{md,json} and uploaded with
-        # the report artifact for review on the PR.
+        # reappear or previously-passing tests regressed. In baseline
+        # mode (no previous artifact) the comparator emits delta.md/json
+        # anyway so downstream summary/PR-comment steps have data.
+        id: compare
         run: |
-          PREV=$(find previous-security-report -name regression-results.json -print -quit 2>/dev/null || true)
-          echo "Previous artifact: ${PREV:-<none>}"
+          set +e
+          PREV="${{ steps.prev_path.outputs.path }}"
           bun run scripts/compare-security-artifacts.ts \
             ${PREV:+--previous "$PREV"} \
             --current security-report/regression-results.json \
             --out security-report/delta.md
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Render security summary (table)
+        # Emits a structured Markdown table into the GitHub Actions job
+        # summary listing reintroduced internal_ids and regressed tests
+        # pulled from security-report/delta.json.
+        if: always()
+        run: |
+          {
+            echo "# 🔒 Security regression summary"
+            echo ""
+            echo "- Baseline mode: \`${{ steps.prev_path.outputs.baseline }}\`"
+            echo "- Previous artifact: \`${{ steps.prev_path.outputs.path || 'none' }}\`"
+            echo "- Compare exit: \`${{ steps.compare.outputs.exit_code }}\`"
+            echo ""
+            if [ -f security-report/delta.json ]; then
+              REAPPEARED=$(jq -r '.reappearedInternalIds | length' security-report/delta.json)
+              REGRESSED=$(jq -r '.totals.regressed' security-report/delta.json)
+              STILL=$(jq -r '.totals.stillFailing' security-report/delta.json)
+              NEWPASS=$(jq -r '.totals.newlyPassing' security-report/delta.json)
+              echo "## Totals"
+              echo ""
+              echo "| Metric | Count |"
+              echo "| --- | ---: |"
+              echo "| Reintroduced internal_ids | ${REAPPEARED} |"
+              echo "| Regressed tests | ${REGRESSED} |"
+              echo "| Still failing | ${STILL} |"
+              echo "| Newly passing | ${NEWPASS} |"
+              echo ""
+              echo "## Reintroduced internal_ids"
+              echo ""
+              REAPPEARED_ROWS=$(jq -r '.reappearedInternalIds | if length == 0 then "" else map("| `" + . + "` | permission / RLS / cron_secret |") | join("\n") end' security-report/delta.json)
+              if [ -z "$REAPPEARED_ROWS" ]; then
+                echo "_None — all TARGET_INTERNAL_IDS still hardened._"
+              else
+                echo "| internal_id | change class |"
+                echo "| --- | --- |"
+                echo "$REAPPEARED_ROWS"
+              fi
+              echo ""
+              echo "## Regressed tests"
+              echo ""
+              REGRESSED_ROWS=$(jq -r '.regressed | if length == 0 then "" else map("| ❌ `" + . + "` |") | join("\n") end' security-report/delta.json)
+              if [ -z "$REGRESSED_ROWS" ]; then
+                echo "_None — no previously-passing test failed on this run._"
+              else
+                echo "| test |"
+                echo "| --- |"
+                echo "$REGRESSED_ROWS"
+              fi
+            else
+              echo "_delta.json not produced — comparator did not run._"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+      - name: Comment security delta on PR
+        # Posts a single sticky comment on the PR summarising the delta
+        # whenever the comparator detects a regression. Comment is
+        # updated in-place across pushes so the PR thread stays clean.
+        if: github.event_name == 'pull_request' && steps.compare.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+            let delta = "";
+            let json = null;
+            try { delta = fs.readFileSync("security-report/delta.md", "utf8"); } catch {}
+            try { json = JSON.parse(fs.readFileSync("security-report/delta.json", "utf8")); } catch {}
+            const reappeared = json?.reappearedInternalIds ?? [];
+            const regressed = json?.regressed ?? [];
+            const marker = "<!-- lovable-security-delta -->";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              marker,
+              "## 🔒 Security regression detected",
+              "",
+              `**Reintroduced internal_ids:** ${reappeared.length}`,
+              `**Regressed tests:** ${regressed.length}`,
+              "",
+              reappeared.length
+                ? "### Reintroduced internal_ids\n\n" +
+                  "| internal_id |\n| --- |\n" +
+                  reappeared.map((id) => `| \`${id}\` |`).join("\n")
+                : "",
+              regressed.length
+                ? "\n### Regressed tests\n\n" +
+                  "| test |\n| --- |\n" +
+                  regressed.slice(0, 20).map((t) => `| ❌ \`${t}\` |`).join("\n") +
+                  (regressed.length > 20 ? `\n\n_…and ${regressed.length - 20} more_` : "")
+                : "",
+              "",
+              `[Open workflow run](${runUrl}) · Download the \`security-report-*\` artifact for full logs.`,
+              "",
+              "<details><summary>Full delta.md</summary>\n\n" + (delta || "_no delta_").slice(0, 30000) + "\n\n</details>",
+            ].filter(Boolean).join("\n");
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              per_page: 100,
+            });
+            const existing = comments.find((c) => c.body?.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
+      - name: Fail step if compare detected drift
+        if: steps.compare.outputs.exit_code != '0'
+        run: |
+          echo "❌ Security drift detected — see job summary and PR comment."
+          exit 1
       - name: Upload security report artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -93,6 +239,7 @@ jobs:
           name: security-report-${{ github.run_number }}
           path: security-report/
           retention-days: 30
+
       - name: Build
         run: bun run build
         env:
