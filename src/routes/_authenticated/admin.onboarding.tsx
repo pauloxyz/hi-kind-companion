@@ -120,8 +120,12 @@ function AdminOnboardingPage() {
                       ? "Nada para exportar — ainda não há eventos de onboarding."
                       : `Baixar funil em ${loc.toUpperCase()}`
                   }
-                  onClick={() => {
+                  ref={(el) => {
+                    if (exportingLocale === loc) lastExportBtnRef.current = el;
+                  }}
+                  onClick={(e) => {
                     if (disabled || !q.data) return;
+                    lastExportBtnRef.current = e.currentTarget;
                     setExportError(null);
                     setExportingLocale(loc);
                     try {
