@@ -45,7 +45,7 @@ function AdminStripeEventsPage() {
 
   const typesQuery = useQuery({
     queryKey: ["admin", "stripe-events", "types"],
-    queryFn: () => listTypes(),
+    queryFn: () => listTypes() as Promise<string[]>,
   });
 
   const eventsQuery = useQuery({
@@ -58,7 +58,7 @@ function AdminStripeEventsPage() {
           eventType: eventType === "all" ? undefined : eventType,
           limit: 100,
         },
-      }),
+      }) as Promise<StripeWebhookEventRow[]>,
   });
 
   const rows = eventsQuery.data ?? [];
