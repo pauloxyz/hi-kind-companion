@@ -154,14 +154,72 @@ async function handleCheckoutCompleted(session: Json, env: StripeEnv) {
     );
 
   if (error) {
-    console.error("[stripe-webhook] checkout.session.completed upsert failed:", error.message);
-    throw error;
+    console.error("[stripe-webhook] checkout.session.completed upsert failed:", error);
+    throw new Error(`checkout upsert: ${error.message} (${error.code ?? "?"})`);
   }
 }
 
-async function handleWebhook(req: Request, env: StripeEnv) {
-  const event = await verifyStripeWebhook(req, env);
+const HANDLED_EVENTS = new Set([
+  "customer.subscription.created",
+  "customer.subscription.updated",
+  "customer.subscription.deleted",
+  "invoice.paid",
+  "checkout.session.completed",
+]);
 
+function summarizePayload(event: Json): Record<string, unknown> {
+  const obj = event.data?.object ?? {};
+  return {
+    object_id: obj.id ?? null,
+    object_type: obj.object ?? null,
+    customer: typeof obj.customer === "string" ? obj.customer : null,
+    subscription:
+      typeof obj.subscription === "string" ? obj.subscription : obj.id ?? null,
+    user_id: obj.metadata?.userId ?? null,
+    status: obj.status ?? obj.payment_status ?? null,
+    mode: obj.mode ?? null,
+    amount_total: typeof obj.amount_total === "number" ? obj.amount_total : null,
+  };
+}
+
+async function logEvent(
+  event: Json,
+  env: StripeEnv,
+  status: "processed" | "ignored" | "error",
+  errorMessage?: string,
+) {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    await supabaseAdmin.from("stripe_webhook_events").upsert(
+      {
+        stripe_event_id: event.id,
+        event_type: event.type,
+        environment: env,
+        status,
+        error_message: errorMessage ?? null,
+        payload_summary: summarizePayload(event) as Json,
+        processed_at: new Date().toISOString(),
+      },
+      { onConflict: "stripe_event_id,environment" },
+    );
+  } catch (e) {
+    console.error("[stripe-webhook] failed to write audit log:", e);
+  }
+}
+
+async function isAlreadyProcessed(eventId: string, env: StripeEnv): Promise<boolean> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data } = await supabaseAdmin
+    .from("stripe_webhook_events")
+    .select("status")
+    .eq("stripe_event_id", eventId)
+    .eq("environment", env)
+    .eq("status", "processed")
+    .maybeSingle();
+  return !!data;
+}
+
+async function dispatchEvent(event: Json, env: StripeEnv) {
   switch (event.type) {
     case "customer.subscription.created":
     case "customer.subscription.updated":
@@ -174,9 +232,6 @@ async function handleWebhook(req: Request, env: StripeEnv) {
     case "checkout.session.completed":
       await handleCheckoutCompleted(event.data.object, env);
       break;
-    default:
-      // Retornar 200 pra Stripe parar de reenviar eventos que não usamos.
-      console.log("[stripe-webhook] unhandled event:", event.type);
   }
 }
 
@@ -189,14 +244,37 @@ export const Route = createFileRoute("/api/public/payments/webhook")({
           console.error("[stripe-webhook] invalid ?env=", rawEnv);
           return Response.json({ received: true, ignored: "invalid env" });
         }
+        const env: StripeEnv = rawEnv;
+
+        let event: Json;
         try {
-          await handleWebhook(request, rawEnv);
+          event = await verifyStripeWebhook(request, env);
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e);
+          console.error("[stripe-webhook] signature error:", msg);
+          return new Response(`Webhook error: ${msg}`, { status: 400 });
+        }
+
+        // Idempotência: se já processamos esse event.id neste env, retorna 200.
+        if (await isAlreadyProcessed(event.id, env)) {
+          return Response.json({ received: true, duplicate: true });
+        }
+
+        if (!HANDLED_EVENTS.has(event.type)) {
+          await logEvent(event, env, "ignored");
+          return Response.json({ received: true, ignored: event.type });
+        }
+
+        try {
+          await dispatchEvent(event, env);
+          await logEvent(event, env, "processed");
           return Response.json({ received: true });
         } catch (e) {
           const msg = e instanceof Error ? e.message : String(e);
-          console.error("[stripe-webhook] error:", msg);
-          // 400 para assinatura/payload inválido — Stripe reenviará.
-          return new Response(`Webhook error: ${msg}`, { status: 400 });
+          console.error("[stripe-webhook] handler error:", msg);
+          await logEvent(event, env, "error", msg);
+          // 500 para Stripe reenviar
+          return new Response(`Webhook handler error: ${msg}`, { status: 500 });
         }
       },
     },

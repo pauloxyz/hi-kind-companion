@@ -1304,6 +1304,42 @@ export type Database = {
         }
         Relationships: []
       }
+      stripe_webhook_events: {
+        Row: {
+          environment: string
+          error_message: string | null
+          event_type: string
+          id: string
+          payload_summary: Json | null
+          processed_at: string | null
+          received_at: string
+          status: string
+          stripe_event_id: string
+        }
+        Insert: {
+          environment: string
+          error_message?: string | null
+          event_type: string
+          id?: string
+          payload_summary?: Json | null
+          processed_at?: string | null
+          received_at?: string
+          status: string
+          stripe_event_id: string
+        }
+        Update: {
+          environment?: string
+          error_message?: string | null
+          event_type?: string
+          id?: string
+          payload_summary?: Json | null
+          processed_at?: string | null
+          received_at?: string
+          status?: string
+          stripe_event_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           amount_cents: number | null
