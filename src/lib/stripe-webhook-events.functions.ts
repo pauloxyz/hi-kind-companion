@@ -537,7 +537,7 @@ export const listReprocessLog = createServerFn({ method: "GET" })
 // Coleta event_row_ids distintos a partir das entradas do log, carrega
 // cada evento e roda o replay best-effort, gravando nova auditoria.
 const reprocessLogBatchSchema = reprocessLogBaseFilters.extend({
-  limit: z.number().int().min(1).max(200).default(50),
+  limit: z.number().int().min(1).max(500).default(50),
 });
 
 export const reprocessFromLogFilteredBatch = createServerFn({ method: "POST" })
