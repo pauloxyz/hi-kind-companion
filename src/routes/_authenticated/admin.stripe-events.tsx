@@ -524,7 +524,22 @@ function EventRow({
             {row.environment}
           </Badge>
         </TableCell>
-        <TableCell><Badge variant={statusVariant(row.status)}>{row.status}</Badge></TableCell>
+        <TableCell>
+          <div className="flex flex-col gap-1">
+            <Badge variant={statusVariant(row.status)} className="w-fit">{row.status}</Badge>
+            {isError && row.error_message && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex max-w-[280px] items-center gap-1 truncate text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{row.error_message}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-md">{row.error_message}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </TableCell>
         <TableCell className="font-mono text-xs text-muted-foreground">{row.stripe_event_id}</TableCell>
         <TableCell className="text-right">
           <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
