@@ -465,16 +465,50 @@ export type ReprocessLogPage = {
   total: number;
 };
 
-const reprocessLogSchema = z.object({
+const reprocessLogSortCols = ["created_at", "outcome", "duration_ms"] as const;
+
+const reprocessLogBaseFilters = z.object({
   stripe_event_id: z.string().trim().max(120).optional(),
   actor_user_id: z.string().trim().max(120).optional(),
   outcome: z.enum(["all", "success", "error"]).default("all"),
   since: z.string().datetime().optional(),
   until: z.string().datetime().optional(),
   event_row_id: z.string().uuid().optional(),
+});
+
+const reprocessLogSchema = reprocessLogBaseFilters.extend({
+  sortBy: z.enum(reprocessLogSortCols).default("created_at"),
+  sortDir: z.enum(["asc", "desc"]).default("desc"),
   limit: z.number().int().min(1).max(200).default(25),
   offset: z.number().int().min(0).default(0),
 });
+
+type ReprocessLogFilterable = {
+  eq: (col: string, val: string) => ReprocessLogFilterable;
+  ilike: (col: string, val: string) => ReprocessLogFilterable;
+  gte: (col: string, val: string) => ReprocessLogFilterable;
+  lte: (col: string, val: string) => ReprocessLogFilterable;
+};
+
+function applyReprocessLogFilters<T extends ReprocessLogFilterable>(
+  q: T,
+  data: z.infer<typeof reprocessLogBaseFilters>,
+): T {
+  let out = q;
+  if (data.event_row_id) out = out.eq("event_row_id", data.event_row_id) as T;
+  if (data.outcome !== "all") out = out.eq("outcome", data.outcome) as T;
+  if (data.stripe_event_id) {
+    const s = data.stripe_event_id.replace(/[^\w:-]/g, "").slice(0, 100);
+    if (s) out = out.ilike("stripe_event_id", `%${s}%`) as T;
+  }
+  if (data.actor_user_id) {
+    const a = data.actor_user_id.replace(/[^\w-]/g, "").slice(0, 60);
+    if (a) out = out.eq("actor_user_id", a) as T;
+  }
+  if (data.since) out = out.gte("created_at", data.since) as T;
+  if (data.until) out = out.lte("created_at", data.until) as T;
+  return out;
+}
 
 export const listReprocessLog = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -482,34 +516,96 @@ export const listReprocessLog = createServerFn({ method: "GET" })
   .handler(async ({ data, context }): Promise<ReprocessLogPage> => {
     await assertAdminWithAudit(context as never, "stripe_webhook_events.reprocess_log.fn");
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    let q = supabaseAdmin
+    const base = supabaseAdmin
       .from("stripe_webhook_reprocess_log")
       .select(
         "id,event_row_id,stripe_event_id,event_type,environment,actor_user_id,outcome,message,duration_ms,created_at",
         { count: "exact" },
       )
-      .order("created_at", { ascending: false })
+      .order(data.sortBy, { ascending: data.sortDir === "asc" })
       .range(data.offset, data.offset + data.limit - 1);
 
-    if (data.event_row_id) q = q.eq("event_row_id", data.event_row_id);
-    if (data.outcome !== "all") q = q.eq("outcome", data.outcome);
-    if (data.stripe_event_id) {
-      const s = data.stripe_event_id.replace(/[^\w:-]/g, "").slice(0, 100);
-      if (s) q = q.ilike("stripe_event_id", `%${s}%`);
-    }
-    if (data.actor_user_id) {
-      const a = data.actor_user_id.replace(/[^\w-]/g, "").slice(0, 60);
-      if (a) q = q.eq("actor_user_id", a);
-    }
-    if (data.since) q = q.gte("created_at", data.since);
-    if (data.until) q = q.lte("created_at", data.until);
-
-    const { data: rows, error, count } = await q;
+    const { data: rows, error, count } = await applyReprocessLogFilters(base, data);
     if (error) throw new Error(error.message);
     return {
       rows: (rows ?? []) as unknown as ReprocessLogEntry[],
       total: count ?? 0,
     };
+  });
+
+// Reprocessa em lote os eventos correspondentes aos filtros do LOG.
+// Coleta event_row_ids distintos a partir das entradas do log, carrega
+// cada evento e roda o replay best-effort, gravando nova auditoria.
+const reprocessLogBatchSchema = reprocessLogBaseFilters.extend({
+  limit: z.number().int().min(1).max(200).default(50),
+});
+
+export const reprocessFromLogFilteredBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((raw: unknown) => reprocessLogBatchSchema.parse(raw ?? {}))
+  .handler(async ({ data, context }): Promise<BatchReprocessResult> => {
+    await assertAdminWithAudit(context as never, "stripe_webhook_events.reprocess_log_batch.fn");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const actorUserId = (context as { userId: string }).userId;
+
+    const base = supabaseAdmin
+      .from("stripe_webhook_reprocess_log")
+      .select("event_row_id,created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit * 4);
+    const { data: logRows, error: logErr } = await applyReprocessLogFilters(base, data);
+    if (logErr) throw new Error(logErr.message);
+
+    const distinctIds: string[] = [];
+    const seen = new Set<string>();
+    for (const r of (logRows ?? []) as Array<{ event_row_id: string }>) {
+      if (r.event_row_id && !seen.has(r.event_row_id)) {
+        seen.add(r.event_row_id);
+        distinctIds.push(r.event_row_id);
+        if (distinctIds.length >= data.limit) break;
+      }
+    }
+
+    if (distinctIds.length === 0) {
+      return { attempted: 0, succeeded: 0, failed: 0, results: [] };
+    }
+
+    const { data: eventRows, error: evErr } = await supabaseAdmin
+      .from("stripe_webhook_events")
+      .select("id,event_type,environment,status,payload_summary,stripe_event_id")
+      .in("id", distinctIds);
+    if (evErr) throw new Error(evErr.message);
+
+    const results: BatchReprocessResult["results"] = [];
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const row of (eventRows ?? []) as Array<{
+      id: string;
+      event_type: string;
+      environment: string;
+      status: string;
+      payload_summary: unknown;
+      stripe_event_id: string;
+    }>) {
+      const started = Date.now();
+      const r = await replayOneEvent(supabaseAdmin, row);
+      await writeReprocessAudit(supabaseAdmin, {
+        event_row_id: row.id,
+        stripe_event_id: row.stripe_event_id,
+        event_type: row.event_type,
+        environment: row.environment,
+        actor_user_id: actorUserId,
+        outcome: r.ok ? "success" : "error",
+        message: r.message,
+        duration_ms: Date.now() - started,
+      });
+      results.push({ id: row.id, stripe_event_id: row.stripe_event_id, ok: r.ok, message: r.message });
+      if (r.ok) succeeded++;
+      else failed++;
+    }
+
+    return { attempted: results.length, succeeded, failed, results };
   });
 
 const exportReprocessLogSchema = z.object({
