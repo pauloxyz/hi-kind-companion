@@ -1338,11 +1338,13 @@ function ReprocessLogPanel({
           />
         </div>
 
-        {(batchPending || batchSummary) && (
+        {(batchPending || retryingFailures || batchSummary) && (
           <BatchProgressPanel
-            pending={batchPending}
+            pending={batchPending || retryingFailures}
             summary={batchSummary}
             onDismiss={() => setBatchSummary(null)}
+            onRetryFailures={retryLastBatchFailures}
+            retryingFailures={retryingFailures}
           />
         )}
 
