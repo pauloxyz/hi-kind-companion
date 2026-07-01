@@ -307,7 +307,7 @@ function AdminStripeEventsPage() {
       setRetryingFailures(false);
     }
   }
-  void eventsBatchPending;
+  
 
 
   const rows = eventsQuery.data?.rows ?? [];
