@@ -134,16 +134,15 @@ describe.runIf(hasCreds)("security regression — SECURITY DEFINER EXECUTE grant
     });
   }
 
-  it("anon CAN still call get_public_profile_whatsapp (intentional public helper)", async () => {
-    // Non-existent slug → the function returns NULL, but the call itself
-    // must succeed (no permission error). If the sweep accidentally
-    // revoked this one, the public candidate page would break.
-    const { error } = await anon.rpc("get_public_profile_whatsapp", { _slug: "___regression_probe___" });
-    expect(
-      error,
-      `get_public_profile_whatsapp must remain anon-callable. Error: ${error?.message ?? ""}`,
-    ).toBeNull();
-  });
+  for (const { fn, args } of ALLOWED_ANON_RPCS) {
+    it(`anon CAN still call ${fn} (intentional public helper)`, async () => {
+      const { error } = await anon.rpc(fn, args);
+      expect(
+        error,
+        `${fn} must remain anon-callable. Error: ${error?.message ?? ""}`,
+      ).toBeNull();
+    });
+  }
 });
 
 describe.runIf(hasCreds)("security regression — RLS/GRANT on internal tables", () => {
