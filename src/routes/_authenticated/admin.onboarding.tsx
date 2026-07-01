@@ -113,7 +113,8 @@ function AdminOnboardingPage() {
           >
             <span className="text-xs text-muted-foreground">Exportar CSV:</span>
             {(["pt", "en", "es"] as const).map((loc) => {
-              const disabled = q.isLoading || !q.data || isEmpty;
+              const isExporting = exportingLocale === loc;
+              const disabled = q.isLoading || !q.data || isEmpty || isExporting;
               return (
                 <Button
                   key={loc}
@@ -121,9 +122,10 @@ function AdminOnboardingPage() {
                   size="sm"
                   disabled={disabled}
                   aria-disabled={disabled}
+                  aria-busy={isExporting}
                   data-testid={loc === "pt" ? "funnel-export-csv" : `funnel-export-csv-${loc}`}
                   data-locale={loc}
-                  data-exporting={exportingLocale === loc ? "true" : "false"}
+                  data-exporting={isExporting ? "true" : "false"}
                   title={
                     q.isLoading
                       ? "Carregando dados do funil…"
@@ -132,26 +134,39 @@ function AdminOnboardingPage() {
                       : `Baixar funil em ${loc.toUpperCase()}`
                   }
                   ref={(el) => {
-                    if (exportingLocale === loc) lastExportBtnRef.current = el;
+                    if (isExporting) lastExportBtnRef.current = el;
                   }}
                   onClick={(e) => {
                     if (disabled || !q.data) return;
                     lastExportBtnRef.current = e.currentTarget;
                     setExportError(null);
                     setExportingLocale(loc);
-                    try {
-                      downloadFunnelCsv(q.data, loc);
-                    } catch (err) {
-                      const msg = err instanceof Error ? err.message : String(err);
-                      // Mensagem traduzida (PT/EN/ES) + detalhe técnico
-                      // entre parênteses para diagnóstico.
-                      setExportError(`${t("funnel_export_error_message")} (${msg || "unknown"})`);
-                    } finally {
-                      setExportingLocale(null);
-                    }
+                    // Deferimos o download para o próximo frame para que o
+                    // React consiga pintar o estado "exporting" (spinner +
+                    // disabled) antes do trabalho síncrono do blob começar.
+                    // Isso mantém a UI responsiva e observável em testes.
+                    requestAnimationFrame(() => {
+                      try {
+                        downloadFunnelCsv(q.data!, loc);
+                      } catch (err) {
+                        const msg = err instanceof Error ? err.message : String(err);
+                        setExportError(`${t("funnel_export_error_message")} (${msg || "unknown"})`);
+                      } finally {
+                        setExportingLocale(null);
+                      }
+                    });
                   }}
                 >
-                  <Download className="mr-1.5 h-3.5 w-3.5" /> {loc.toUpperCase()}
+                  {isExporting ? (
+                    <Loader2
+                      className="mr-1.5 h-3.5 w-3.5 animate-spin"
+                      data-testid={`funnel-export-spinner-${loc}`}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <Download className="mr-1.5 h-3.5 w-3.5" aria-hidden="true" />
+                  )}
+                  {loc.toUpperCase()}
                 </Button>
               );
             })}
