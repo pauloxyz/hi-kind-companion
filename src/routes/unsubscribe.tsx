@@ -53,20 +53,32 @@ function UnsubscribePage() {
     }
   }
 
+  // Título dinâmico por estado — mantido como um único cabeçalho principal
+  // na página (disciplina enforçada por seo-structured-data.test.ts).
+  // Subtítulos por estado usariam h2 caso descrevessem sub-seções; aqui só
+  // temos um estado renderizado por vez, então basta o cabeçalho principal.
+  const heading =
+    state === "done"    ? "Inscrição cancelada" :
+    state === "already" ? "Você já cancelou" :
+    state === "invalid" ? "Link inválido" :
+    state === "error"   ? "Algo deu errado" :
+    "Cancelar inscrição";
+
   return (
     <main className="min-h-dvh flex items-center justify-center p-6 bg-background">
       <Card className="max-w-md w-full">
         <CardContent className="pt-8 pb-8 space-y-4 text-center">
           <div className="text-xs font-bold uppercase tracking-widest text-primary">V+ USA</div>
+          <h1 className="text-xl font-bold" aria-live="polite">{heading}</h1>
+
           {state === "loading" && (
             <>
-              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
+              <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" aria-hidden />
               <p className="text-sm text-muted-foreground">Validando seu link…</p>
             </>
           )}
           {state === "ready" && (
             <>
-              <h1 className="text-xl font-bold">Cancelar inscrição</h1>
               <p className="text-sm text-muted-foreground">
                 Você não receberá mais e-mails do V+ USA neste endereço. Você pode
                 voltar a se inscrever a qualquer momento atualizando suas
@@ -79,8 +91,7 @@ function UnsubscribePage() {
           )}
           {state === "done" && (
             <>
-              <CheckCircle2 className="h-10 w-10 mx-auto text-primary" />
-              <h1 className="text-xl font-bold">Inscrição cancelada</h1>
+              <CheckCircle2 className="h-10 w-10 mx-auto text-primary" aria-hidden />
               <p className="text-sm text-muted-foreground">
                 Pronto. Não enviaremos mais e-mails para este endereço.
               </p>
@@ -88,8 +99,7 @@ function UnsubscribePage() {
           )}
           {state === "already" && (
             <>
-              <CheckCircle2 className="h-10 w-10 mx-auto text-primary" />
-              <h1 className="text-xl font-bold">Você já cancelou</h1>
+              <CheckCircle2 className="h-10 w-10 mx-auto text-primary" aria-hidden />
               <p className="text-sm text-muted-foreground">
                 Este endereço já está fora da nossa lista de envio.
               </p>
@@ -97,8 +107,7 @@ function UnsubscribePage() {
           )}
           {state === "invalid" && (
             <>
-              <XCircle className="h-10 w-10 mx-auto text-destructive" />
-              <h1 className="text-xl font-bold">Link inválido</h1>
+              <XCircle className="h-10 w-10 mx-auto text-destructive" aria-hidden />
               <p className="text-sm text-muted-foreground">
                 Este link expirou ou não é válido. Você pode pedir um novo a partir
                 de qualquer e-mail recente.
@@ -107,8 +116,7 @@ function UnsubscribePage() {
           )}
           {state === "error" && (
             <>
-              <XCircle className="h-10 w-10 mx-auto text-destructive" />
-              <h1 className="text-xl font-bold">Algo deu errado</h1>
+              <XCircle className="h-10 w-10 mx-auto text-destructive" aria-hidden />
               <p className="text-sm text-muted-foreground">
                 Tente novamente em alguns instantes.
               </p>
