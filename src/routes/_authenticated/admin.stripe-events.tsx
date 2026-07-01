@@ -234,6 +234,9 @@ function AdminStripeEventsPage() {
             label="Error"
             value={stats?.error ?? 0}
             tone={stats && stats.error > 0 ? "danger" : "ok"}
+            hint={
+              rows.find((r) => r.status === "error" && r.error_message)?.error_message ?? undefined
+            }
           />
           <Card>
             <CardContent className="pt-6">
