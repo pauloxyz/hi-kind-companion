@@ -61,7 +61,7 @@ import { Route as LovableEmailQueueProcessRouteImport } from './routes/lovable/e
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
-import { Route as ApiPublicPaymentsDevSelftestRouteImport } from './routes/api/public/payments/_dev-selftest'
+import { Route as ApiPublicPaymentsDevSelftestRouteImport } from './routes/api/public/payments/dev-selftest'
 import { Route as ApiPublicHooksVisaRemindersRouteImport } from './routes/api/public/hooks/visa-reminders'
 import { Route as ApiPublicHooksUptimeRouteImport } from './routes/api/public/hooks/uptime'
 import { Route as ApiPublicHooksSpikeAlertRouteImport } from './routes/api/public/hooks/spike-alert'
@@ -352,8 +352,8 @@ const ApiPublicPaymentsWebhookRoute =
   } as any)
 const ApiPublicPaymentsDevSelftestRoute =
   ApiPublicPaymentsDevSelftestRouteImport.update({
-    id: '/api/public/payments/_dev-selftest',
-    path: '/api/public/payments',
+    id: '/api/public/payments/dev-selftest',
+    path: '/api/public/payments/dev-selftest',
     getParentRoute: () => rootRouteImport,
   } as any)
 const ApiPublicHooksVisaRemindersRoute =
@@ -481,7 +481,7 @@ export interface FileRoutesByFullPath {
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/api/public/hooks/visa-reminders': typeof ApiPublicHooksVisaRemindersRoute
-  '/api/public/payments': typeof ApiPublicPaymentsDevSelftestRoute
+  '/api/public/payments/dev-selftest': typeof ApiPublicPaymentsDevSelftestRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -545,7 +545,7 @@ export interface FileRoutesByTo {
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/api/public/hooks/visa-reminders': typeof ApiPublicHooksVisaRemindersRoute
-  '/api/public/payments': typeof ApiPublicPaymentsDevSelftestRoute
+  '/api/public/payments/dev-selftest': typeof ApiPublicPaymentsDevSelftestRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -613,7 +613,7 @@ export interface FileRoutesById {
   '/api/public/hooks/spike-alert': typeof ApiPublicHooksSpikeAlertRoute
   '/api/public/hooks/uptime': typeof ApiPublicHooksUptimeRoute
   '/api/public/hooks/visa-reminders': typeof ApiPublicHooksVisaRemindersRoute
-  '/api/public/payments/_dev-selftest': typeof ApiPublicPaymentsDevSelftestRoute
+  '/api/public/payments/dev-selftest': typeof ApiPublicPaymentsDevSelftestRoute
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
@@ -681,7 +681,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
     | '/api/public/hooks/visa-reminders'
-    | '/api/public/payments'
+    | '/api/public/payments/dev-selftest'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -745,7 +745,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
     | '/api/public/hooks/visa-reminders'
-    | '/api/public/payments'
+    | '/api/public/payments/dev-selftest'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -812,7 +812,7 @@ export interface FileRouteTypes {
     | '/api/public/hooks/spike-alert'
     | '/api/public/hooks/uptime'
     | '/api/public/hooks/visa-reminders'
-    | '/api/public/payments/_dev-selftest'
+    | '/api/public/payments/dev-selftest'
     | '/api/public/payments/webhook'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
@@ -1233,10 +1233,10 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/payments/_dev-selftest': {
-      id: '/api/public/payments/_dev-selftest'
-      path: '/api/public/payments'
-      fullPath: '/api/public/payments'
+    '/api/public/payments/dev-selftest': {
+      id: '/api/public/payments/dev-selftest'
+      path: '/api/public/payments/dev-selftest'
+      fullPath: '/api/public/payments/dev-selftest'
       preLoaderRoute: typeof ApiPublicPaymentsDevSelftestRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -1484,13 +1484,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}
