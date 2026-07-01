@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +12,9 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { track } from "@/lib/telemetry";
 import { logOnboardingEvent } from "@/lib/onboarding-events.functions";
+import { listMyVariants, setActiveVariant } from "@/lib/profile-variants.functions";
+import { translateToEnglish } from "@/lib/translate.functions";
+import { usePro } from "@/hooks/usePro";
 
 /** Mirror every funnel `track()` to the server (auditable, survives nav-away). */
 function mirror(event: string, step?: number, label?: string, props?: Record<string, unknown>) {
@@ -29,7 +34,7 @@ function mirror(event: string, step?: number, label?: string, props?: Record<str
 import { ProfilePreview } from "@/components/ProfilePreview";
 import {
   ArrowRight, ArrowLeft, Sparkles, Tractor, HeartPulse, Send,
-  Copy, Check, MessageCircle, ClipboardList, PartyPopper,
+  Copy, Check, MessageCircle, ClipboardList, PartyPopper, Languages, FileText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/comecar")({
