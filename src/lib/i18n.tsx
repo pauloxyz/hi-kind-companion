@@ -81,6 +81,23 @@ const dict: Dict = {
   cancel: { pt: "Cancelar", en: "Cancel", es: "Cancelar" },
   close: { pt: "Fechar", en: "Close", es: "Cerrar" },
   copy: { pt: "Copiar", en: "Copy", es: "Copiar" },
+
+  // Admin · funil de onboarding — banner de erro do Exportar CSV
+  funnel_export_error_title: {
+    pt: "Falha ao gerar o CSV",
+    en: "Failed to build CSV",
+    es: "Error al generar el CSV",
+  },
+  funnel_export_error_message: {
+    pt: "Não foi possível gerar o CSV agora. Tente novamente em instantes.",
+    en: "We couldn't build the CSV right now. Please try again in a moment.",
+    es: "No pudimos generar el CSV en este momento. Inténtalo de nuevo en un momento.",
+  },
+  funnel_export_error_dismiss: {
+    pt: "Fechar mensagem de erro do CSV",
+    en: "Dismiss CSV error message",
+    es: "Cerrar mensaje de error del CSV",
+  },
 };
 
 type I18nCtx = { lang: Lang; setLang: (l: Lang) => void; t: (k: keyof typeof dict | string) => string };
