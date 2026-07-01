@@ -130,44 +130,78 @@ function AdminStripeEventsPage() {
   const statsFn = useServerFn(getStripeWebhookEventStats);
   const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
   const reprocessBatchFn = useServerFn(reprocessStripeWebhookEventsBatch);
+  const reprocessByIdsFn = useServerFn(reprocessStripeWebhookEventsByIds);
   const qc = useQueryClient();
 
-  const [environment, setEnvironment] = useState<EnvFilter>("all");
-  const [status, setStatus] = useState<StatusFilter>("all");
-  const [eventType, setEventType] = useState<string>("all");
-  const [searchInput, setSearchInput] = useState<string>("");
-  const [search, setSearch] = useState<string>(""); // debounced
-  const [errorMessageInput, setErrorMessageInput] = useState<string>("");
-  const [errorMessage, setErrorMessage] = useState<string>(""); // debounced
-  const [sortBy, setSortBy] = useState<SortCol>("received_at");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
-  const [pageSize, setPageSize] = useState<number>(25);
-  const [page, setPage] = useState<number>(0);
+  const search = routeApi.useSearch();
+  const navigate = useNavigate({ from: ROUTE_ID });
+
+  // Filtros/ordenação/página vivem na URL para compartilhar/voltar sem perder estado.
+  const environment = search.env;
+  const status = search.st;
+  const eventType = search.et;
+  const searchQ = search.q;
+  const errorMessage = search.em;
+  const sortBy = search.sb;
+  const sortDir = search.sd;
+  const page = search.p;
+  const pageSize = search.ps;
+  const tab = search.tab;
+
+  const [searchInput, setSearchInput] = useState<string>(searchQ);
+  const [errorMessageInput, setErrorMessageInput] = useState<string>(errorMessage);
   const [openId, setOpenId] = useState<string | null>(null);
   const [autoRefresh, setAutoRefresh] = useState<boolean>(false);
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const [batchSummary, setBatchSummary] = useState<BatchReprocessResult | null>(null);
-  const [tab, setTab] = useState<"events" | "reprocess-log">("events");
+  const [retryingFailures, setRetryingFailures] = useState<boolean>(false);
 
-  // Debounce das buscas (300ms)
+  function patchSearch(patch: Partial<SearchState>) {
+    navigate({
+      to: ROUTE_ID,
+      search: (prev) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  }
+  function setEnvironment(v: EnvFilter) { patchSearch({ env: v, p: 0 }); }
+  function setStatus(v: StatusFilter) { patchSearch({ st: v, p: 0 }); }
+  function setEventType(v: string) { patchSearch({ et: v, p: 0 }); }
+  function setPageSize(n: number) { patchSearch({ ps: n, p: 0 }); }
+  function setPage(updater: number | ((p: number) => number)) {
+    const next = typeof updater === "function" ? updater(page) : updater;
+    patchSearch({ p: Math.max(0, next) });
+  }
+  function setTab(v: TabId) { patchSearch({ tab: v }); }
+  function setSortBy(v: SortCol) { patchSearch({ sb: v }); }
+  function setSortDir(v: SortDir) { patchSearch({ sd: v }); }
+
+  // Debounce busca (300ms) → URL
   useEffect(() => {
-    const t = setTimeout(() => setSearch(searchInput.trim()), 300);
+    const t = setTimeout(() => {
+      const v = searchInput.trim();
+      if (v !== searchQ) patchSearch({ q: v, p: 0 });
+    }, 300);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput]);
   useEffect(() => {
-    const t = setTimeout(() => setErrorMessage(errorMessageInput.trim()), 300);
+    const t = setTimeout(() => {
+      const v = errorMessageInput.trim();
+      if (v !== errorMessage) patchSearch({ em: v, p: 0 });
+    }, 300);
     return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [errorMessageInput]);
 
-  useEffect(() => {
-    setPage(0);
-  }, [environment, status, eventType, search, errorMessage, pageSize]);
+  // Sincroniza os inputs quando a URL muda externamente (back/forward, share).
+  useEffect(() => { setSearchInput(searchQ); }, [searchQ]);
+  useEffect(() => { setErrorMessageInput(errorMessage); }, [errorMessage]);
 
   const filterPayload = {
     environment,
     status,
     eventType: eventType === "all" ? undefined : eventType,
-    search: search || undefined,
+    search: searchQ || undefined,
     errorMessage: errorMessage || undefined,
   };
 
@@ -176,19 +210,22 @@ function AdminStripeEventsPage() {
     queryFn: () => listTypes() as Promise<string[]>,
   });
 
+  const eventsBatchPending = false as boolean; // definido abaixo
+  const liveRefetch = autoRefresh || retryingFailures;
+
   const statsQuery = useQuery({
-    queryKey: ["admin", "stripe-events", "stats", environment, status, eventType, search, errorMessage],
+    queryKey: ["admin", "stripe-events", "stats", environment, status, eventType, searchQ, errorMessage],
     queryFn: () => statsFn({ data: filterPayload }) as Promise<StripeWebhookEventStats>,
-    refetchInterval: autoRefresh ? 5000 : false,
+    refetchInterval: liveRefetch ? 5000 : false,
   });
 
   const eventsQuery = useQuery({
-    queryKey: ["admin", "stripe-events", environment, status, eventType, search, errorMessage, sortBy, sortDir, page, pageSize],
+    queryKey: ["admin", "stripe-events", environment, status, eventType, searchQ, errorMessage, sortBy, sortDir, page, pageSize],
     queryFn: () =>
       list({
         data: { ...filterPayload, sortBy, sortDir, limit: pageSize, offset: page * pageSize },
       }) as Promise<StripeWebhookEventsPage>,
-    refetchInterval: autoRefresh ? 5000 : false,
+    refetchInterval: liveRefetch ? 5000 : false,
   });
 
   const reprocessMut = useMutation({
@@ -231,6 +268,47 @@ function AdminStripeEventsPage() {
     },
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha no reprocessamento em lote"),
   });
+
+  // Autoatualiza a tabela enquanto o lote roda; requery já é feito no onSuccess.
+  const isBatchRunning = batchMut.isPending || retryingFailures;
+  useEffect(() => {
+    if (!isBatchRunning) return;
+    const t = setInterval(() => {
+      void eventsQuery.refetch();
+      void statsQuery.refetch();
+    }, 3000);
+    return () => clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBatchRunning]);
+
+  async function retryLastBatchFailures() {
+    if (!batchSummary) return;
+    const failedIds = batchSummary.results.filter((r) => !r.ok).map((r) => r.id);
+    if (failedIds.length === 0) {
+      toast.info("Não há falhas para reprocessar.");
+      return;
+    }
+    setRetryingFailures(true);
+    try {
+      const res = (await reprocessByIdsFn({ data: { ids: failedIds } })) as BatchReprocessResult;
+      setBatchSummary(res);
+      if (res.failed === 0) {
+        toast.success(`Falhas reprocessadas: ${res.succeeded}/${res.attempted} OK`);
+      } else {
+        toast.warning(`Retentativa parcial: ${res.succeeded} OK · ${res.failed} falharam`);
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] }),
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-reprocess-log"] }),
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao retentar as falhas");
+    } finally {
+      setRetryingFailures(false);
+    }
+  }
+  void eventsBatchPending;
+
 
   const rows = eventsQuery.data?.rows ?? [];
   const total = eventsQuery.data?.total ?? 0;
