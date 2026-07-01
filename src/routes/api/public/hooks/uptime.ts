@@ -1,17 +1,32 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { verifyCronSecret, unauthorizedCronResponse, logCronCall } from "@/lib/cron-auth.server";
+import { checkRateLimit } from "@/lib/rate-limit.server";
 
 /**
  * Uptime hook — called by pg_cron every 5 minutes.
  * Runs the same checks as /api/public/health and persists the result.
+ * Autenticado por CRON_SECRET (server-only) — chamadas sem o segredo
+ * correto são rejeitadas com 401 e logadas em security_audit_log.
  */
 export const Route = createFileRoute("/api/public/hooks/uptime")({
   server: {
     handlers: {
-      POST: async () => {
+      POST: async ({ request }) => {
+        const auth = verifyCronSecret(request);
+        await logCronCall({ hook: "uptime", request, result: auth });
+        if (!auth.ok) return unauthorizedCronResponse(auth.reason);
+        if (!(await checkRateLimit("cron:uptime", 30, 60))) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429,
+            headers: { "content-type": "application/json" },
+          });
+        }
+
         const started = Date.now();
         const checks: Record<string, { ok: boolean; latency_ms?: number; error?: string }> = {};
+
 
         try {
           const sb = createClient<Database>(
