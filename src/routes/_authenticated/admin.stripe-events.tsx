@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import {
+  exportReprocessLog,
   exportStripeWebhookEvents,
   getStripeWebhookEventStats,
   listReprocessLog,
