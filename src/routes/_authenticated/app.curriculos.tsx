@@ -11,8 +11,10 @@ import {
   attachVariantPdf,
   type ProfileVariant,
 } from "@/lib/profile-variants.functions";
+import { translateToEnglish } from "@/lib/translate.functions";
 import { PageHeader } from "@/components/page-header";
 import { ProGate } from "@/components/ProGate";
+import { usePro } from "@/hooks/usePro";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,7 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
-import { Plus, Star, Trash2, Upload, FileText, Pencil, X } from "lucide-react";
+import { Plus, Star, Trash2, Upload, FileText, Pencil, X, Languages } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/curriculos")({
   component: CurriculosPage,
@@ -275,7 +277,31 @@ function VariantForm({
   const [titlePt, setTitlePt] = useState(initial?.job_title_pt ?? "");
   const [titleEn, setTitleEn] = useState(initial?.job_title_en ?? "");
   const [summaryPt, setSummaryPt] = useState(initial?.summary_pt ?? "");
+  const [summaryEn, setSummaryEn] = useState(initial?.summary_en ?? "");
   const [skillsRaw, setSkillsRaw] = useState((initial?.skills ?? []).join(", "));
+  const [translating, setTranslating] = useState(false);
+  const { has: hasFeat } = usePro();
+  const translate = useServerFn(translateToEnglish);
+  const canTranslate = hasFeat("auto_translate");
+
+  const doTranslate = async () => {
+    const inputs = [titlePt.trim(), summaryPt.trim()];
+    if (!inputs.some(Boolean)) {
+      toast.error("Preencha cargo (PT) ou resumo (PT) antes de traduzir.");
+      return;
+    }
+    setTranslating(true);
+    try {
+      const { translations } = await translate({ data: { texts: inputs } });
+      if (translations[0]) setTitleEn(translations[0]);
+      if (translations[1]) setSummaryEn(translations[1]);
+      toast.success("Traduzido para EN.");
+    } catch (e) {
+      toastError(e);
+    } finally {
+      setTranslating(false);
+    }
+  };
 
   return (
     <Card>
@@ -340,6 +366,32 @@ function VariantForm({
           />
         </div>
         <div className="space-y-1.5">
+          <div className="flex items-center justify-between gap-2">
+            <Label htmlFor="v-sum-en">Resumo curto (EN)</Label>
+            {canTranslate && (
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={doTranslate}
+                disabled={translating}
+                className="h-7"
+              >
+                <Languages className="mr-1.5 h-3.5 w-3.5" />
+                {translating ? "Traduzindo…" : "Traduzir PT → EN"}
+              </Button>
+            )}
+          </div>
+          <Textarea
+            id="v-sum-en"
+            value={summaryEn}
+            onChange={(e) => setSummaryEn(e.target.value)}
+            placeholder="2-3 sentences focused on the role..."
+            rows={3}
+            maxLength={2000}
+          />
+        </div>
+        <div className="space-y-1.5">
           <Label htmlFor="v-skills">Habilidades (separadas por vírgula)</Label>
           <Input
             id="v-skills"
@@ -361,7 +413,7 @@ function VariantForm({
                 job_title_pt: titlePt.trim() || null,
                 job_title_en: titleEn.trim() || null,
                 summary_pt: summaryPt.trim() || null,
-                summary_en: null,
+                summary_en: summaryEn.trim() || null,
                 skills: skillsRaw
                   .split(",")
                   .map((s) => s.trim())

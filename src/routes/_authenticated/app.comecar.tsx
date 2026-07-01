@@ -1,5 +1,7 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +12,9 @@ import { toast } from "sonner";
 import { toastError } from "@/lib/toast-error";
 import { track } from "@/lib/telemetry";
 import { logOnboardingEvent } from "@/lib/onboarding-events.functions";
+import { listMyVariants, setActiveVariant } from "@/lib/profile-variants.functions";
+import { translateToEnglish } from "@/lib/translate.functions";
+import { usePro } from "@/hooks/usePro";
 
 /** Mirror every funnel `track()` to the server (auditable, survives nav-away). */
 function mirror(event: string, step?: number, label?: string, props?: Record<string, unknown>) {
@@ -29,7 +34,7 @@ function mirror(event: string, step?: number, label?: string, props?: Record<str
 import { ProfilePreview } from "@/components/ProfilePreview";
 import {
   ArrowRight, ArrowLeft, Sparkles, Tractor, HeartPulse, Send,
-  Copy, Check, MessageCircle, ClipboardList, PartyPopper,
+  Copy, Check, MessageCircle, ClipboardList, PartyPopper, Languages, FileText,
 } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/app/comecar")({
@@ -772,6 +777,41 @@ function Step4Physical({
 function Step5Done({ form }: { form: FormState }) {
   const [copied, setCopied] = useState(false);
   const [sent, setSent] = useState(false);
+  const [lang, setLang] = useState<"pt" | "en">("pt");
+  const [enMessage, setEnMessage] = useState<string | null>(null);
+  const [translating, setTranslating] = useState(false);
+  const [selectedVariantId, setSelectedVariantId] = useState<string | null>(null);
+
+  const { has: hasFeat } = usePro();
+  const canTranslate = hasFeat("auto_translate");
+  const canMultiCv = hasFeat("multiple_resumes");
+
+  const fetchVariants = useServerFn(listMyVariants);
+  const activateVariant = useServerFn(setActiveVariant);
+  const translate = useServerFn(translateToEnglish);
+
+  const variantsQ = useQuery({
+    queryKey: ["my", "profile-variants", "onboarding"],
+    queryFn: () => fetchVariants(),
+    enabled: canMultiCv,
+    staleTime: 30_000,
+  });
+
+  const variants = variantsQ.data ?? [];
+  const activeVariant =
+    variants.find((v) => v.id === selectedVariantId) ??
+    variants.find((v) => v.is_active) ??
+    null;
+
+  const activateMut = useMutation({
+    mutationFn: (id: string) => activateVariant({ data: { id } }),
+    onSuccess: () => {
+      toast.success("Currículo ativo atualizado.");
+      mirror("onboarding_variant_selected", undefined, undefined, { variant_id: selectedVariantId });
+      variantsQ.refetch();
+    },
+    onError: (e) => toastError(e),
+  });
 
   const tags = useMemo(
     () => form.field_experience.map((k) => LABEL_FOR_FIELD[k] ?? k),
@@ -790,19 +830,77 @@ function Step5Done({ form }: { form: FormState }) {
       ? `${window.location.origin}/v/${form.public_slug}`
       : null;
 
-  // Mensagem gerada automaticamente com os dados do perfil
-  const waMessage = useMemo(() => {
+  // Mensagem PT gerada automaticamente. Se houver variante ativa/selecionada,
+  // usa cargo/resumo/skills dela pra deixar a mensagem mais afiada.
+  const waMessagePt = useMemo(() => {
     if (!publicUrl) return "";
+    const role = activeVariant?.job_title_pt?.trim();
+    const summary = activeVariant?.summary_pt?.trim();
+    const skills = activeVariant?.skills ?? [];
     const lines = [
-      `Olá! Meu nome é ${firstName}${form.age ? `, ${form.age} anos` : ""}.`,
-      loc ? `Sou de ${loc} e tenho interesse em vagas H-2A no agro dos EUA.` : "Tenho interesse em vagas H-2A no agro dos EUA.",
+      role
+        ? `Olá! Meu nome é ${firstName}${form.age ? `, ${form.age} anos` : ""}. Sou ${role}.`
+        : `Olá! Meu nome é ${firstName}${form.age ? `, ${form.age} anos` : ""}.`,
+      loc
+        ? `Sou de ${loc} e tenho interesse em vagas H-2A no agro dos EUA.`
+        : "Tenho interesse em vagas H-2A no agro dos EUA.",
     ];
-    if (tags.length > 0) {
-      lines.push(`Experiência: ${tags.join(", ")}.`);
+    if (summary) lines.push(summary);
+    const showTags = skills.length > 0 ? skills : tags;
+    if (showTags.length > 0) {
+      lines.push(`Experiência: ${showTags.join(", ")}.`);
     }
     lines.push("", `Meu perfil completo: ${publicUrl}`);
     return lines.join("\n");
-  }, [publicUrl, firstName, form.age, loc, tags]);
+  }, [publicUrl, firstName, form.age, loc, tags, activeVariant]);
+
+  // Se o usuário alternar pra EN e ainda não tem tradução em cache, traduz.
+  useEffect(() => {
+    if (lang !== "en" || !canTranslate || !waMessagePt) return;
+    if (enMessage) return;
+    let cancelled = false;
+    (async () => {
+      setTranslating(true);
+      try {
+        // Se a variante já tem versão EN pronta, monta direto sem chamar a IA
+        const preEn =
+          activeVariant?.summary_en?.trim() || activeVariant?.job_title_en?.trim();
+        if (preEn && publicUrl) {
+          const role = activeVariant?.job_title_en?.trim();
+          const summary = activeVariant?.summary_en?.trim();
+          const skills = activeVariant?.skills ?? [];
+          const lines = [
+            role
+              ? `Hi! My name is ${firstName}${form.age ? `, ${form.age} years old` : ""}. I'm a ${role}.`
+              : `Hi! My name is ${firstName}${form.age ? `, ${form.age} years old` : ""}.`,
+            loc
+              ? `I'm from ${loc}, Brazil, and I'm looking for H-2A agricultural jobs in the US.`
+              : "I'm looking for H-2A agricultural jobs in the US.",
+          ];
+          if (summary) lines.push(summary);
+          if (skills.length > 0) lines.push(`Experience: ${skills.join(", ")}.`);
+          lines.push("", `My full profile: ${publicUrl}`);
+          if (!cancelled) setEnMessage(lines.join("\n"));
+        } else {
+          const { translations } = await translate({ data: { texts: [waMessagePt] } });
+          if (!cancelled) setEnMessage(translations[0] || waMessagePt);
+        }
+        mirror("onboarding_message_translated");
+      } catch (e) {
+        if (!cancelled) {
+          toastError(e);
+          setLang("pt");
+        }
+      } finally {
+        if (!cancelled) setTranslating(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [lang, canTranslate, waMessagePt, enMessage, translate, activeVariant, firstName, form.age, loc, publicUrl]);
+
+  const waMessage = lang === "en" && enMessage ? enMessage : waMessagePt;
 
   const copyLink = async () => {
     if (!publicUrl) return;
@@ -818,7 +916,11 @@ function Step5Done({ form }: { form: FormState }) {
   };
 
   const handleSendWhatsApp = () => {
-    mirror("onboarding_whatsapp_send_clicked", undefined, undefined, { has_url: !!publicUrl });
+    mirror("onboarding_whatsapp_send_clicked", undefined, undefined, {
+      has_url: !!publicUrl,
+      lang,
+      variant_id: activeVariant?.id ?? null,
+    });
     setSent(true);
   };
 
@@ -937,6 +1039,59 @@ function Step5Done({ form }: { form: FormState }) {
 
             {publicUrl ? (
               <>
+                {canMultiCv && variants.length > 0 && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="wa-variant" className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                      Enviar como currículo
+                    </Label>
+                    <select
+                      id="wa-variant"
+                      className="w-full h-10 rounded-md border bg-background px-3 text-sm"
+                      value={activeVariant?.id ?? ""}
+                      onChange={(e) => {
+                        const id = e.target.value;
+                        setSelectedVariantId(id || null);
+                        setEnMessage(null); // invalidate cached translation
+                        if (id) activateMut.mutate(id);
+                      }}
+                    >
+                      <option value="">Perfil padrão</option>
+                      {variants.map((v) => (
+                        <option key={v.id} value={v.id}>
+                          {v.name}
+                          {v.job_title_pt ? ` — ${v.job_title_pt}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {activeVariant && (
+                      <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                        <FileText className="h-3 w-3" />
+                        Currículo ativo: <strong>{activeVariant.name}</strong>
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {canTranslate && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => setLang("pt")}
+                      className={`px-2 py-1 rounded-md border ${lang === "pt" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
+                    >
+                      PT
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLang("en")}
+                      className={`px-2 py-1 rounded-md border inline-flex items-center gap-1 ${lang === "en" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
+                    >
+                      <Languages className="h-3 w-3" /> EN
+                    </button>
+                    {translating && <span className="text-muted-foreground ml-1">traduzindo…</span>}
+                  </div>
+                )}
+
                 <div className="rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-line text-muted-foreground">
                   {waMessage}
                 </div>
