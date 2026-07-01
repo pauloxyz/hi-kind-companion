@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFunnelCsv,
   computeVariantSwitchImpact,
+  formatCsvNumber,
   type ProfileSnapshotRow,
 } from "./onboarding-funnel.helpers";
 
@@ -131,5 +132,67 @@ describe("buildFunnelCsv", () => {
     // CSVs realmente diferem entre idiomas
     expect(csvEn).not.toBe(csvEs);
     expect(csvEn).not.toBe(buildFunnelCsv(base, "pt"));
+  });
+});
+
+describe("formatCsvNumber", () => {
+  it("nunca retorna string vazia — NaN/Infinity/-Infinity viram '0'", () => {
+    for (const v of [NaN, Infinity, -Infinity]) {
+      const out = formatCsvNumber(v);
+      expect(out).toBe("0");
+      expect(typeof out).toBe("string");
+    }
+  });
+
+  it("inteiros comuns são preservados sem separadores de milhar", () => {
+    expect(formatCsvNumber(0)).toBe("0");
+    expect(formatCsvNumber(1)).toBe("1");
+    expect(formatCsvNumber(999)).toBe("999");
+    expect(formatCsvNumber(1000)).toBe("1000");
+    expect(formatCsvNumber(1_234_567)).toBe("1234567");
+    expect(formatCsvNumber(-42)).toBe("-42");
+  });
+
+  it("números muito grandes nunca aparecem em notação científica", () => {
+    for (const n of [1e6, 1e9, 1e15, 1e20, 1e21, 5e21, 1.23e18]) {
+      const out = formatCsvNumber(n);
+      expect(out).not.toMatch(/e/i);
+      expect(out).not.toContain(",");
+      // deve ser apenas dígitos (com sinal opcional)
+      expect(out).toMatch(/^-?\d+$/);
+    }
+  });
+
+  it("não introduz separadores por locale ao rodar em ambientes não-en", () => {
+    // Simula ambiente com locale pt-BR onde 1000 poderia virar "1.000".
+    const original = Number.prototype.toLocaleString;
+    (Number.prototype as unknown as { toLocaleString: () => string }).toLocaleString =
+      function fake() {
+        return "1.000";
+      };
+    try {
+      expect(formatCsvNumber(1000)).toMatch(/^-?\d+$/);
+      expect(formatCsvNumber(1000)).not.toContain(".");
+      expect(formatCsvNumber(1000)).not.toContain(",");
+    } finally {
+      Number.prototype.toLocaleString = original;
+    }
+  });
+
+  it("não-inteiros preservam precisão sem trailing zeros nem exponencial", () => {
+    expect(formatCsvNumber(1.5)).toBe("1.5");
+    expect(formatCsvNumber(0.125)).toBe("0.125");
+    expect(formatCsvNumber(1.23456789)).toBe("1.23456789");
+    expect(formatCsvNumber(1.5)).not.toMatch(/e/i);
+  });
+
+  it("é seguro reusar diretamente em linhas de CSV — nunca introduz vírgulas ou aspas", () => {
+    const values = [0, 1, 100, 1_000_000, 1e21, 3.14, -7];
+    for (const v of values) {
+      const out = formatCsvNumber(v);
+      expect(out).not.toContain(",");
+      expect(out).not.toContain('"');
+      expect(out).not.toContain("\n");
+    }
   });
 });

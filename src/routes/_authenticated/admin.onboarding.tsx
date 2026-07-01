@@ -1,7 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import { getOnboardingFunnel } from "@/lib/onboarding-events.functions";
 import { buildFunnelCsv, type CsvLocale } from "@/lib/onboarding-funnel.helpers";
@@ -61,6 +61,32 @@ function AdminOnboardingPage() {
 
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportingLocale, setExportingLocale] = useState<CsvLocale | null>(null);
+  const dismissRef = useRef<HTMLButtonElement | null>(null);
+  const lastExportBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Quando um erro de export aparece, move o foco para "Fechar" para que
+  // usuários de teclado / leitores de tela consigam continuar imediatamente.
+  useEffect(() => {
+    if (exportError) {
+      // aguarda o card montar
+      queueMicrotask(() => dismissRef.current?.focus());
+    }
+  }, [exportError]);
+
+  // ESC fecha o card enquanto ele estiver aberto (sem depender do clique).
+  useEffect(() => {
+    if (!exportError) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setExportError(null);
+        // Devolve o foco para o último botão de export usado, mantendo o
+        // fluxo de teclado — o botão está habilitado, permitindo retry.
+        queueMicrotask(() => lastExportBtnRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [exportError]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -94,8 +120,12 @@ function AdminOnboardingPage() {
                       ? "Nada para exportar — ainda não há eventos de onboarding."
                       : `Baixar funil em ${loc.toUpperCase()}`
                   }
-                  onClick={() => {
+                  ref={(el) => {
+                    if (exportingLocale === loc) lastExportBtnRef.current = el;
+                  }}
+                  onClick={(e) => {
                     if (disabled || !q.data) return;
+                    lastExportBtnRef.current = e.currentTarget;
                     setExportError(null);
                     setExportingLocale(loc);
                     try {
@@ -119,7 +149,12 @@ function AdminOnboardingPage() {
       />
 
       {exportError && (
-        <Card data-testid="funnel-export-error">
+        <Card
+          data-testid="funnel-export-error"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
           <CardContent className="p-4 flex items-start gap-3 text-sm">
             <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive shrink-0">
               <AlertCircle className="h-4 w-4" />
@@ -127,10 +162,15 @@ function AdminOnboardingPage() {
             <div className="flex-1 space-y-2">
               <p className="text-destructive">{exportError}</p>
               <Button
+                ref={dismissRef}
                 variant="ghost"
                 size="sm"
                 data-testid="funnel-export-error-dismiss"
-                onClick={() => setExportError(null)}
+                aria-label="Fechar mensagem de erro do CSV"
+                onClick={() => {
+                  setExportError(null);
+                  queueMicrotask(() => lastExportBtnRef.current?.focus());
+                }}
               >
                 Fechar
               </Button>
