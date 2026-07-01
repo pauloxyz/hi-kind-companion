@@ -14,6 +14,8 @@ const filtersSchema = z.object({
   limit: z.number().int().min(1).max(200).default(100),
 });
 
+type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
+
 export type StripeWebhookEventRow = {
   id: string;
   stripe_event_id: string;
@@ -21,7 +23,7 @@ export type StripeWebhookEventRow = {
   environment: string;
   status: string;
   error_message: string | null;
-  payload_summary: Record<string, unknown> | null;
+  payload_summary: JsonValue;
   received_at: string;
   processed_at: string | null;
 };
