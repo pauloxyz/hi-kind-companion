@@ -50,6 +50,7 @@ import { Route as AuthenticatedAppConfiguracoesRouteImport } from './routes/_aut
 import { Route as AuthenticatedAppComecarRouteImport } from './routes/_authenticated/app.comecar'
 import { Route as AuthenticatedAppCandidaturasRouteImport } from './routes/_authenticated/app.candidaturas'
 import { Route as AuthenticatedAppAuditoriaRouteImport } from './routes/_authenticated/app.auditoria'
+import { Route as AuthenticatedAdminStripeEventsRouteImport } from './routes/_authenticated/admin.stripe-events'
 import { Route as AuthenticatedAdminSeoRouteImport } from './routes/_authenticated/admin.seo'
 import { Route as AuthenticatedAdminSecurityRouteImport } from './routes/_authenticated/admin.security'
 import { Route as AuthenticatedAdminProFeaturesRouteImport } from './routes/_authenticated/admin.pro-features'
@@ -286,6 +287,12 @@ const AuthenticatedAppAuditoriaRoute =
     path: '/app/auditoria',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedAdminStripeEventsRoute =
+  AuthenticatedAdminStripeEventsRouteImport.update({
+    id: '/admin/stripe-events',
+    path: '/admin/stripe-events',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedAdminSeoRoute = AuthenticatedAdminSeoRouteImport.update({
   id: '/admin/seo',
   path: '/admin/seo',
@@ -448,6 +455,7 @@ export interface FileRoutesByFullPath {
   '/admin/pro-features': typeof AuthenticatedAdminProFeaturesRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
+  '/admin/stripe-events': typeof AuthenticatedAdminStripeEventsRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -513,6 +521,7 @@ export interface FileRoutesByTo {
   '/admin/pro-features': typeof AuthenticatedAdminProFeaturesRoute
   '/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/admin/seo': typeof AuthenticatedAdminSeoRoute
+  '/admin/stripe-events': typeof AuthenticatedAdminStripeEventsRoute
   '/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -578,6 +587,7 @@ export interface FileRoutesById {
   '/_authenticated/admin/pro-features': typeof AuthenticatedAdminProFeaturesRoute
   '/_authenticated/admin/security': typeof AuthenticatedAdminSecurityRoute
   '/_authenticated/admin/seo': typeof AuthenticatedAdminSeoRoute
+  '/_authenticated/admin/stripe-events': typeof AuthenticatedAdminStripeEventsRoute
   '/_authenticated/app/auditoria': typeof AuthenticatedAppAuditoriaRoute
   '/_authenticated/app/candidaturas': typeof AuthenticatedAppCandidaturasRoute
   '/_authenticated/app/comecar': typeof AuthenticatedAppComecarRoute
@@ -645,6 +655,7 @@ export interface FileRouteTypes {
     | '/admin/pro-features'
     | '/admin/security'
     | '/admin/seo'
+    | '/admin/stripe-events'
     | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
@@ -710,6 +721,7 @@ export interface FileRouteTypes {
     | '/admin/pro-features'
     | '/admin/security'
     | '/admin/seo'
+    | '/admin/stripe-events'
     | '/app/auditoria'
     | '/app/candidaturas'
     | '/app/comecar'
@@ -774,6 +786,7 @@ export interface FileRouteTypes {
     | '/_authenticated/admin/pro-features'
     | '/_authenticated/admin/security'
     | '/_authenticated/admin/seo'
+    | '/_authenticated/admin/stripe-events'
     | '/_authenticated/app/auditoria'
     | '/_authenticated/app/candidaturas'
     | '/_authenticated/app/comecar'
@@ -1142,6 +1155,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAppAuditoriaRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/admin/stripe-events': {
+      id: '/_authenticated/admin/stripe-events'
+      path: '/admin/stripe-events'
+      fullPath: '/admin/stripe-events'
+      preLoaderRoute: typeof AuthenticatedAdminStripeEventsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/admin/seo': {
       id: '/_authenticated/admin/seo'
       path: '/admin/seo'
@@ -1374,6 +1394,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedAdminProFeaturesRoute: typeof AuthenticatedAdminProFeaturesRoute
   AuthenticatedAdminSecurityRoute: typeof AuthenticatedAdminSecurityRoute
   AuthenticatedAdminSeoRoute: typeof AuthenticatedAdminSeoRoute
+  AuthenticatedAdminStripeEventsRoute: typeof AuthenticatedAdminStripeEventsRoute
   AuthenticatedAppAuditoriaRoute: typeof AuthenticatedAppAuditoriaRoute
   AuthenticatedAppCandidaturasRoute: typeof AuthenticatedAppCandidaturasRoute
   AuthenticatedAppComecarRoute: typeof AuthenticatedAppComecarRoute
@@ -1397,6 +1418,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedAdminProFeaturesRoute: AuthenticatedAdminProFeaturesRoute,
   AuthenticatedAdminSecurityRoute: AuthenticatedAdminSecurityRoute,
   AuthenticatedAdminSeoRoute: AuthenticatedAdminSeoRoute,
+  AuthenticatedAdminStripeEventsRoute: AuthenticatedAdminStripeEventsRoute,
   AuthenticatedAppAuditoriaRoute: AuthenticatedAppAuditoriaRoute,
   AuthenticatedAppCandidaturasRoute: AuthenticatedAppCandidaturasRoute,
   AuthenticatedAppComecarRoute: AuthenticatedAppComecarRoute,
