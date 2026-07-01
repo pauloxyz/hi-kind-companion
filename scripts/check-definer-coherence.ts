@@ -13,7 +13,10 @@
  * credentials. Missing creds → skip (exit 0) with a warning, matching the
  * existing integration-test skip behaviour on fresh clones.
  *
- * Usage:  bun scripts/check-definer-coherence.ts
+ * Usage:  bun scripts/check-definer-coherence.ts [--verbose] [--dry-run]
+ *   --verbose : log every probe (denied + allowed), not just failures.
+ *   --dry-run : print the probe plan (which rpcs/tables would be tested)
+ *               and exit 0 without hitting the Data API.
  */
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -21,6 +24,21 @@ import {
   ALLOWED_ANON_RPCS,
   FORBIDDEN_ANON_TABLE_READS,
 } from "../src/config/security-internal-ids";
+
+const argv = process.argv.slice(2);
+const VERBOSE = argv.includes("--verbose");
+const DRY_RUN = argv.includes("--dry-run");
+
+if (DRY_RUN) {
+  console.log("[dry-run] Coherence probe plan:");
+  console.log(`  FORBIDDEN_ANON_RPCS  (${FORBIDDEN_ANON_RPCS.length}):`);
+  for (const r of FORBIDDEN_ANON_RPCS) console.log(`    · anon.rpc(${r.fn}) MUST be denied`);
+  console.log(`  ALLOWED_ANON_RPCS   (${ALLOWED_ANON_RPCS.length}):`);
+  for (const r of ALLOWED_ANON_RPCS) console.log(`    · anon.rpc(${r.fn}) MUST remain callable`);
+  console.log(`  FORBIDDEN_ANON_TABLE_READS (${FORBIDDEN_ANON_TABLE_READS.length}):`);
+  for (const t of FORBIDDEN_ANON_TABLE_READS) console.log(`    · anon.from(${t}).select() MUST be denied or empty`);
+  process.exit(0);
+}
 
 const URL = process.env.VITE_SUPABASE_URL ?? process.env.SUPABASE_URL;
 const KEY = process.env.VITE_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_PUBLISHABLE_KEY;
@@ -47,6 +65,7 @@ function isPermissionErrorShape(error: { code?: string; message?: string } | nul
     msg.includes("insufficient")
   );
 }
+
 
 const failures: string[] = [];
 
