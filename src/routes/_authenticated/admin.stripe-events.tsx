@@ -374,8 +374,8 @@ function AdminStripeEventsPage() {
 }
 
 function MetricCard({
-  icon, label, value, tone,
-}: { icon: React.ReactNode; label: string; value: number; tone: "ok" | "danger" | "muted" }) {
+  icon, label, value, tone, hint,
+}: { icon: React.ReactNode; label: string; value: number; tone: "ok" | "danger" | "muted"; hint?: string }) {
   const cls =
     tone === "danger" ? "border-destructive/40 bg-destructive/5"
     : tone === "ok" ? "border-emerald-500/30 bg-emerald-500/5"
@@ -387,6 +387,11 @@ function MetricCard({
           {icon}<span>{label}</span>
         </div>
         <div className="mt-2 text-3xl font-semibold tabular-nums">{value.toLocaleString("pt-BR")}</div>
+        {hint && (
+          <p className="mt-2 line-clamp-2 text-xs text-destructive" title={hint}>
+            {hint}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
