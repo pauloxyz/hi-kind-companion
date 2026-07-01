@@ -1370,8 +1370,17 @@ function ReprocessLogPanel({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {rows.map((r) => (
-                <TableRow key={r.id}>
+              {rows.map((r) => {
+                const rowPending = reprocessingId === r.id;
+                const rowLocked = rowPending || batchPending;
+                return (
+                <TableRow
+                  key={r.id}
+                  data-testid="reprocess-log-row"
+                  data-stripe-event-id={r.stripe_event_id}
+                  aria-busy={rowLocked || undefined}
+                  className={rowLocked ? "opacity-60 animate-pulse pointer-events-none" : undefined}
+                >
                   <TableCell className="whitespace-nowrap text-sm">
                     {new Date(r.created_at).toLocaleString("pt-BR")}
                   </TableCell>
@@ -1390,6 +1399,8 @@ function ReprocessLogPanel({
                       onClick={() => onOpenEventInEvents(r.stripe_event_id)}
                       className="inline-flex items-center gap-1 text-primary hover:underline"
                       title="Abrir na aba Eventos com filtro aplicado"
+                      data-testid="open-event-in-events"
+                      disabled={rowLocked}
                     >
                       {r.stripe_event_id}
                       <ExternalLink className="h-3 w-3" />
@@ -1413,19 +1424,26 @@ function ReprocessLogPanel({
                             size="sm"
                             variant="outline"
                             className="h-7"
-                            disabled={reprocessingId === r.id || batchPending}
+                            disabled={rowLocked}
+                            aria-busy={rowPending || undefined}
+                            data-testid="reprocess-row-btn"
                             onClick={() => setConfirmRow(r)}
                           >
-                            <RotateCcw className={`mr-1 h-3.5 w-3.5 ${reprocessingId === r.id ? "animate-spin" : ""}`} />
-                            Reprocessar
+                            <RotateCcw className={`mr-1 h-3.5 w-3.5 ${rowPending ? "animate-spin" : ""}`} />
+                            {rowPending ? "Reprocessando…" : batchPending ? "Em lote…" : "Reprocessar"}
                           </Button>
                         </TooltipTrigger>
-                        <TooltipContent>Replay best-effort deste stripe_event_id</TooltipContent>
+                        <TooltipContent>
+                          {batchPending
+                            ? "Aguarde o término do reprocessamento em lote"
+                            : "Replay best-effort deste stripe_event_id"}
+                        </TooltipContent>
                       </Tooltip>
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
+                );
+              })}
             </TableBody>
           </Table>
         )}
