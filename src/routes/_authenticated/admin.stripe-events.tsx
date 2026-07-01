@@ -968,6 +968,7 @@ function BatchProgressPanel({
                 variant="outline"
                 onClick={() => onRetryFailures?.()}
                 disabled={retryingFailures}
+                data-testid="retry-failures-btn"
                 title="Reprocessar somente as falhas do último batch"
               >
                 <RotateCcw className={`mr-2 h-3.5 w-3.5 ${retryingFailures ? "animate-spin" : ""}`} />
