@@ -2,11 +2,12 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { toast } from "sonner";
 import { I18nProvider } from "@/lib/i18n";
 import logo from "@/assets/vaiprala-logo.png";
 import { isPasswordAcceptable } from "@/components/PasswordStrength";
 import { logSecurityEvent } from "@/lib/security-audit.functions";
+import { toastError, toastSuccess } from "@/lib/toast-error";
+import { toAuthUiError, type AuthUiError } from "@/lib/auth-errors";
 import { AuthBackground } from "@/components/auth/AuthBackground";
 import { AuthBrandAside } from "@/components/auth/AuthBrandAside";
 import { AuthHeading, type AuthMode } from "@/components/auth/AuthHeading";
@@ -39,10 +40,17 @@ export const Route = createFileRoute("/auth")({
 });
 
 /**
- * /auth page. Owns the shared form state (email/password/mode/loading) and
- * delegates presentation to focused components under src/components/auth/.
- * All auth-side effects (Supabase signIn/signUp/reset, OAuth, security
- * event logging) live here so the child components stay dumb & reusable.
+ * /auth page. Owns the shared form state and delegates presentation to
+ * focused components under src/components/auth/.
+ *
+ * Feedback contract (same across signin / signup / reset):
+ *   - Loading   → AuthSubmitButton shows spinner + aria-busy; inputs disable.
+ *   - Errors    → converted via toAuthUiError() → shown inline in the
+ *                 AuthErrorAlert (aria-live=assertive) AND as a toast via
+ *                 toastError(). Audit-logged with the same "bucket" tag.
+ *   - Success   → toastSuccess() for reset; direct navigate() for auth.
+ * Errors reset on every submit and on mode toggle so stale banners never
+ * outlive the interaction that produced them.
  */
 function AuthPage() {
   const navigate = useNavigate();
@@ -55,6 +63,7 @@ function AuthPage() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [error, setError] = useState<AuthUiError | null>(null);
 
   // Auto-redirect authenticated users to /app on mount.
   useEffect(() => {
@@ -63,18 +72,37 @@ function AuthPage() {
     });
   }, [navigate]);
 
+  /**
+   * Canonical error handler: normalize → inline banner → toast → audit.
+   * Ensures all three surfaces stay in sync no matter which flow failed.
+   */
+  const handleFailure = (err: unknown, event: "signin_failure" | "signup_failure" | "reset_failure" | "oauth_failure") => {
+    const ui = toAuthUiError(err);
+    setError(ui);
+    toastError(err, { title: ui.title, description: ui.description });
+    const raw = err instanceof Error ? err.message : String(err);
+    void logSecurityEvent({
+      data: {
+        event_type: ui.bucket === "hibp" ? "hibp_block" : "auth_failure",
+        email,
+        metadata: { flow: event, bucket: ui.bucket, reason: raw.slice(0, 240) },
+      },
+    }).catch(() => {});
+  };
+
   const sendReset = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      const { error: err } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
-      if (error) throw error;
+      if (err) throw err;
       setResetSent(true);
-      toast.success("Enviamos um link de redefinição. Verifique seu e-mail.");
+      toastSuccess("Link enviado", "Verifique seu e-mail para redefinir a senha.");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao enviar link");
+      handleFailure(err, "reset_failure");
     } finally {
       setLoading(false);
     }
@@ -82,48 +110,37 @@ function AuthPage() {
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError(null);
     // Client-side password quality gate — server also enforces HIBP.
     if (mode === "signup" && !isPasswordAcceptable(password)) {
-      toast.error("Senha muito fraca. Use 8+ caracteres misturando letras, números e símbolos.");
+      const ui = toAuthUiError(new Error("weak_password"));
+      setError(ui);
+      toastError(new Error("weak_password"), { title: ui.title, description: ui.description });
       void logSecurityEvent({ data: { event_type: "weak_password_block", email } }).catch(() => {});
       return;
     }
     setLoading(true);
     try {
       if (mode === "signin") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          void logSecurityEvent({ data: { event_type: "auth_failure", email, metadata: { reason: error.message } } }).catch(() => {});
-          throw error;
-        }
+        const { error: err } = await supabase.auth.signInWithPassword({ email, password });
+        if (err) throw err;
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { error: err } = await supabase.auth.signUp({
           email, password,
           options: { emailRedirectTo: window.location.origin + "/app" },
         });
-        if (error) {
-          // HIBP rejections come back as "weak"/"pwned"/"leaked" — bucket
-          // them separately from generic auth failures for audit trails.
-          const isHibp = /weak|pwned|leaked|known.*easy.*guess/i.test(error.message);
-          void logSecurityEvent({
-            data: {
-              event_type: isHibp ? "hibp_block" : "auth_failure",
-              email,
-              metadata: { reason: error.message, status: (error as { status?: number }).status ?? null },
-            },
-          }).catch(() => {});
-          throw error;
-        }
+        if (err) throw err;
       }
       navigate({ to: "/app", replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro");
+      handleFailure(err, mode === "signin" ? "signin_failure" : "signup_failure");
     } finally {
       setLoading(false);
     }
   };
 
   const signInGoogle = async () => {
+    setError(null);
     setGoogleLoading(true);
     try {
       const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
@@ -131,7 +148,7 @@ function AuthPage() {
       if (result.redirected) return;
       navigate({ to: "/app", replace: true });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Erro ao entrar com Google");
+      handleFailure(err, "oauth_failure");
     } finally {
       setGoogleLoading(false);
     }
@@ -139,7 +156,14 @@ function AuthPage() {
 
   const toggleMode = () => {
     setResetSent(false);
+    setError(null);
     setMode(mode === "signin" ? "signup" : "signin");
+  };
+
+  const goToForgot = () => {
+    setResetSent(false);
+    setError(null);
+    setMode("forgot");
   };
 
   return (
@@ -170,6 +194,7 @@ function AuthPage() {
                 email={email}
                 loading={loading}
                 sent={resetSent}
+                error={error}
                 onEmail={setEmail}
                 onSubmit={sendReset}
               />
@@ -179,10 +204,11 @@ function AuthPage() {
                 email={email}
                 password={password}
                 loading={loading}
+                error={error}
                 onEmail={setEmail}
                 onPassword={setPassword}
                 onSubmit={submit}
-                onForgot={() => { setResetSent(false); setMode("forgot"); }}
+                onForgot={goToForgot}
               />
             )}
 
@@ -190,6 +216,7 @@ function AuthPage() {
               type="button"
               className="w-full text-sm font-medium text-primary hover:underline focus-visible:underline focus-visible:outline-none"
               onClick={toggleMode}
+              disabled={loading || googleLoading}
             >
               {mode === "signin" && "Criar conta gratuita →"}
               {mode === "signup" && "← Voltar ao login"}
