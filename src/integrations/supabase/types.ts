@@ -1310,9 +1310,11 @@ export type Database = {
           created_at: string
           currency: string | null
           current_period_end: string | null
+          environment: string
           id: string
           plan: string
           status: string
+          stripe_checkout_session_id: string | null
           stripe_customer_id: string | null
           stripe_subscription_id: string | null
           updated_at: string
@@ -1323,9 +1325,11 @@ export type Database = {
           created_at?: string
           currency?: string | null
           current_period_end?: string | null
+          environment?: string
           id?: string
           plan?: string
           status?: string
+          stripe_checkout_session_id?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           updated_at?: string
@@ -1336,9 +1340,11 @@ export type Database = {
           created_at?: string
           currency?: string | null
           current_period_end?: string | null
+          environment?: string
           id?: string
           plan?: string
           status?: string
+          stripe_checkout_session_id?: string | null
           stripe_customer_id?: string | null
           stripe_subscription_id?: string | null
           updated_at?: string
