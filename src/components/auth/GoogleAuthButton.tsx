@@ -1,7 +1,13 @@
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 import { GoogleIcon } from "./GoogleIcon";
 
-/** OAuth button — parent owns loading state and click handler. */
+/**
+ * Google OAuth button with the same loading contract as AuthSubmitButton:
+ *   - visible label always readable by screen readers (spinner is aria-hidden)
+ *   - `aria-busy` while awaiting the OAuth redirect
+ *   - disabled during flight to prevent double-clicks
+ */
 export function GoogleAuthButton({ loading, onClick }: { loading: boolean; onClick: () => void }) {
   return (
     <Button
@@ -10,10 +16,11 @@ export function GoogleAuthButton({ loading, onClick }: { loading: boolean; onCli
       className="w-full h-11 gap-2"
       disabled={loading}
       onClick={onClick}
+      aria-busy={loading}
       aria-label="Continuar com Google"
     >
-      <GoogleIcon />
-      {loading ? "Conectando..." : "Continuar com Google"}
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <GoogleIcon />}
+      <span>{loading ? "Conectando…" : "Continuar com Google"}</span>
     </Button>
   );
 }
