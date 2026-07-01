@@ -50,6 +50,15 @@ export type FunnelSnapshot = {
   completion_rate_pct: number;
   current_step_distribution: Array<{ step: number; users: number }>;
   funnel: FunnelRow[];
+  by_lang: {
+    pt: { reached_by_step: number[]; completed_users: number; toggles_to: number };
+    en: { reached_by_step: number[]; completed_users: number; toggles_to: number };
+  };
+  variant_switches: {
+    total_events: number;
+    unique_users: number;
+    unique_variants: number;
+  };
   recent_events: Array<{
     id: string;
     user_id: string;
