@@ -13,6 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
 import { Users, CheckCircle2, TrendingDown, Download, Inbox, RefreshCw, AlertCircle } from "lucide-react";
+import { useI18n } from "@/lib/i18n";
 
 export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   beforeLoad: async () => {
@@ -46,6 +47,7 @@ function downloadFunnelCsv(data: Parameters<typeof buildFunnelCsv>[0], locale: C
 }
 
 function AdminOnboardingPage() {
+  const { t } = useI18n();
   const fetchFunnel = useServerFn(getOnboardingFunnel);
   const q = useQuery({
     queryKey: ["admin", "onboarding-funnel"],
@@ -141,9 +143,9 @@ function AdminOnboardingPage() {
                       downloadFunnelCsv(q.data, loc);
                     } catch (err) {
                       const msg = err instanceof Error ? err.message : String(err);
-                      setExportError(
-                        `Não foi possível gerar o CSV agora (${msg || "erro desconhecido"}). Tente novamente em instantes.`,
-                      );
+                      // Mensagem traduzida (PT/EN/ES) + detalhe técnico
+                      // entre parênteses para diagnóstico.
+                      setExportError(`${t("funnel_export_error_message")} (${msg || "unknown"})`);
                     } finally {
                       setExportingLocale(null);
                     }
@@ -163,25 +165,40 @@ function AdminOnboardingPage() {
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
+          aria-labelledby="funnel-export-error-title"
+          aria-describedby="funnel-export-error-desc"
         >
           <CardContent className="p-4 flex items-start gap-3 text-sm">
             <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive shrink-0">
               <AlertCircle className="h-4 w-4" />
             </div>
             <div className="flex-1 space-y-2">
-              <p className="text-destructive">{exportError}</p>
+              <p
+                id="funnel-export-error-title"
+                className="font-semibold text-destructive"
+                data-testid="funnel-export-error-title"
+              >
+                {t("funnel_export_error_title")}
+              </p>
+              <p
+                id="funnel-export-error-desc"
+                className="text-destructive"
+                data-testid="funnel-export-error-desc"
+              >
+                {exportError}
+              </p>
               <Button
                 ref={dismissRef}
                 variant="ghost"
                 size="sm"
                 data-testid="funnel-export-error-dismiss"
-                aria-label="Fechar mensagem de erro do CSV"
+                aria-label={t("funnel_export_error_dismiss")}
                 onClick={() => {
                   setExportError(null);
                   queueMicrotask(() => lastExportBtnRef.current?.focus());
                 }}
               >
-                Fechar
+                {t("close")}
               </Button>
             </div>
           </CardContent>
