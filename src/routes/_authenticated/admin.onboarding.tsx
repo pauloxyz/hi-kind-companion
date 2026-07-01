@@ -184,21 +184,60 @@ function AdminOnboardingPage() {
               <CardDescription>
                 Eventos <code className="text-xs">onboarding_variant_selected</code> e
                 <code className="text-xs"> onboarding_variant_activated</code>.
+                Ajuda a identificar onde os usuários travam após alternar de variante.
               </CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-3 gap-3 text-sm">
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Eventos</p>
-                <p className="text-xl font-bold" data-testid="vs-events">{q.data.variant_switches.total_events}</p>
+            <CardContent className="space-y-4 text-sm">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Eventos</p>
+                  <p className="text-xl font-bold" data-testid="vs-events">{q.data.variant_switches.total_events}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Usuários</p>
+                  <p className="text-xl font-bold" data-testid="vs-users">{q.data.variant_switches.unique_users}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Variantes</p>
+                  <p className="text-xl font-bold" data-testid="vs-variants">{q.data.variant_switches.unique_variants}</p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Concluíram após trocar</p>
+                  <p className="text-xl font-bold text-success" data-testid="vs-completed-after">
+                    {q.data.variant_switches.completed_after_switch}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs uppercase text-muted-foreground">Travados após trocar</p>
+                  <p className="text-xl font-bold text-accent-red" data-testid="vs-stuck-total">
+                    {q.data.variant_switches.stuck_by_step.reduce((s, r) => s + r.users, 0)}
+                  </p>
+                </div>
               </div>
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Usuários</p>
-                <p className="text-xl font-bold" data-testid="vs-users">{q.data.variant_switches.unique_users}</p>
-              </div>
-              <div>
-                <p className="text-xs uppercase text-muted-foreground">Variantes</p>
-                <p className="text-xl font-bold" data-testid="vs-variants">{q.data.variant_switches.unique_variants}</p>
-              </div>
+
+              {q.data.variant_switches.stuck_by_step.length > 0 && (
+                <div data-testid="vs-stuck-table">
+                  <p className="text-xs font-semibold uppercase text-muted-foreground mb-2">
+                    Onde travaram após trocar de variante
+                  </p>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Etapa</TableHead>
+                        <TableHead className="text-right">Usuários</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {q.data.variant_switches.stuck_by_step.map((r) => (
+                        <TableRow key={r.step}>
+                          <TableCell>{r.step + 1}. {stepLabel(r.step)}</TableCell>
+                          <TableCell className="text-right font-mono">{r.users}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
 
