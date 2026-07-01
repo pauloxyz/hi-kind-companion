@@ -154,8 +154,8 @@ async function handleCheckoutCompleted(session: Json, env: StripeEnv) {
     );
 
   if (error) {
-    console.error("[stripe-webhook] checkout.session.completed upsert failed:", error.message);
-    throw error;
+    console.error("[stripe-webhook] checkout.session.completed upsert failed:", error);
+    throw new Error(`checkout upsert: ${error.message} (${error.code ?? "?"})`);
   }
 }
 
