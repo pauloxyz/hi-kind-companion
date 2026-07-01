@@ -214,3 +214,57 @@ describe("formatCsvNumber", () => {
     }
   });
 });
+
+describe("formatCsvNumber · casos de borda", () => {
+  // Math.round arredonda half-up para positivos e half-down (em direção a
+  // +Inf) para negativos: Math.round(1.5) === 2 e Math.round(-1.5) === -1.
+  // Testamos explicitamente esse contrato para prevenir regressões silenciosas.
+  it("half values (1.5 / -1.5) seguem regra half-to-+Infinity", () => {
+    expect(formatCsvNumber(1.5)).toBe("2");
+    expect(formatCsvNumber(-1.5)).toBe("-1");
+    // Sanity: nunca notação científica ou ponto
+    for (const n of [1.5, -1.5]) {
+      expect(formatCsvNumber(n)).toMatch(/^-?\d+$/);
+    }
+  });
+
+  it("frações sub-half (0.49 / -0.49) arredondam para zero", () => {
+    expect(formatCsvNumber(0.49)).toBe("0");
+    expect(formatCsvNumber(-0.49)).toBe("0"); // -0 é serializado como "0"
+    expect(formatCsvNumber(0.4999999)).toBe("0");
+    expect(formatCsvNumber(-0.4999999)).toBe("0");
+    for (const n of [0.49, -0.49, 0.4999999, -0.4999999]) {
+      expect(formatCsvNumber(n)).toMatch(/^-?\d+$/);
+      expect(formatCsvNumber(n)).not.toContain(".");
+    }
+  });
+
+  it("negative zero (-0) é normalizado para '0' — sem sinal", () => {
+    expect(formatCsvNumber(-0)).toBe("0");
+    // Number#toString em -0 retorna "0", mas garantimos explicitamente:
+    expect(formatCsvNumber(-0)).not.toBe("-0");
+    expect(formatCsvNumber(-0)).not.toContain("-");
+  });
+
+  it("very small floats próximos de zero nunca escapam em notação científica", () => {
+    // 1e-7 seria "1e-7" via Number#toString — mas arredondamos para 0.
+    for (const n of [1e-7, -1e-7, 1e-21, 5e-10, -5e-10, Number.MIN_VALUE]) {
+      const out = formatCsvNumber(n);
+      expect(out).toBe("0");
+      expect(out).not.toMatch(/e/i);
+    }
+  });
+
+  it("floats no limite do safe integer permanecem consistentes", () => {
+    expect(formatCsvNumber(Number.MAX_SAFE_INTEGER)).toBe(
+      String(Number.MAX_SAFE_INTEGER),
+    );
+    expect(formatCsvNumber(Number.MIN_SAFE_INTEGER)).toBe(
+      String(Number.MIN_SAFE_INTEGER),
+    );
+    // Um float pouco acima do safe range ainda arredonda para dígitos puros
+    const big = Number.MAX_SAFE_INTEGER + 0.5;
+    expect(formatCsvNumber(big)).toMatch(/^\d+$/);
+    expect(formatCsvNumber(big)).not.toMatch(/e/i);
+  });
+});

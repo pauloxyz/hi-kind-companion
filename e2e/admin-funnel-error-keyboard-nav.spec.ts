@@ -45,11 +45,10 @@ test.describe("Admin · teclado no funnel-export-error", () => {
     // Foco automático no Fechar.
     await expect(dismiss).toBeFocused();
 
-    // Tab → sai do card (Fechar é o único focável dentro dele).
+    // Focus trap: Tab e Shift+Tab mantêm o foco no Fechar enquanto o card
+    // estiver aberto (o único controle interativo do alerta).
     await page.keyboard.press("Tab");
-    await expect(dismiss).not.toBeFocused();
-
-    // Shift+Tab → volta para o Fechar.
+    await expect(dismiss).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(dismiss).toBeFocused();
 
