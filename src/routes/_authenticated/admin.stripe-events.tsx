@@ -892,10 +892,11 @@ function ReprocessLogPanel({
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [confirmRow, setConfirmRow] = useState<ReprocessLogEntry | null>(null);
-  const [confirmBatch, setConfirmBatch] = useState(false);
+  const [confirmBatch, setConfirmBatch] = useState<null | "all" | "errors">(null);
   const [batchSummary, setBatchSummary] = useState<BatchReprocessResult | null>(null);
   const [batchPending, setBatchPending] = useState(false);
-  const BATCH_LIMIT = 50;
+  const [batchLimit, setBatchLimit] = useState<number>(50);
+  const BATCH_LIMIT_OPTIONS = [50, 100, 500];
 
   useEffect(() => {
     setPage(0);
