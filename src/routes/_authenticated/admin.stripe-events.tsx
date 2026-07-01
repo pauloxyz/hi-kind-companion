@@ -10,6 +10,7 @@ import {
   listReprocessLog,
   listStripeWebhookEvents,
   listStripeWebhookEventTypes,
+  reprocessFromLogFilteredBatch,
   reprocessStripeWebhookEvent,
   reprocessStripeWebhookEventsBatch,
   type BatchReprocessResult,
@@ -38,9 +39,13 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Activity, AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Check,
-  ChevronDown, ChevronLeft, ChevronRight, Circle, Clock, Copy, Download, FileJson,
-  RefreshCw, RotateCcw, Search, X, XCircle,
+  ChevronDown, ChevronLeft, ChevronRight, Circle, Clock, Copy, Download, ExternalLink,
+  FileJson, RefreshCw, RotateCcw, Search, X, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -465,7 +470,16 @@ function AdminStripeEventsPage() {
           </TabsContent>
 
           <TabsContent value="reprocess-log" className="mt-4">
-            <ReprocessLogPanel />
+            <ReprocessLogPanel
+              onOpenEventInEvents={(id) => {
+                setSearchInput(id);
+                setSearch(id);
+                setStatus("all");
+                setEventType("all");
+                setPage(0);
+                setTab("events");
+              }}
+            />
           </TabsContent>
         </Tabs>
       </div>
@@ -855,10 +869,15 @@ const REPROCESS_LOG_DEFAULTS = {
   pageSize: 25,
 };
 
-function ReprocessLogPanel() {
+type ReprocessLogSortCol = "created_at" | "outcome" | "duration_ms";
+
+function ReprocessLogPanel({
+  onOpenEventInEvents,
+}: { onOpenEventInEvents: (stripeEventId: string) => void }) {
   const listLog = useServerFn(listReprocessLog);
   const exportLog = useServerFn(exportReprocessLog);
   const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
+  const reprocessLogBatchFn = useServerFn(reprocessFromLogFilteredBatch);
   const qc = useQueryClient();
 
   const [stripeEventId, setStripeEventId] = useState(REPROCESS_LOG_DEFAULTS.stripeEventId);
@@ -868,12 +887,19 @@ function ReprocessLogPanel() {
   const [until, setUntil] = useState<string>(REPROCESS_LOG_DEFAULTS.until);
   const [pageSize, setPageSize] = useState<number>(REPROCESS_LOG_DEFAULTS.pageSize);
   const [page, setPage] = useState<number>(0);
+  const [sortBy, setSortBy] = useState<ReprocessLogSortCol>("created_at");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
+  const [confirmRow, setConfirmRow] = useState<ReprocessLogEntry | null>(null);
+  const [confirmBatch, setConfirmBatch] = useState(false);
+  const [batchSummary, setBatchSummary] = useState<BatchReprocessResult | null>(null);
+  const [batchPending, setBatchPending] = useState(false);
+  const BATCH_LIMIT = 50;
 
   useEffect(() => {
     setPage(0);
-  }, [stripeEventId, actorUserId, outcome, since, until, pageSize]);
+  }, [stripeEventId, actorUserId, outcome, since, until, pageSize, sortBy, sortDir]);
 
   const toIso = (v: string): string | undefined => {
     if (!v) return undefined;
@@ -890,10 +916,10 @@ function ReprocessLogPanel() {
   };
 
   const query = useQuery({
-    queryKey: ["admin", "stripe-reprocess-log", stripeEventId, actorUserId, outcome, since, until, page, pageSize],
+    queryKey: ["admin", "stripe-reprocess-log", stripeEventId, actorUserId, outcome, since, until, sortBy, sortDir, page, pageSize],
     queryFn: () =>
       listLog({
-        data: { ...filterPayload, limit: pageSize, offset: page * pageSize },
+        data: { ...filterPayload, sortBy, sortDir, limit: pageSize, offset: page * pageSize },
       }) as Promise<ReprocessLogPage>,
   });
 
@@ -916,6 +942,11 @@ function ReprocessLogPanel() {
     setUntil(REPROCESS_LOG_DEFAULTS.until);
     setPageSize(REPROCESS_LOG_DEFAULTS.pageSize);
     toast.success("Filtros restaurados");
+  }
+
+  function toggleSort(col: ReprocessLogSortCol) {
+    if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc");
+    else { setSortBy(col); setSortDir("desc"); }
   }
 
   async function handleExport(format: "csv" | "json") {
@@ -945,7 +976,7 @@ function ReprocessLogPanel() {
     }
   }
 
-  async function handleReprocessRow(row: ReprocessLogEntry) {
+  async function runReprocessRow(row: ReprocessLogEntry) {
     setReprocessingId(row.id);
     try {
       const res = (await reprocessFn({ data: { id: row.event_row_id } })) as ReprocessResult;
@@ -960,6 +991,32 @@ function ReprocessLogPanel() {
       toast.error(e instanceof Error ? e.message : "Falha ao reprocessar");
     } finally {
       setReprocessingId(null);
+    }
+  }
+
+  async function runBatchFromLog() {
+    setBatchPending(true);
+    setBatchSummary(null);
+    try {
+      const res = (await reprocessLogBatchFn({
+        data: { ...filterPayload, limit: BATCH_LIMIT },
+      })) as BatchReprocessResult;
+      setBatchSummary(res);
+      if (res.attempted === 0) {
+        toast.info("Nenhum evento encontrado para os filtros do log.");
+      } else if (res.failed === 0) {
+        toast.success(`Lote reprocessado: ${res.succeeded}/${res.attempted} OK`);
+      } else {
+        toast.warning(`Lote parcial: ${res.succeeded} OK · ${res.failed} falharam de ${res.attempted}`);
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] }),
+        query.refetch(),
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha no reprocessamento em lote");
+    } finally {
+      setBatchPending(false);
     }
   }
 
@@ -981,6 +1038,15 @@ function ReprocessLogPanel() {
             <Button size="sm" variant="outline" onClick={() => query.refetch()} disabled={query.isFetching}>
               <RefreshCw className={`mr-2 h-4 w-4 ${query.isFetching ? "animate-spin" : ""}`} />
               Atualizar
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setConfirmBatch(true)}
+              disabled={batchPending || total === 0}
+            >
+              <RotateCcw className={`mr-2 h-4 w-4 ${batchPending ? "animate-spin" : ""}`} />
+              Reprocessar filtrados (até {BATCH_LIMIT})
             </Button>
             <Button size="sm" onClick={() => handleExport("csv")} disabled={exporting !== null || total === 0}>
               <Download className={`mr-2 h-4 w-4 ${exporting === "csv" ? "animate-pulse" : ""}`} />
@@ -1026,6 +1092,14 @@ function ReprocessLogPanel() {
           />
         </div>
 
+        {(batchPending || batchSummary) && (
+          <BatchProgressPanel
+            pending={batchPending}
+            summary={batchSummary}
+            onDismiss={() => setBatchSummary(null)}
+          />
+        )}
+
         {query.isLoading ? (
           <p className="text-sm text-muted-foreground">Carregando…</p>
         ) : query.isError ? (
@@ -1036,13 +1110,13 @@ function ReprocessLogPanel() {
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Quando</TableHead>
-                <TableHead>Resultado</TableHead>
+                <ReprocessLogSortableHead label="Quando" col="created_at" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
+                <ReprocessLogSortableHead label="Resultado" col="outcome" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} />
                 <TableHead>Evento</TableHead>
                 <TableHead>Ambiente</TableHead>
                 <TableHead>stripe_event_id</TableHead>
                 <TableHead>Usuário</TableHead>
-                <TableHead className="text-right">Duração</TableHead>
+                <ReprocessLogSortableHead label="Duração" col="duration_ms" sortBy={sortBy} sortDir={sortDir} onSort={toggleSort} className="text-right" />
                 <TableHead>Mensagem</TableHead>
                 <TableHead className="text-right">Ações</TableHead>
               </TableRow>
@@ -1062,7 +1136,17 @@ function ReprocessLogPanel() {
                   <TableCell>
                     <Badge variant={r.environment === "live" ? "default" : "outline"}>{r.environment}</Badge>
                   </TableCell>
-                  <TableCell className="font-mono text-xs text-muted-foreground">{r.stripe_event_id}</TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <button
+                      type="button"
+                      onClick={() => onOpenEventInEvents(r.stripe_event_id)}
+                      className="inline-flex items-center gap-1 text-primary hover:underline"
+                      title="Abrir na aba Eventos com filtro aplicado"
+                    >
+                      {r.stripe_event_id}
+                      <ExternalLink className="h-3 w-3" />
+                    </button>
+                  </TableCell>
                   <TableCell className="font-mono text-xs text-muted-foreground">
                     {r.actor_user_id ? r.actor_user_id.slice(0, 8) + "…" : "—"}
                   </TableCell>
@@ -1082,7 +1166,7 @@ function ReprocessLogPanel() {
                             variant="outline"
                             className="h-7"
                             disabled={reprocessingId === r.id}
-                            onClick={() => handleReprocessRow(r)}
+                            onClick={() => setConfirmRow(r)}
                           >
                             <RotateCcw className={`mr-1 h-3.5 w-3.5 ${reprocessingId === r.id ? "animate-spin" : ""}`} />
                             Reprocessar
@@ -1115,11 +1199,90 @@ function ReprocessLogPanel() {
           </div>
         </div>
       </CardContent>
+
+      {/* Confirmação: reprocessar 1 linha */}
+      <AlertDialog open={confirmRow !== null} onOpenChange={(o) => { if (!o) setConfirmRow(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reprocessar este evento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O replay é best-effort a partir de <code className="font-mono">payload_summary</code>.
+              Uma nova entrada de auditoria será gravada.
+              {confirmRow && (
+                <span className="mt-2 block font-mono text-xs">
+                  {confirmRow.stripe_event_id} · {confirmRow.event_type}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const row = confirmRow;
+                setConfirmRow(null);
+                if (row) void runReprocessRow(row);
+              }}
+            >
+              Reprocessar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmação: reprocessar em lote */}
+      <AlertDialog open={confirmBatch} onOpenChange={setConfirmBatch}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reprocessar filtrados em lote?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Serão reprocessados até <strong>{BATCH_LIMIT}</strong> eventos distintos correspondentes aos filtros
+              atuais do log (stripe_event_id, usuário, resultado, intervalo). Cada replay é best-effort e gera
+              auditoria.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmBatch(false);
+                void runBatchFromLog();
+              }}
+            >
+              Reprocessar em lote
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Card>
   );
 }
 
-// ------------------------- Reprocess-log CSV helpers -------------------------
+function ReprocessLogSortableHead({
+  label, col, sortBy, sortDir, onSort, className,
+}: {
+  label: string;
+  col: ReprocessLogSortCol;
+  sortBy: ReprocessLogSortCol;
+  sortDir: SortDir;
+  onSort: (c: ReprocessLogSortCol) => void;
+  className?: string;
+}) {
+  const active = sortBy === col;
+  const Icon = !active ? ArrowUpDown : sortDir === "asc" ? ArrowUp : ArrowDown;
+  return (
+    <TableHead className={className}>
+      <button
+        type="button"
+        onClick={() => onSort(col)}
+        className="inline-flex items-center gap-1 font-medium hover:text-foreground"
+      >
+        {label}
+        <Icon className={`h-3.5 w-3.5 ${active ? "text-foreground" : "text-muted-foreground/60"}`} />
+      </button>
+    </TableHead>
+  );
+}
 
 const REPROCESS_LOG_CSV_COLUMNS: (keyof ReprocessLogEntry)[] = [
   "created_at", "outcome", "environment", "event_type",
@@ -1132,6 +1295,7 @@ function reprocessLogToCsv(rows: ReprocessLogEntry[]): string {
   const lines = rows.map((r) => REPROCESS_LOG_CSV_COLUMNS.map((c) => csvEscape(r[c])).join(","));
   return [header, ...lines].join("\n");
 }
+
 
 function buildReprocessLogFilename(
   filters: { outcome: string; stripe_event_id: string; actor_user_id: string },
