@@ -3,13 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import { getOnboardingFunnel } from "@/lib/onboarding-events.functions";
+import { buildFunnelCsv } from "@/lib/onboarding-funnel.helpers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
-import { Users, CheckCircle2, TrendingDown } from "lucide-react";
+import { Users, CheckCircle2, TrendingDown, Download } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   beforeLoad: async () => {
