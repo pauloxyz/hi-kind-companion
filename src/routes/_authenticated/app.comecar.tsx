@@ -805,13 +805,31 @@ function Step5Done({ form }: { form: FormState }) {
 
   const activateMut = useMutation({
     mutationFn: (id: string) => activateVariant({ data: { id } }),
-    onSuccess: () => {
+    onSuccess: (_res, id) => {
       toast.success("Currículo ativo atualizado.");
-      mirror("onboarding_variant_selected", undefined, undefined, { variant_id: selectedVariantId });
+      mirror("onboarding_variant_activated", undefined, undefined, { variant_id: id });
       variantsQ.refetch();
     },
     onError: (e) => toastError(e),
   });
+
+  const toggleLang = (next: "pt" | "en") => {
+    if (next === lang) return;
+    setLang(next);
+    mirror("onboarding_lang_toggled", undefined, undefined, {
+      from: lang,
+      to: next,
+      variant_id: activeVariant?.id ?? null,
+      had_cached_en: !!enMessage,
+    });
+  };
+
+  const chooseVariant = (id: string | null) => {
+    setSelectedVariantId(id);
+    setEnMessage(null); // invalidate cached translation
+    mirror("onboarding_variant_selected", undefined, undefined, { variant_id: id });
+    if (id) activateMut.mutate(id);
+  };
 
   const tags = useMemo(
     () => form.field_experience.map((k) => LABEL_FOR_FIELD[k] ?? k),
@@ -1046,14 +1064,10 @@ function Step5Done({ form }: { form: FormState }) {
                     </Label>
                     <select
                       id="wa-variant"
+                      data-testid="onb-variant-select"
                       className="w-full h-10 rounded-md border bg-background px-3 text-sm"
                       value={activeVariant?.id ?? ""}
-                      onChange={(e) => {
-                        const id = e.target.value;
-                        setSelectedVariantId(id || null);
-                        setEnMessage(null); // invalidate cached translation
-                        if (id) activateMut.mutate(id);
-                      }}
+                      onChange={(e) => chooseVariant(e.target.value || null)}
                     >
                       <option value="">Perfil padrão</option>
                       {variants.map((v) => (
@@ -1073,31 +1087,38 @@ function Step5Done({ form }: { form: FormState }) {
                 )}
 
                 {canTranslate && (
-                  <div className="flex items-center gap-1 text-xs">
+                  <div className="flex items-center gap-1 text-xs" data-testid="onb-lang-toggle">
                     <button
                       type="button"
-                      onClick={() => setLang("pt")}
+                      data-testid="onb-lang-pt"
+                      onClick={() => toggleLang("pt")}
                       className={`px-2 py-1 rounded-md border ${lang === "pt" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
                     >
                       PT
                     </button>
                     <button
                       type="button"
-                      onClick={() => setLang("en")}
+                      data-testid="onb-lang-en"
+                      onClick={() => toggleLang("en")}
                       className={`px-2 py-1 rounded-md border inline-flex items-center gap-1 ${lang === "en" ? "bg-primary text-primary-foreground border-primary" : "border-border"}`}
                     >
                       <Languages className="h-3 w-3" /> EN
                     </button>
-                    {translating && <span className="text-muted-foreground ml-1">traduzindo…</span>}
+                    {translating && <span className="text-muted-foreground ml-1" data-testid="onb-lang-translating">traduzindo…</span>}
                   </div>
                 )}
 
-                <div className="rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-line text-muted-foreground">
+                <div
+                  data-testid="onb-wa-message"
+                  data-lang={lang}
+                  className="rounded-md border bg-muted/30 p-3 text-xs whitespace-pre-line text-muted-foreground"
+                >
                   {waMessage}
                 </div>
 
                 <a
                   href={`https://wa.me/?text=${encodeURIComponent(waMessage)}`}
+                  data-testid="onb-wa-link"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="block"
