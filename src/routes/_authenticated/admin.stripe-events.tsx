@@ -942,7 +942,11 @@ function BatchProgressPanel({
   const canRetryFailures = !pending && failed > 0 && !!onRetryFailures;
 
   return (
-    <Card className={pending ? "border-primary/40" : failed > 0 ? "border-destructive/40" : "border-emerald-500/40"}>
+    <Card
+      data-testid="batch-progress-panel"
+      data-pending={pending ? "true" : "false"}
+      className={pending ? "border-primary/40" : failed > 0 ? "border-destructive/40" : "border-emerald-500/40"}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div>
