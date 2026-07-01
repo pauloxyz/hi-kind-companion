@@ -58,6 +58,8 @@ export type FunnelSnapshot = {
     total_events: number;
     unique_users: number;
     unique_variants: number;
+    completed_after_switch: number;
+    stuck_by_step: Array<{ step: number; users: number }>;
   };
   recent_events: Array<{
     id: string;
