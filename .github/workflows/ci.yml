@@ -22,6 +22,18 @@ jobs:
         run: bunx vitest run src/lib/sitemap-entries.test.ts src/lib/seo-structured-data.test.ts --reporter=verbose
       - name: Unit tests
         run: bunx vitest run --reporter=verbose
+      - name: Security regression tests (column GRANTs + SECURITY DEFINER EXECUTE)
+        # Dedicated gate: fails the build if any of the hardening applied on
+        # 2026-07-01 has been reverted — sensitive anon column access on
+        # jobs/my_profile, or anon/authenticated EXECUTE on internal
+        # SECURITY DEFINER functions. Runs against the live Data API with
+        # the publishable (anon) key so the test observes real GRANT state.
+        run: bunx vitest run src/lib/security-regression.integration.test.ts --reporter=verbose
+        env:
+          VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+          SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
       - name: Build
         run: bun run build
         env:
