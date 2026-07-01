@@ -37,9 +37,37 @@ function AdminOnboardingPage() {
       <PageHeader
         title="Funil de onboarding"
         description="Métricas agregadas dos eventos do servidor + snapshot atual dos perfis."
+        actions={
+          q.data ? (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="funnel-export-csv"
+              onClick={() => {
+                const csv = buildFunnelCsv(q.data);
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `onboarding-funnel-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar CSV
+            </Button>
+          ) : null
+        }
       />
 
       {q.isLoading && (
+        <div className="grid sm:grid-cols-3 gap-4">
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+          <Skeleton className="h-24" />
+        </div>
         <div className="grid sm:grid-cols-3 gap-4">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
