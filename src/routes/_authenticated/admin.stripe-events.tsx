@@ -1282,11 +1282,11 @@ function ReprocessLogPanel({
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-muted-foreground">stripe_event_id contém</span>
-            <Input value={stripeEventId} onChange={(e) => setStripeEventId(e.target.value)} placeholder="evt_…" />
+            <Input value={sidInput} onChange={(e) => setSidInput(e.target.value)} placeholder="evt_…" />
           </label>
           <label className="flex flex-col gap-1 text-sm">
             <span className="text-xs text-muted-foreground">Usuário (uuid)</span>
-            <Input value={actorUserId} onChange={(e) => setActorUserId(e.target.value)} placeholder="uuid do admin" />
+            <Input value={uidInput} onChange={(e) => setUidInput(e.target.value)} placeholder="uuid do admin" />
           </label>
           <FilterSelect
             label="Resultado" value={outcome} onChange={(v) => setOutcome(v as typeof outcome)}
