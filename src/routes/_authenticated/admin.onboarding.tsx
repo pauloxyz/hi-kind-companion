@@ -47,6 +47,7 @@ function downloadFunnelCsv(data: Parameters<typeof buildFunnelCsv>[0], locale: C
 }
 
 function AdminOnboardingPage() {
+  const { t } = useI18n();
   const fetchFunnel = useServerFn(getOnboardingFunnel);
   const q = useQuery({
     queryKey: ["admin", "onboarding-funnel"],
