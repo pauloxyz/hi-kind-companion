@@ -192,6 +192,15 @@ function AdminStripeEventsPage() {
                 <RefreshCw className={`mr-2 h-4 w-4 ${eventsQuery.isFetching ? "animate-spin" : ""}`} />
                 Atualizar
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => batchMut.mutate()}
+                disabled={batchMut.isPending || (stats?.error ?? 0) === 0}
+              >
+                <RotateCcw className={`mr-2 h-4 w-4 ${batchMut.isPending ? "animate-spin" : ""}`} />
+                Reprocessar erros ({stats?.error ?? 0})
+              </Button>
               <Button size="sm" onClick={handleExport} disabled={exporting || total === 0}>
                 <Download className={`mr-2 h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
                 Exportar CSV
