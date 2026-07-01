@@ -169,6 +169,19 @@ const HANDLED_EVENTS = new Set([
 
 function summarizePayload(event: Json): Record<string, unknown> {
   const obj = event.data?.object ?? {};
+  // Stripe expõe o request que originou o evento em `event.request`
+  // (id + idempotency_key). Usamos como request_id/trace_id p/ debugging.
+  const req = event.request ?? {};
+  const requestId =
+    typeof req === "string"
+      ? req
+      : typeof req?.id === "string"
+        ? req.id
+        : null;
+  const idempotencyKey =
+    typeof req === "object" && typeof req?.idempotency_key === "string"
+      ? req.idempotency_key
+      : null;
   return {
     object_id: obj.id ?? null,
     object_type: obj.object ?? null,
@@ -179,6 +192,11 @@ function summarizePayload(event: Json): Record<string, unknown> {
     status: obj.status ?? obj.payment_status ?? null,
     mode: obj.mode ?? null,
     amount_total: typeof obj.amount_total === "number" ? obj.amount_total : null,
+    request_id: requestId,
+    trace_id: requestId, // alias — Stripe usa "request" como trace do evento
+    idempotency_key: idempotencyKey,
+    api_version: typeof event.api_version === "string" ? event.api_version : null,
+    livemode: typeof event.livemode === "boolean" ? event.livemode : null,
   };
 }
 
