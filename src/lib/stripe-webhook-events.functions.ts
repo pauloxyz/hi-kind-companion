@@ -511,3 +511,41 @@ export const listReprocessLog = createServerFn({ method: "GET" })
       total: count ?? 0,
     };
   });
+
+const exportReprocessLogSchema = z.object({
+  stripe_event_id: z.string().trim().max(120).optional(),
+  actor_user_id: z.string().trim().max(120).optional(),
+  outcome: z.enum(["all", "success", "error"]).default("all"),
+  since: z.string().datetime().optional(),
+  until: z.string().datetime().optional(),
+  limit: z.number().int().min(1).max(10000).default(10000),
+});
+
+export const exportReprocessLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((raw: unknown) => exportReprocessLogSchema.parse(raw ?? {}))
+  .handler(async ({ data, context }): Promise<ReprocessLogEntry[]> => {
+    await assertAdminWithAudit(context as never, "stripe_webhook_events.reprocess_log.export.fn");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("stripe_webhook_reprocess_log")
+      .select("id,event_row_id,stripe_event_id,event_type,environment,actor_user_id,outcome,message,duration_ms,created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+
+    if (data.outcome !== "all") q = q.eq("outcome", data.outcome);
+    if (data.stripe_event_id) {
+      const s = data.stripe_event_id.replace(/[^\w:-]/g, "").slice(0, 100);
+      if (s) q = q.ilike("stripe_event_id", `%${s}%`);
+    }
+    if (data.actor_user_id) {
+      const a = data.actor_user_id.replace(/[^\w-]/g, "").slice(0, 60);
+      if (a) q = q.eq("actor_user_id", a);
+    }
+    if (data.since) q = q.gte("created_at", data.since);
+    if (data.until) q = q.lte("created_at", data.until);
+
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as unknown as ReprocessLogEntry[];
+  });
