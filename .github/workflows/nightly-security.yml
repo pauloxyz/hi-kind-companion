@@ -130,9 +130,18 @@ jobs:
           SLACK_SECURITY_WEBHOOK_URL: ${{ secrets.SLACK_SECURITY_WEBHOOK_URL }}
         run: |
           RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-          DELTA=""
+          # Pull the structured list of reappeared internal_ids + regressed
+          # tests straight from delta.json when the comparator produced one,
+          # so Slack shows the exact findings rather than a raw MD blob.
+          REAPPEARED="_(none reported)_"
+          REGRESSED="_(none reported)_"
+          if [ -f security-report/delta.json ]; then
+            REAPPEARED=$(jq -r '.reappearedInternalIds | if length == 0 then "_(none)_" else map("• `" + . + "`") | join("\n") end' security-report/delta.json)
+            REGRESSED=$(jq -r '.regressed | if length == 0 then "_(none)_" else (.[0:10] | map("• `" + . + "`") | join("\n")) + (if length > 10 then "\n• …(+" + ((length-10)|tostring) + " more)" else "" end) end' security-report/delta.json)
+          fi
+          DELTA_MD=""
           if [ -f security-report/delta.md ]; then
-            DELTA=$(head -c 2500 security-report/delta.md)
+            DELTA_MD=$(head -c 2000 security-report/delta.md)
           fi
           jq -n \
             --arg text "🔒 *Nightly security regression detected*
@@ -140,14 +149,22 @@ Regression suite: exit ${{ steps.scan.outputs.exit_code }}
 Coherence probe:  exit ${{ steps.coherence.outputs.exit_code }}
 Delta vs previous: exit ${{ steps.compare.outputs.exit_code }}
 
+*Reintroduced internal_ids:*
+$REAPPEARED
+
+*Regressed tests (was passing, now failing):*
+$REGRESSED
+
 <${RUN_URL}|Open workflow run>
 
+_Full delta.md excerpt:_
 \`\`\`
-$DELTA
+$DELTA_MD
 \`\`\`" \
             '{text: $text}' \
             | curl -sS -X POST -H "Content-Type: application/json" \
                 --data @- "$SLACK_SECURITY_WEBHOOK_URL" || true
+
 
       - name: Open / update alert issue on failure
         if: >
