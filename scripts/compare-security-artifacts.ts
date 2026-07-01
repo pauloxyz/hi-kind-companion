@@ -26,8 +26,9 @@ type VitestAssertion = { title: string; fullName: string; status: "passed" | "fa
 type VitestFile = { name: string; assertionResults: VitestAssertion[] };
 type VitestReport = { testResults: VitestFile[] };
 
-function parseArgs(): { previous?: string; current: string; out: string } {
+function parseArgs(): { previous?: string; current: string; out: string; verbose: boolean; dryRun: boolean } {
   const argv = process.argv.slice(2);
+  const has = (flag: string) => argv.includes(flag);
   const get = (flag: string) => {
     const i = argv.indexOf(flag);
     return i >= 0 ? argv[i + 1] : undefined;
@@ -36,10 +37,12 @@ function parseArgs(): { previous?: string; current: string; out: string } {
   const out = get("--out") ?? "security-report/delta.md";
   if (!current) {
     console.error("Missing --current <path>");
+    console.error("Flags: --previous <path> --out <path> [--verbose] [--dry-run]");
     process.exit(2);
   }
-  return { previous: get("--previous"), current, out };
+  return { previous: get("--previous"), current, out, verbose: has("--verbose"), dryRun: has("--dry-run") };
 }
+
 
 function loadReport(path: string): Map<string, VitestAssertion> {
   const raw = JSON.parse(readFileSync(path, "utf-8")) as VitestReport;
