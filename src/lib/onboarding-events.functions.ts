@@ -240,6 +240,10 @@ export const getOnboardingFunnel = createServerFn({ method: "GET" })
         total_events: variantEvents,
         unique_users: variantUsers.size,
         unique_variants: variantIds.size,
+        completed_after_switch: completedAfterSwitch,
+        stuck_by_step: Array.from(stuckAfterSwitch.entries())
+          .sort((a, b) => a[0] - b[0])
+          .map(([step, users]) => ({ step, users })),
       },
       recent_events: (recent ?? []) as FunnelSnapshot["recent_events"],
     };
