@@ -108,9 +108,24 @@ const AUTH_ERROR_MAP: Array<{ match: RegExp; ui: AuthUiError }> = [
 ];
 
 /**
+ * Belt-and-suspenders leak filter. Even if `pickReadableMessage` in
+ * errors.ts lets a message through, we refuse to surface anything that
+ * mentions infra internals to the auth UI. Keep in sync with the
+ * LEAK_PATTERNS list in auth-errors.test.ts.
+ */
+const LEAK_RE = /postgrest|sqlstate|\bjwt\b|\bjws\b|bearer|permission denied|relation .* (does not|doesn't) exist|duplicate key|pgrst\d+|supabase\.co|at\s+\w+\s+\(/i;
+
+const GENERIC_FALLBACK: AuthUiError = {
+  title: "Não foi possível continuar",
+  description: "Tente novamente em instantes. Se o problema persistir, atualize a página.",
+  bucket: "other",
+};
+
+/**
  * Normalizes any thrown value into an AuthUiError. Never returns raw
  * Supabase/PostgREST wire text — unknown errors fall back to the shared
- * AppError kind translation.
+ * AppError kind translation, and any residual leaked substring is
+ * scrubbed by the LEAK_RE gate below.
  */
 export function toAuthUiError(err: unknown): AuthUiError {
   const raw =
@@ -124,9 +139,21 @@ export function toAuthUiError(err: unknown): AuthUiError {
   }
 
   const app = toAppError(err);
+  const bucket: AuthUiError["bucket"] =
+    app.kind === "network" ? "network" :
+    app.kind === "rate_limited" ? "rate_limit" :
+    "other";
+
+  // If the derived description still contains any leak substring, drop
+  // it in favour of the generic PT-BR copy. Preserves the bucket so
+  // downstream telemetry keeps the correct classification.
+  if (LEAK_RE.test(app.message)) {
+    return { ...GENERIC_FALLBACK, bucket };
+  }
+
   return {
     title: "Não foi possível continuar",
     description: app.message,
-    bucket: app.kind === "network" ? "network" : app.kind === "rate_limited" ? "rate_limit" : "other",
+    bucket,
   };
 }
