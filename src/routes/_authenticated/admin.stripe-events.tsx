@@ -159,7 +159,7 @@ function AdminStripeEventsPage() {
   function patchSearch(patch: Partial<SearchState>) {
     navigate({
       to: ROUTE_ID,
-      search: (prev) => ({ ...prev, ...patch }),
+      search: (prev: SearchState) => ({ ...prev, ...patch }),
       replace: true,
     });
   }
