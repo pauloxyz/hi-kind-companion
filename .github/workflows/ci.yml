@@ -62,6 +62,30 @@ jobs:
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
           SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+      - name: Download previous CI security artifact (best-effort)
+        id: prev_ci
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          workflow: ci.yml
+          workflow_conclusion: ""
+          name_is_regexp: true
+          name: security-report-.*
+          path: previous-security-report/
+          if_no_artifact_found: warn
+      - name: Compare against previous CI artifact (fail on drift)
+        # Diffs the current regression-results.json against the last CI
+        # artifact and fails the build if any TARGET_INTERNAL_IDS
+        # reappear or previously-passing tests regressed. Delta is
+        # written to security-report/delta.{md,json} and uploaded with
+        # the report artifact for review on the PR.
+        run: |
+          PREV=$(find previous-security-report -name regression-results.json -print -quit 2>/dev/null || true)
+          echo "Previous artifact: ${PREV:-<none>}"
+          bun run scripts/compare-security-artifacts.ts \
+            ${PREV:+--previous "$PREV"} \
+            --current security-report/regression-results.json \
+            --out security-report/delta.md
       - name: Upload security report artifact
         if: always()
         uses: actions/upload-artifact@v4
