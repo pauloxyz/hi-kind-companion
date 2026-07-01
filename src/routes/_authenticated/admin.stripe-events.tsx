@@ -9,10 +9,12 @@ import {
   listStripeWebhookEvents,
   listStripeWebhookEventTypes,
   reprocessStripeWebhookEvent,
+  reprocessStripeWebhookEventsBatch,
   type StripeWebhookEventRow,
   type StripeWebhookEventStats,
   type StripeWebhookEventsPage,
   type ReprocessResult,
+  type BatchReprocessResult,
 } from "@/lib/stripe-webhook-events.functions";
 import { PageHeader } from "@/components/page-header";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,6 +62,7 @@ function AdminStripeEventsPage() {
   const exportFn = useServerFn(exportStripeWebhookEvents);
   const statsFn = useServerFn(getStripeWebhookEventStats);
   const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
+  const reprocessBatchFn = useServerFn(reprocessStripeWebhookEventsBatch);
   const qc = useQueryClient();
 
   const [environment, setEnvironment] = useState<EnvFilter>("all");
@@ -120,6 +123,26 @@ function AdminStripeEventsPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao reprocessar"),
   });
 
+  const batchMut = useMutation({
+    mutationFn: () =>
+      reprocessBatchFn({
+        data: { ...filterPayload, limit: 100 },
+      }) as Promise<BatchReprocessResult>,
+    onSuccess: async (res) => {
+      if (res.attempted === 0) {
+        toast.info("Nenhum evento com status=error nos filtros atuais.");
+      } else if (res.failed === 0) {
+        toast.success(`Lote reprocessado: ${res.succeeded}/${res.attempted} OK`);
+      } else {
+        toast.warning(
+          `Lote parcial: ${res.succeeded} OK · ${res.failed} falharam de ${res.attempted}`,
+        );
+      }
+      await qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha no reprocessamento em lote"),
+  });
+
   const rows = eventsQuery.data?.rows ?? [];
   const total = eventsQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -169,6 +192,15 @@ function AdminStripeEventsPage() {
                 <RefreshCw className={`mr-2 h-4 w-4 ${eventsQuery.isFetching ? "animate-spin" : ""}`} />
                 Atualizar
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => batchMut.mutate()}
+                disabled={batchMut.isPending || (stats?.error ?? 0) === 0}
+              >
+                <RotateCcw className={`mr-2 h-4 w-4 ${batchMut.isPending ? "animate-spin" : ""}`} />
+                Reprocessar erros ({stats?.error ?? 0})
+              </Button>
               <Button size="sm" onClick={handleExport} disabled={exporting || total === 0}>
                 <Download className={`mr-2 h-4 w-4 ${exporting ? "animate-pulse" : ""}`} />
                 Exportar CSV
@@ -202,6 +234,9 @@ function AdminStripeEventsPage() {
             label="Error"
             value={stats?.error ?? 0}
             tone={stats && stats.error > 0 ? "danger" : "ok"}
+            hint={
+              rows.find((r) => r.status === "error" && r.error_message)?.error_message ?? undefined
+            }
           />
           <Card>
             <CardContent className="pt-6">
@@ -339,8 +374,8 @@ function AdminStripeEventsPage() {
 }
 
 function MetricCard({
-  icon, label, value, tone,
-}: { icon: React.ReactNode; label: string; value: number; tone: "ok" | "danger" | "muted" }) {
+  icon, label, value, tone, hint,
+}: { icon: React.ReactNode; label: string; value: number; tone: "ok" | "danger" | "muted"; hint?: string }) {
   const cls =
     tone === "danger" ? "border-destructive/40 bg-destructive/5"
     : tone === "ok" ? "border-emerald-500/30 bg-emerald-500/5"
@@ -352,6 +387,11 @@ function MetricCard({
           {icon}<span>{label}</span>
         </div>
         <div className="mt-2 text-3xl font-semibold tabular-nums">{value.toLocaleString("pt-BR")}</div>
+        {hint && (
+          <p className="mt-2 line-clamp-2 text-xs text-destructive" title={hint}>
+            {hint}
+          </p>
+        )}
       </CardContent>
     </Card>
   );
@@ -492,7 +532,22 @@ function EventRow({
             {row.environment}
           </Badge>
         </TableCell>
-        <TableCell><Badge variant={statusVariant(row.status)}>{row.status}</Badge></TableCell>
+        <TableCell>
+          <div className="flex flex-col gap-1">
+            <Badge variant={statusVariant(row.status)} className="w-fit">{row.status}</Badge>
+            {isError && row.error_message && (
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <span className="inline-flex max-w-[280px] items-center gap-1 truncate text-xs text-destructive">
+                    <AlertCircle className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{row.error_message}</span>
+                  </span>
+                </TooltipTrigger>
+                <TooltipContent className="max-w-md">{row.error_message}</TooltipContent>
+              </Tooltip>
+            )}
+          </div>
+        </TableCell>
         <TableCell className="font-mono text-xs text-muted-foreground">{row.stripe_event_id}</TableCell>
         <TableCell className="text-right">
           <div className="inline-flex items-center gap-1" onClick={(e) => e.stopPropagation()}>

@@ -226,6 +226,115 @@ type Summary = {
   amount_total?: number | null;
 };
 
+// Tipo do client admin sem importar o módulo (que é server-only).
+type SupabaseAdminClient = Awaited<ReturnType<typeof loadAdmin>>["supabaseAdmin"];
+async function loadAdmin() {
+  return import("@/integrations/supabase/client.server");
+}
+
+async function replayOneEvent(
+  supabaseAdmin: SupabaseAdminClient,
+  row: {
+    id: string;
+    event_type: string;
+    environment: string;
+    status: string;
+    payload_summary: unknown;
+    stripe_event_id: string;
+  },
+): Promise<{ ok: true; message: string; is_pro: boolean | null } | { ok: false; message: string }> {
+  if (row.status !== "error") {
+    return { ok: false, message: `status atual é ${row.status} (esperado: error)` };
+  }
+  const summary = (row.payload_summary ?? {}) as Summary;
+  const env = row.environment as "sandbox" | "live";
+  let replayNote: string;
+
+  try {
+    if (row.event_type === "checkout.session.completed") {
+      if (summary.mode !== "payment") {
+        throw new Error("Reprocesso automático suportado apenas para mode=payment");
+      }
+      if (!summary.user_id || !summary.object_id) {
+        throw new Error("payload_summary sem user_id/object_id — reenvie o evento pelo Stripe");
+      }
+      const { error } = await supabaseAdmin.from("subscriptions").upsert(
+        {
+          user_id: summary.user_id,
+          stripe_checkout_session_id: summary.object_id,
+          stripe_customer_id: summary.customer ?? null,
+          plan: "one_time",
+          status: "active",
+          current_period_end: null,
+          amount_cents: typeof summary.amount_total === "number" ? summary.amount_total : null,
+          currency: "brl",
+          environment: env,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "stripe_checkout_session_id" },
+      );
+      if (error) throw new Error(`upsert falhou: ${error.message}`);
+      replayNote = "checkout.session.completed replay OK";
+    } else if (row.event_type === "customer.subscription.deleted") {
+      if (!summary.subscription) throw new Error("payload_summary sem subscription id");
+      const { error } = await supabaseAdmin
+        .from("subscriptions")
+        .update({ status: "canceled", updated_at: new Date().toISOString() })
+        .eq("stripe_subscription_id", summary.subscription)
+        .eq("environment", env);
+      if (error) throw new Error(`update falhou: ${error.message}`);
+      replayNote = "subscription cancelada";
+    } else {
+      throw new Error(
+        `Replay automático não suportado para ${row.event_type}. Use "Send test webhook" no Stripe Dashboard.`,
+      );
+    }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    await supabaseAdmin
+      .from("stripe_webhook_events")
+      .update({ error_message: `reprocess: ${msg}`, processed_at: new Date().toISOString() })
+      .eq("id", row.id);
+    return { ok: false, message: msg };
+  }
+
+  const { error: upErr } = await supabaseAdmin
+    .from("stripe_webhook_events")
+    .update({
+      status: "processed",
+      error_message: `reprocess: ${replayNote}`,
+      processed_at: new Date().toISOString(),
+    })
+    .eq("id", row.id);
+  if (upErr) return { ok: false, message: upErr.message };
+
+  let isPro: boolean | null = null;
+  if (summary.user_id) {
+    const { data: rpc } = await supabaseAdmin.rpc("is_pro", { _user_id: summary.user_id });
+    isPro = typeof rpc === "boolean" ? rpc : null;
+  }
+  return { ok: true, message: replayNote, is_pro: isPro };
+}
+
+async function writeReprocessAudit(
+  supabaseAdmin: SupabaseAdminClient,
+  params: {
+    event_row_id: string;
+    stripe_event_id: string;
+    event_type: string;
+    environment: string;
+    actor_user_id: string;
+    outcome: "success" | "error";
+    message: string;
+    duration_ms: number;
+  },
+) {
+  const { error } = await supabaseAdmin
+    .from("stripe_webhook_reprocess_log")
+    .insert(params);
+  if (error) console.error("[reprocess-audit] falha ao gravar:", error.message);
+}
+
 export const reprocessStripeWebhookEvent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((raw: unknown) => z.object({ id: z.string().uuid() }).parse(raw))
@@ -240,77 +349,122 @@ export const reprocessStripeWebhookEvent = createServerFn({ method: "POST" })
       .maybeSingle();
     if (readErr) throw new Error(readErr.message);
     if (!row) throw new Error("Evento não encontrado");
-    if (row.status !== "error") {
-      return { ok: false, message: `Só reprocessa eventos com status=error (atual: ${row.status})` };
-    }
 
-    const summary = (row.payload_summary ?? {}) as Summary;
-    const env = row.environment as "sandbox" | "live";
-    let replayNote: string | null = null;
+    const started = Date.now();
+    const result = await replayOneEvent(supabaseAdmin, row);
+    await writeReprocessAudit(supabaseAdmin, {
+      event_row_id: row.id,
+      stripe_event_id: row.stripe_event_id,
+      event_type: row.event_type,
+      environment: row.environment,
+      actor_user_id: (context as { userId: string }).userId,
+      outcome: result.ok ? "success" : "error",
+      message: result.message,
+      duration_ms: Date.now() - started,
+    });
+    if (!result.ok) throw new Error(result.message);
+    return { ok: true, message: result.message, is_pro: result.is_pro };
+  });
 
-    try {
-      if (row.event_type === "checkout.session.completed") {
-        if (summary.mode !== "payment") {
-          throw new Error("Reprocesso automático suportado apenas para mode=payment");
-        }
-        if (!summary.user_id || !summary.object_id) {
-          throw new Error("payload_summary sem user_id/object_id — reenvie o evento pelo Stripe");
-        }
-        const { error } = await supabaseAdmin.from("subscriptions").upsert(
-          {
-            user_id: summary.user_id,
-            stripe_checkout_session_id: summary.object_id,
-            stripe_customer_id: summary.customer ?? null,
-            plan: "one_time",
-            status: "active",
-            current_period_end: null,
-            amount_cents: typeof summary.amount_total === "number" ? summary.amount_total : null,
-            currency: "brl",
-            environment: env,
-            updated_at: new Date().toISOString(),
-          },
-          { onConflict: "stripe_checkout_session_id" },
-        );
-        if (error) throw new Error(`upsert falhou: ${error.message}`);
-        replayNote = "checkout.session.completed replay OK";
-      } else if (row.event_type === "customer.subscription.deleted") {
-        if (!summary.subscription) throw new Error("payload_summary sem subscription id");
-        const { error } = await supabaseAdmin
-          .from("subscriptions")
-          .update({ status: "canceled", updated_at: new Date().toISOString() })
-          .eq("stripe_subscription_id", summary.subscription)
-          .eq("environment", env);
-        if (error) throw new Error(`update falhou: ${error.message}`);
-        replayNote = "subscription cancelada";
-      } else {
-        throw new Error(
-          `Replay automático não suportado para ${row.event_type}. Use "Send test webhook" no Stripe Dashboard.`,
-        );
-      }
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      await supabaseAdmin
-        .from("stripe_webhook_events")
-        .update({ error_message: `reprocess: ${msg}`, processed_at: new Date().toISOString() })
-        .eq("id", row.id);
-      throw new Error(msg);
-    }
+// ------------------------- Reprocessamento em lote -------------------------
 
-    const { error: upErr } = await supabaseAdmin
+export type BatchReprocessResult = {
+  attempted: number;
+  succeeded: number;
+  failed: number;
+  results: Array<{ id: string; stripe_event_id: string; ok: boolean; message: string }>;
+};
+
+const batchReprocessSchema = baseFilters.extend({
+  limit: z.number().int().min(1).max(200).default(50),
+});
+
+export const reprocessStripeWebhookEventsBatch = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((raw: unknown) => batchReprocessSchema.parse(raw ?? {}))
+  .handler(async ({ data, context }): Promise<BatchReprocessResult> => {
+    await assertAdminWithAudit(context as never, "stripe_webhook_events.reprocess_batch.fn");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const actorUserId = (context as { userId: string }).userId;
+
+    // Ignora status do filtro do usuário — batch é sempre "status=error".
+    const filters = { ...data, status: "error" as const };
+
+    const base = supabaseAdmin
       .from("stripe_webhook_events")
-      .update({
-        status: "processed",
-        error_message: replayNote ? `reprocess: ${replayNote}` : null,
-        processed_at: new Date().toISOString(),
-      })
-      .eq("id", row.id);
-    if (upErr) throw new Error(upErr.message);
+      .select("id,event_type,environment,status,payload_summary,stripe_event_id")
+      .order("received_at", { ascending: false })
+      .limit(data.limit);
 
-    let isPro: boolean | null = null;
-    if (summary.user_id) {
-      const { data: rpc } = await supabaseAdmin.rpc("is_pro", { _user_id: summary.user_id });
-      isPro = typeof rpc === "boolean" ? rpc : null;
+    const { data: rows, error } = await applyFilters(base, filters);
+    if (error) throw new Error(error.message);
+    const list = (rows ?? []) as unknown as Array<{
+      id: string;
+      event_type: string;
+      environment: string;
+      status: string;
+      payload_summary: unknown;
+      stripe_event_id: string;
+    }>;
+
+    const results: BatchReprocessResult["results"] = [];
+    let succeeded = 0;
+    let failed = 0;
+
+    for (const row of list) {
+      const started = Date.now();
+      const r = await replayOneEvent(supabaseAdmin, row);
+      await writeReprocessAudit(supabaseAdmin, {
+        event_row_id: row.id,
+        stripe_event_id: row.stripe_event_id,
+        event_type: row.event_type,
+        environment: row.environment,
+        actor_user_id: actorUserId,
+        outcome: r.ok ? "success" : "error",
+        message: r.message,
+        duration_ms: Date.now() - started,
+      });
+      results.push({ id: row.id, stripe_event_id: row.stripe_event_id, ok: r.ok, message: r.message });
+      if (r.ok) succeeded++;
+      else failed++;
     }
 
-    return { ok: true, message: replayNote ?? "reprocessado", is_pro: isPro };
+    return { attempted: list.length, succeeded, failed, results };
+  });
+
+// ------------------------- Log de auditoria -------------------------
+
+export type ReprocessLogEntry = {
+  id: string;
+  event_row_id: string;
+  stripe_event_id: string;
+  event_type: string;
+  environment: string;
+  actor_user_id: string | null;
+  outcome: "success" | "error";
+  message: string | null;
+  duration_ms: number | null;
+  created_at: string;
+};
+
+export const listReprocessLog = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((raw: unknown) =>
+    z.object({
+      event_row_id: z.string().uuid().optional(),
+      limit: z.number().int().min(1).max(200).default(50),
+    }).parse(raw ?? {}),
+  )
+  .handler(async ({ data, context }): Promise<ReprocessLogEntry[]> => {
+    await assertAdminWithAudit(context as never, "stripe_webhook_events.reprocess_log.fn");
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    let q = supabaseAdmin
+      .from("stripe_webhook_reprocess_log")
+      .select("id,event_row_id,stripe_event_id,event_type,environment,actor_user_id,outcome,message,duration_ms,created_at")
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.event_row_id) q = q.eq("event_row_id", data.event_row_id);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return (rows ?? []) as unknown as ReprocessLogEntry[];
   });
