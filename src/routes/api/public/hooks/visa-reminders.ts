@@ -16,6 +16,8 @@ import { render } from "react-email";
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { TEMPLATES } from "@/lib/email-templates/registry";
+import { verifyCronSecret, unauthorizedCronResponse, logCronCall } from "@/lib/cron-auth.server";
+import { checkRateLimit } from "@/lib/rate-limit.server";
 
 const REMINDER_OFFSETS = [14, 7, 1] as const;
 const SENDER_DOMAIN = "notify.vplusa.com";
@@ -43,14 +45,16 @@ export const Route = createFileRoute("/api/public/hooks/visa-reminders")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!expected || apikey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
-            headers: { "Content-Type": "application/json" },
+        const auth = verifyCronSecret(request);
+        await logCronCall({ hook: "visa-reminders", request, result: auth });
+        if (!auth.ok) return unauthorizedCronResponse(auth.reason);
+        if (!(await checkRateLimit("cron:visa-reminders", 10, 60))) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429,
+            headers: { "content-type": "application/json" },
           });
         }
+
 
         let dryRun = false;
         let manualItemId: string | null = null;
