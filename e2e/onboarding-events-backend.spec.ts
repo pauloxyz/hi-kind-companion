@@ -87,17 +87,27 @@ test.describe("Onboarding · eventos no backend", () => {
     const events = cap.get();
     const langs = events.filter((e) => e.event === "onboarding_lang_toggled");
     expect(langs.length).toBeGreaterThanOrEqual(2);
-    // Primeiro toggle: pt → en
+    // Primeiro toggle: pt → en — payload completo esperado
     expect(langs[0].props).toMatchObject({ from: "pt", to: "en" });
     expect(langs[0].props).toHaveProperty("had_cached_en");
-    // Segundo toggle: en → pt
+    expect(typeof langs[0].props.had_cached_en).toBe("boolean");
+    expect(langs[0].props).toHaveProperty("variant_id");
+    const vid0 = langs[0].props.variant_id;
+    expect(vid0 === null || typeof vid0 === "string").toBe(true);
+
+    // Segundo toggle: en → pt — mesma forma de payload
     expect(langs[1].props).toMatchObject({ from: "en", to: "pt" });
+    expect(langs[1].props).toHaveProperty("variant_id");
+    expect(langs[1].props).toHaveProperty("had_cached_en");
 
     if (await variantSel.isVisible().catch(() => false)) {
       const vs = events.filter((e) => e.event === "onboarding_variant_selected");
       if (vs.length > 0) {
-        expect(vs[vs.length - 1].props).toHaveProperty("variant_id");
-        expect(typeof vs[vs.length - 1].props.variant_id).toBe("string");
+        const last = vs[vs.length - 1];
+        expect(last.props).toHaveProperty("variant_id");
+        const vid = last.props.variant_id;
+        // pode ser string (variante escolhida) ou null ("Perfil padrão")
+        expect(vid === null || typeof vid === "string").toBe(true);
       }
     }
   });
