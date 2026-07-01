@@ -76,26 +76,22 @@ function csvEscape(v: string | number): string {
  */
 export function formatCsvNumber(n: number): string {
   if (typeof n !== "number" || !Number.isFinite(n)) return "0";
-  // Inteiros (incluindo os que Number.isInteger considera fora do safe range
-  // mas ainda sem parte fracional) — usa toFixed(0) para nunca cair em
-  // notação científica que Number#toString usaria em |n| >= 1e21.
-  if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < Number.EPSILON) {
-    const truncated = Math.trunc(n);
-    // Number#toString cai em notação exponencial para |n| >= 1e21 —
-    // e toFixed(0) também. Como precisamos SEMPRE de dígitos no CSV,
-    // usamos BigInt como fallback (Math.trunc já removeu qualquer parte
-    // fracionária, então o cast é seguro).
-    const s = truncated.toString();
-    if (!/e/i.test(s)) return s;
-    try {
-      return BigInt(truncated).toString();
-    } catch {
-      return truncated.toFixed(0);
-    }
+  // Todos os KPIs e contagens do funil são inteiros por natureza. Se o
+  // servidor mandar um float por acidente (ex.: divisão sem Math.round),
+  // arredondamos com Math.round — half-up para positivos, half-down para
+  // negativos — para NUNCA emitir uma célula com casas decimais no CSV.
+  const rounded = Math.round(n);
+  // Number#toString cai em notação exponencial para |n| >= 1e21 —
+  // e toFixed(0) também. Como precisamos SEMPRE de dígitos no CSV,
+  // usamos BigInt como fallback (o arredondamento já removeu qualquer
+  // parte fracional, então o cast é seguro).
+  const s = rounded.toString();
+  if (!/e/i.test(s)) return s;
+  try {
+    return BigInt(rounded).toString();
+  } catch {
+    return rounded.toFixed(0);
   }
-  // Não-inteiros: fixa até 12 casas, remove trailing zeros e o ponto solto.
-  const fixed = n.toFixed(12);
-  return fixed.replace(/\.?0+$/, "");
 }
 
 export type CsvLocale = "pt" | "en" | "es";
