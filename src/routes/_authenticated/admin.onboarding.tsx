@@ -149,7 +149,12 @@ function AdminOnboardingPage() {
       />
 
       {exportError && (
-        <Card data-testid="funnel-export-error">
+        <Card
+          data-testid="funnel-export-error"
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+        >
           <CardContent className="p-4 flex items-start gap-3 text-sm">
             <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive shrink-0">
               <AlertCircle className="h-4 w-4" />
@@ -157,10 +162,15 @@ function AdminOnboardingPage() {
             <div className="flex-1 space-y-2">
               <p className="text-destructive">{exportError}</p>
               <Button
+                ref={dismissRef}
                 variant="ghost"
                 size="sm"
                 data-testid="funnel-export-error-dismiss"
-                onClick={() => setExportError(null)}
+                aria-label="Fechar mensagem de erro do CSV"
+                onClick={() => {
+                  setExportError(null);
+                  queueMicrotask(() => lastExportBtnRef.current?.focus());
+                }}
               >
                 Fechar
               </Button>
