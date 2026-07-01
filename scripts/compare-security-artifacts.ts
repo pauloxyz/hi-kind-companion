@@ -44,6 +44,13 @@ function parseArgs(): { previous?: string; current: string; out: string; verbose
 }
 
 
+/**
+ * Flattens a vitest JSON reporter file into `Map<testFullName → assertion>`.
+ *
+ * We key by `fullName` (with `title` as fallback) because vitest guarantees
+ * `fullName` is stable across runs even when the containing file is
+ * renamed — this is what lets us diff runs meaningfully across PRs.
+ */
 function loadReport(path: string): Map<string, VitestAssertion> {
   const raw = JSON.parse(readFileSync(path, "utf-8")) as VitestReport;
   const map = new Map<string, VitestAssertion>();
@@ -55,6 +62,17 @@ function loadReport(path: string): Map<string, VitestAssertion> {
   return map;
 }
 
+/**
+ * Buckets every test in `curr` against `prev`:
+ *   - regressed:    was `passed` before, `failed` now → the critical drift signal.
+ *   - stillFailing: `failed` in both runs, or `failed` in current with no baseline.
+ *   - newlyPassing: `failed` before, `passed` now → recorded so PR authors get credit for fixes.
+ *   - newTests:     present in current but absent in previous → surfaces newly-added coverage.
+ *
+ * When `prev` is null (baseline mode / no previous artifact) nothing can be
+ * classified as regressed by definition — see the "safe fallback" comment
+ * near the CLI entrypoint at the bottom of this file.
+ */
 function classify(prev: Map<string, VitestAssertion> | null, curr: Map<string, VitestAssertion>) {
   const regressed: VitestAssertion[] = [];
   const stillFailing: VitestAssertion[] = [];
@@ -74,12 +92,26 @@ function classify(prev: Map<string, VitestAssertion> | null, curr: Map<string, V
   return { regressed, stillFailing, newlyPassing, newTests };
 }
 
+/**
+ * Maps failing assertions back to the `TARGET_INTERNAL_IDS` they cover.
+ *
+ * Two matching strategies, in order:
+ *   1. Substring match on the test's `fullName` + failure message. This
+ *      catches tests that mention the internal_id verbatim in their
+ *      describe/it strings (the convention in security-regression tests).
+ *   2. Heuristic regex map for tests whose names describe the *symptom*
+ *      instead of the finding id (e.g. `my_profile.birth_date` → the
+ *      `my_profile_anon_sensitive_columns` finding).
+ *
+ * The synthetic id `CRON_SECRET_enforcement` is emitted for hooks that
+ * regress on cron-secret verification — it isn't in TARGET_INTERNAL_IDS
+ * because it's a bespoke control, not a Supabase linter finding.
+ */
 function matchTargets(failed: VitestAssertion[]): string[] {
   const hits = new Set<string>();
   for (const a of failed) {
     const hay = (a.fullName + " " + (a.failureMessages ?? []).join(" ")).toLowerCase();
     for (const id of TARGET_INTERNAL_IDS) {
-      // Match either the exact id or an obvious keyword derived from it.
       if (hay.includes(id.toLowerCase())) hits.add(id);
     }
     // Heuristic map: describe blocks name the underlying finding.
@@ -93,6 +125,7 @@ function matchTargets(failed: VitestAssertion[]): string[] {
   }
   return [...hits].sort();
 }
+
 
 const { previous, current, out, verbose, dryRun } = parseArgs();
 if (!existsSync(current)) {
