@@ -81,11 +81,17 @@ export function formatCsvNumber(n: number): string {
   // notação científica que Number#toString usaria em |n| >= 1e21.
   if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < Number.EPSILON) {
     const truncated = Math.trunc(n);
-    // Number#toString cai em notação exponencial só para |n| >= 1e21.
-    // Nunca usamos toLocaleString aqui — locales como pt-BR reintroduziriam
-    // separadores de milhar ("1.000") que corromperiam o CSV.
+    // Number#toString cai em notação exponencial para |n| >= 1e21 —
+    // e toFixed(0) também. Como precisamos SEMPRE de dígitos no CSV,
+    // usamos BigInt como fallback (Math.trunc já removeu qualquer parte
+    // fracionária, então o cast é seguro).
     const s = truncated.toString();
-    return /e/i.test(s) ? truncated.toFixed(0) : s;
+    if (!/e/i.test(s)) return s;
+    try {
+      return BigInt(truncated).toString();
+    } catch {
+      return truncated.toFixed(0);
+    }
   }
   // Não-inteiros: fixa até 12 casas, remove trailing zeros e o ponto solto.
   const fixed = n.toFixed(12);
