@@ -62,11 +62,49 @@ function csvEscape(v: string | number): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 
+export type CsvLocale = "pt" | "en" | "es";
+
+/** Rótulos de etapa por idioma. A ordem espelha `STEP_LABELS` do server fn. */
+export const STEP_LABELS_I18N: Record<CsvLocale, readonly string[]> = {
+  pt: [
+    "Boas-vindas",
+    "Como funciona",
+    "Dados básicos",
+    "Experiência",
+    "Condições físicas",
+    "Tudo pronto",
+  ],
+  en: [
+    "Welcome",
+    "How it works",
+    "Basic info",
+    "Experience",
+    "Physical conditions",
+    "All set",
+  ],
+  es: [
+    "Bienvenida",
+    "Cómo funciona",
+    "Datos básicos",
+    "Experiencia",
+    "Condiciones físicas",
+    "Todo listo",
+  ],
+};
+
+const SUMMARY_HEADING: Record<CsvLocale, string> = {
+  pt: "# summary (resumo)",
+  en: "# summary",
+  es: "# summary (resumen)",
+};
+
 /**
  * Gera CSV com o comparativo PT vs EN por etapa + travados-após-troca por
- * etapa. Cabeçalho estável, coluna por coluna, uma linha por etapa.
+ * etapa. Cabeçalho estável (nomes de coluna em snake_case) para ferramentas
+ * externas continuarem parseando; os valores de `step_label` e o cabeçalho
+ * `# lang=` refletem o `locale` escolhido no admin.
  */
-export function buildFunnelCsv(data: FunnelForCsv): string {
+export function buildFunnelCsv(data: FunnelForCsv, locale: CsvLocale = "pt"): string {
   const header = [
     "step_index",
     "step_label",
@@ -78,22 +116,25 @@ export function buildFunnelCsv(data: FunnelForCsv): string {
   const stuckMap = new Map<number, number>(
     data.variant_switches.stuck_by_step.map((r) => [r.step, r.users]),
   );
-  const rows = data.funnel.map((row) =>
-    [
+  const labels = STEP_LABELS_I18N[locale];
+  const rows = data.funnel.map((row) => {
+    const label = labels[row.step_index] ?? row.step_label;
+    return [
       row.step_index,
-      row.step_label,
+      label,
       row.reached_users,
       data.by_lang.pt.reached_by_step[row.step_index] ?? 0,
       data.by_lang.en.reached_by_step[row.step_index] ?? 0,
       stuckMap.get(row.step_index) ?? 0,
     ]
       .map(csvEscape)
-      .join(","),
-  );
+      .join(",");
+  });
   // Sumário no final: totais por idioma + total concluíram após troca
   const summary = [
     "",
-    "# summary",
+    SUMMARY_HEADING[locale],
+    `# lang=${locale}`,
     `completed_pt,${data.by_lang.pt.completed_users}`,
     `completed_en,${data.by_lang.en.completed_users}`,
     `toggles_to_pt,${data.by_lang.pt.toggles_to}`,

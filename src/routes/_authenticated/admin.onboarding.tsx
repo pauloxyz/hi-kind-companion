@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import { getOnboardingFunnel } from "@/lib/onboarding-events.functions";
-import { buildFunnelCsv } from "@/lib/onboarding-funnel.helpers";
+import { buildFunnelCsv, type CsvLocale } from "@/lib/onboarding-funnel.helpers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
-import { Users, CheckCircle2, TrendingDown, Download } from "lucide-react";
+import { Users, CheckCircle2, TrendingDown, Download, Inbox, RefreshCw } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   beforeLoad: async () => {
@@ -24,6 +24,19 @@ export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   component: AdminOnboardingPage,
 });
 
+function downloadFunnelCsv(data: Parameters<typeof buildFunnelCsv>[0], locale: CsvLocale) {
+  const csv = buildFunnelCsv(data, locale);
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `onboarding-funnel-${locale}-${new Date().toISOString().slice(0, 10)}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 function AdminOnboardingPage() {
   const fetchFunnel = useServerFn(getOnboardingFunnel);
   const q = useQuery({
@@ -32,6 +45,12 @@ function AdminOnboardingPage() {
     refetchInterval: 60_000,
   });
 
+  const isEmpty =
+    !!q.data &&
+    q.data.total_started === 0 &&
+    q.data.total_completed === 0 &&
+    q.data.recent_events.length === 0;
+
   return (
     <div className="space-y-6 sm:space-y-8">
       <PageHeader
@@ -39,31 +58,37 @@ function AdminOnboardingPage() {
         description="Métricas agregadas dos eventos do servidor + snapshot atual dos perfis."
         actions={
           q.data ? (
-            <Button
-              variant="outline"
-              size="sm"
-              data-testid="funnel-export-csv"
-              onClick={() => {
-                const csv = buildFunnelCsv(q.data);
-                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `onboarding-funnel-${new Date().toISOString().slice(0, 10)}.csv`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-              }}
-            >
-              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar CSV
-            </Button>
+            <div className="flex flex-wrap items-center gap-2" data-testid="funnel-export-group">
+              <span className="text-xs text-muted-foreground">Exportar CSV:</span>
+              {(["pt", "en", "es"] as const).map((loc) => (
+                <Button
+                  key={loc}
+                  variant="outline"
+                  size="sm"
+                  disabled={isEmpty}
+                  aria-disabled={isEmpty}
+                  data-testid={loc === "pt" ? "funnel-export-csv" : `funnel-export-csv-${loc}`}
+                  data-locale={loc}
+                  title={
+                    isEmpty
+                      ? "Nada para exportar — ainda não há eventos de onboarding."
+                      : `Baixar funil em ${loc.toUpperCase()}`
+                  }
+                  onClick={() => {
+                    if (isEmpty) return;
+                    downloadFunnelCsv(q.data, loc);
+                  }}
+                >
+                  <Download className="mr-1.5 h-3.5 w-3.5" /> {loc.toUpperCase()}
+                </Button>
+              ))}
+            </div>
           ) : null
         }
       />
 
       {q.isLoading && (
-        <div className="grid sm:grid-cols-3 gap-4">
+        <div className="grid sm:grid-cols-3 gap-4" data-testid="funnel-loading">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
@@ -71,15 +96,40 @@ function AdminOnboardingPage() {
       )}
 
       {q.error && (
-        <Card>
-          <CardContent className="p-6 text-sm text-destructive">
-            Erro ao carregar funil. Tente recarregar.
+        <Card data-testid="funnel-error">
+          <CardContent className="p-6 flex flex-col sm:flex-row items-start sm:items-center gap-3 text-sm">
+            <p className="text-destructive flex-1">
+              Não foi possível carregar o funil de onboarding agora. Verifique sua conexão
+              e tente novamente — os dados são recuperados automaticamente a cada minuto.
+            </p>
+            <Button variant="outline" size="sm" onClick={() => q.refetch()} data-testid="funnel-error-retry">
+              <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Tentar novamente
+            </Button>
           </CardContent>
         </Card>
       )}
 
-      {q.data && (
+      {isEmpty && !q.error && (
+        <Card data-testid="funnel-empty">
+          <CardContent className="p-6 flex items-start gap-3 text-sm">
+            <div className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-muted text-muted-foreground shrink-0">
+              <Inbox className="h-5 w-5" />
+            </div>
+            <div className="space-y-1">
+              <p className="font-semibold">Ainda não há dados de onboarding</p>
+              <p className="text-muted-foreground">
+                Assim que os primeiros usuários iniciarem o fluxo em <code>/app/comecar</code>,
+                as métricas por etapa, comparativo PT/EN e trocas de currículo aparecerão aqui.
+                A exportação CSV fica disponível quando houver ao menos um evento.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {q.data && !isEmpty && (
         <>
+
           {/* KPIs */}
           <div className="grid sm:grid-cols-3 gap-4">
             <KpiCard
