@@ -1,5 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { runSeoChecks } from "@/lib/seo-runner";
+import { verifyCronSecret, unauthorizedCronResponse, logCronCall } from "@/lib/cron-auth.server";
+import { checkRateLimit } from "@/lib/rate-limit.server";
 
 /**
  * SEO scan hook — called by pg_cron daily.
@@ -9,14 +11,16 @@ export const Route = createFileRoute("/api/public/hooks/seo-scan")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!expected || apikey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
+        const auth = verifyCronSecret(request);
+        await logCronCall({ hook: "seo-scan", request, result: auth });
+        if (!auth.ok) return unauthorizedCronResponse(auth.reason);
+        if (!(await checkRateLimit("cron:seo-scan", 5, 60))) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429,
             headers: { "content-type": "application/json" },
           });
         }
+
 
         try {
           const snap = await runSeoChecks();
