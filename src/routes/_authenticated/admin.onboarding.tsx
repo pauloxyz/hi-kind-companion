@@ -118,6 +118,90 @@ function AdminOnboardingPage() {
             </CardContent>
           </Card>
 
+          {/* Funil por idioma */}
+          <Card data-testid="funnel-by-lang">
+            <CardHeader>
+              <CardTitle>Funil por idioma (PT vs EN)</CardTitle>
+              <CardDescription>
+                Usuários únicos alcançando cada etapa segmentados pelo último
+                idioma escolhido no toggle PT/EN. Ajuda a ver onde as pessoas
+                travam <em>depois</em> de alternar para EN.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid sm:grid-cols-2 gap-4 mb-4 text-xs">
+                <div className="rounded-md border p-3" data-testid="lang-summary-pt">
+                  <p className="font-semibold">PT</p>
+                  <p className="text-muted-foreground">
+                    Conclusões: <strong className="text-foreground">{q.data.by_lang.pt.completed_users}</strong>{" · "}
+                    Toggles → PT: <strong className="text-foreground">{q.data.by_lang.pt.toggles_to}</strong>
+                  </p>
+                </div>
+                <div className="rounded-md border p-3" data-testid="lang-summary-en">
+                  <p className="font-semibold">EN</p>
+                  <p className="text-muted-foreground">
+                    Conclusões: <strong className="text-foreground">{q.data.by_lang.en.completed_users}</strong>{" · "}
+                    Toggles → EN: <strong className="text-foreground">{q.data.by_lang.en.toggles_to}</strong>
+                  </p>
+                </div>
+              </div>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Etapa</TableHead>
+                    <TableHead className="text-right">PT</TableHead>
+                    <TableHead className="text-right">EN</TableHead>
+                    <TableHead className="text-right">Δ (EN − PT)</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {q.data.funnel.map((row) => {
+                    const pt = q.data.by_lang.pt.reached_by_step[row.step_index] ?? 0;
+                    const en = q.data.by_lang.en.reached_by_step[row.step_index] ?? 0;
+                    const delta = en - pt;
+                    return (
+                      <TableRow key={row.step_index}>
+                        <TableCell>
+                          {row.step_index + 1}. {row.step_label}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">{pt}</TableCell>
+                        <TableCell className="text-right font-mono">{en}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {delta > 0 ? `+${delta}` : delta}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+
+          {/* Trocas de currículo */}
+          <Card data-testid="variant-switches">
+            <CardHeader>
+              <CardTitle>Trocas de currículo</CardTitle>
+              <CardDescription>
+                Eventos <code className="text-xs">onboarding_variant_selected</code> e
+                <code className="text-xs"> onboarding_variant_activated</code>.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-3 gap-3 text-sm">
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Eventos</p>
+                <p className="text-xl font-bold" data-testid="vs-events">{q.data.variant_switches.total_events}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Usuários</p>
+                <p className="text-xl font-bold" data-testid="vs-users">{q.data.variant_switches.unique_users}</p>
+              </div>
+              <div>
+                <p className="text-xs uppercase text-muted-foreground">Variantes</p>
+                <p className="text-xl font-bold" data-testid="vs-variants">{q.data.variant_switches.unique_variants}</p>
+              </div>
+            </CardContent>
+          </Card>
+
           {/* Snapshot atual */}
           <Card>
             <CardHeader>
