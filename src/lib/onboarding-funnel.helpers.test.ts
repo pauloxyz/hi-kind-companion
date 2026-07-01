@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildFunnelCsv,
   computeVariantSwitchImpact,
+  formatCsvNumber,
   type ProfileSnapshotRow,
 } from "./onboarding-funnel.helpers";
 
