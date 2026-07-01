@@ -21,7 +21,7 @@ export type StripeWebhookEventRow = {
   environment: string;
   status: string;
   error_message: string | null;
-  payload_summary: unknown;
+  payload_summary: Record<string, unknown> | null;
   received_at: string;
   processed_at: string | null;
 };
