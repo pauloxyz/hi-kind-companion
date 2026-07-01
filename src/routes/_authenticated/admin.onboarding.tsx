@@ -73,15 +73,24 @@ function AdminOnboardingPage() {
     }
   }, [exportError]);
 
-  // ESC fecha o card enquanto ele estiver aberto (sem depender do clique).
+  // Focus trap + ESC enquanto o card de erro estiver aberto. O card só tem
+  // um controle interativo (o botão "Fechar"), então qualquer Tab/Shift+Tab
+  // deve manter o foco nele até o usuário fechar via Enter/Espaço/ESC.
   useEffect(() => {
     if (!exportError) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.preventDefault();
         setExportError(null);
         // Devolve o foco para o último botão de export usado, mantendo o
         // fluxo de teclado — o botão está habilitado, permitindo retry.
         queueMicrotask(() => lastExportBtnRef.current?.focus());
+        return;
+      }
+      if (e.key === "Tab") {
+        // Trap: prende o foco no "Fechar" enquanto o card estiver aberto.
+        e.preventDefault();
+        dismissRef.current?.focus();
       }
     };
     window.addEventListener("keydown", onKey);
