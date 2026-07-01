@@ -1028,29 +1028,68 @@ function ReprocessLogPanel({
   const exportLog = useServerFn(exportReprocessLog);
   const reprocessFn = useServerFn(reprocessStripeWebhookEvent);
   const reprocessLogBatchFn = useServerFn(reprocessFromLogFilteredBatch);
+  const reprocessByIdsFn = useServerFn(reprocessStripeWebhookEventsByIds);
   const qc = useQueryClient();
 
-  const [stripeEventId, setStripeEventId] = useState(REPROCESS_LOG_DEFAULTS.stripeEventId);
-  const [actorUserId, setActorUserId] = useState(REPROCESS_LOG_DEFAULTS.actorUserId);
-  const [outcome, setOutcome] = useState<"all" | "success" | "error">(REPROCESS_LOG_DEFAULTS.outcome);
-  const [since, setSince] = useState<string>(REPROCESS_LOG_DEFAULTS.since);
-  const [until, setUntil] = useState<string>(REPROCESS_LOG_DEFAULTS.until);
-  const [pageSize, setPageSize] = useState<number>(REPROCESS_LOG_DEFAULTS.pageSize);
-  const [page, setPage] = useState<number>(0);
-  const [sortBy, setSortBy] = useState<ReprocessLogSortCol>("created_at");
-  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const search = routeApi.useSearch();
+  const navigate = useNavigate({ from: ROUTE_ID });
+
+  function patchLogSearch(patch: Partial<SearchState>) {
+    navigate({
+      to: ROUTE_ID,
+      search: (prev: SearchState) => ({ ...prev, ...patch }),
+      replace: true,
+    });
+  }
+
+  const stripeEventId = search.l_sid;
+  const actorUserId = search.l_uid;
+  const outcome = search.l_oc;
+  const since = search.l_since;
+  const until = search.l_until;
+  const sortBy = search.l_sb;
+  const sortDir = search.l_sd;
+  const pageSize = search.l_ps;
+  const page = search.l_p;
+
+  // Inputs de texto continuam controlados localmente para não spam-atualizar a URL
+  const [sidInput, setSidInput] = useState<string>(stripeEventId);
+  const [uidInput, setUidInput] = useState<string>(actorUserId);
+  useEffect(() => { setSidInput(stripeEventId); }, [stripeEventId]);
+  useEffect(() => { setUidInput(actorUserId); }, [actorUserId]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (sidInput !== stripeEventId) patchLogSearch({ l_sid: sidInput, l_p: 0 });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sidInput]);
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (uidInput !== actorUserId) patchLogSearch({ l_uid: uidInput, l_p: 0 });
+    }, 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [uidInput]);
+
+  const setOutcome = (v: LogOutcome) => patchLogSearch({ l_oc: v, l_p: 0 });
+  const setSince = (v: string) => patchLogSearch({ l_since: v, l_p: 0 });
+  const setUntil = (v: string) => patchLogSearch({ l_until: v, l_p: 0 });
+  const setPageSize = (n: number) => patchLogSearch({ l_ps: n, l_p: 0 });
+  const setPage = (updater: number | ((p: number) => number)) => {
+    const next = typeof updater === "function" ? updater(page) : updater;
+    patchLogSearch({ l_p: Math.max(0, next) });
+  };
+
   const [exporting, setExporting] = useState<"csv" | "json" | null>(null);
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [confirmRow, setConfirmRow] = useState<ReprocessLogEntry | null>(null);
   const [confirmBatch, setConfirmBatch] = useState<null | "all" | "errors">(null);
   const [batchSummary, setBatchSummary] = useState<BatchReprocessResult | null>(null);
   const [batchPending, setBatchPending] = useState(false);
+  const [retryingFailures, setRetryingFailures] = useState(false);
   const [batchLimit, setBatchLimit] = useState<number>(50);
   const BATCH_LIMIT_OPTIONS = [50, 100, 500];
-
-  useEffect(() => {
-    setPage(0);
-  }, [stripeEventId, actorUserId, outcome, since, until, pageSize, sortBy, sortDir]);
 
   const toIso = (v: string): string | undefined => {
     if (!v) return undefined;
@@ -1072,6 +1111,7 @@ function ReprocessLogPanel({
       listLog({
         data: { ...filterPayload, sortBy, sortDir, limit: pageSize, offset: page * pageSize },
       }) as Promise<ReprocessLogPage>,
+    refetchInterval: (batchPending || retryingFailures) ? 3000 : false,
   });
 
   const rows = query.data?.rows ?? [];
@@ -1079,26 +1119,26 @@ function ReprocessLogPanel({
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
   const filtersDirty =
-    stripeEventId !== REPROCESS_LOG_DEFAULTS.stripeEventId ||
-    actorUserId !== REPROCESS_LOG_DEFAULTS.actorUserId ||
-    outcome !== REPROCESS_LOG_DEFAULTS.outcome ||
-    since !== REPROCESS_LOG_DEFAULTS.since ||
-    until !== REPROCESS_LOG_DEFAULTS.until;
+    stripeEventId !== "" || actorUserId !== "" || outcome !== "all" ||
+    since !== "" || until !== "";
 
   function resetFilters() {
-    setStripeEventId(REPROCESS_LOG_DEFAULTS.stripeEventId);
-    setActorUserId(REPROCESS_LOG_DEFAULTS.actorUserId);
-    setOutcome(REPROCESS_LOG_DEFAULTS.outcome);
-    setSince(REPROCESS_LOG_DEFAULTS.since);
-    setUntil(REPROCESS_LOG_DEFAULTS.until);
-    setPageSize(REPROCESS_LOG_DEFAULTS.pageSize);
+    patchLogSearch({
+      l_sid: "", l_uid: "", l_oc: "all", l_since: "", l_until: "",
+      l_ps: 25, l_p: 0,
+    });
+    setSidInput("");
+    setUidInput("");
     toast.success("Filtros restaurados");
   }
 
-  function toggleSort(col: ReprocessLogSortCol) {
-    if (sortBy === col) setSortDir(sortDir === "asc" ? "desc" : "asc");
-    else { setSortBy(col); setSortDir("desc"); }
+  function toggleSort(col: LogSortCol) {
+    if (sortBy === col) patchLogSearch({ l_sd: sortDir === "asc" ? "desc" : "asc", l_p: 0 });
+    else patchLogSearch({ l_sb: col, l_sd: "desc", l_p: 0 });
   }
+  // Alias para manter o resto do arquivo funcionando.
+  type ReprocessLogSortCol = LogSortCol;
+
 
   async function handleExport(format: "csv" | "json") {
     setExporting(format);
