@@ -82,8 +82,16 @@ function isPermissionErrorShape(error: { code?: string; message?: string } | nul
 
 
 
+// Collected across all three probe sections so we can report every
+// violation in a single failure block instead of failing on the first hit.
 const failures: string[] = [];
 
+// ──────────────────────────────────────────────────────────────────────
+// Probe 1 — Internal SECURITY DEFINER functions must NOT be anon-callable.
+// A regression here is the exact class of finding we're gating against
+// (SUPA_anon_security_definer_function_executable). Any RPC that returns
+// something other than a permission-shape error is a hard failure.
+// ──────────────────────────────────────────────────────────────────────
 console.log("▶ SECURITY DEFINER EXECUTE grants (must be locked down for anon)");
 for (const { fn, args } of FORBIDDEN_ANON_RPCS) {
   const { error } = await anon.rpc(fn, args);
@@ -94,6 +102,12 @@ for (const { fn, args } of FORBIDDEN_ANON_RPCS) {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Probe 2 — Public helpers that MUST stay anon-callable (guards over-revoke).
+// Without this we'd catch privilege escalation but silently break public
+// features like `get_public_profile_whatsapp` used by unauthenticated
+// visitors on the profile share pages.
+// ──────────────────────────────────────────────────────────────────────
 console.log("");
 console.log("▶ SECURITY DEFINER EXECUTE grants (must remain callable for anon)");
 for (const { fn, args } of ALLOWED_ANON_RPCS) {
@@ -105,6 +119,13 @@ for (const { fn, args } of ALLOWED_ANON_RPCS) {
   }
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Probe 3 — Internal tables must be either denied to anon or return no
+// rows. We accept both "permission-shape error" (proper REVOKE) and
+// "empty result set" (RLS filtering to zero rows) as success — either
+// prevents data exfiltration. An unexpected error shape (e.g. connection
+// error, bad column) is reported so we don't silently pass on infra bugs.
+// ──────────────────────────────────────────────────────────────────────
 console.log("");
 console.log("▶ Internal table anon reads (must be denied or empty)");
 for (const table of FORBIDDEN_ANON_TABLE_READS) {
@@ -117,6 +138,7 @@ for (const table of FORBIDDEN_ANON_TABLE_READS) {
     console.log(`  ✓ ${table} not readable by anon`);
   }
 }
+
 
 
 console.log("");
