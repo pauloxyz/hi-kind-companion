@@ -80,13 +80,12 @@ export function formatCsvNumber(n: number): string {
   // mas ainda sem parte fracional) — usa toFixed(0) para nunca cair em
   // notação científica que Number#toString usaria em |n| >= 1e21.
   if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < Number.EPSILON) {
-    // toFixed em números muito grandes ainda pode retornar exponencial em
-    // implementações antigas — normalizamos.
-    const s = Math.trunc(n).toLocaleString("en-US", {
-      useGrouping: false,
-      maximumFractionDigits: 0,
-    });
-    return /e/i.test(s) ? n.toFixed(0) : s;
+    const truncated = Math.trunc(n);
+    // Number#toString cai em notação exponencial só para |n| >= 1e21.
+    // Nunca usamos toLocaleString aqui — locales como pt-BR reintroduziriam
+    // separadores de milhar ("1.000") que corromperiam o CSV.
+    const s = truncated.toString();
+    return /e/i.test(s) ? truncated.toFixed(0) : s;
   }
   // Não-inteiros: fixa até 12 casas, remove trailing zeros e o ponto solto.
   const fixed = n.toFixed(12);
