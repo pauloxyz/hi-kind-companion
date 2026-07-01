@@ -1,17 +1,21 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { verifyCronSecret, unauthorizedCronResponse, logCronCall } from "@/lib/cron-auth.server";
+import { checkRateLimit } from "@/lib/rate-limit.server";
 
 export const Route = createFileRoute("/api/public/hooks/import-dol-feed")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apikey = request.headers.get("apikey");
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!expected || apikey !== expected) {
-          return new Response(JSON.stringify({ error: "unauthorized" }), {
-            status: 401,
+        const auth = verifyCronSecret(request);
+        await logCronCall({ hook: "import-dol-feed", request, result: auth });
+        if (!auth.ok) return unauthorizedCronResponse(auth.reason);
+        if (!(await checkRateLimit("cron:import-dol-feed", 5, 60))) {
+          return new Response(JSON.stringify({ error: "rate_limited" }), {
+            status: 429,
             headers: { "content-type": "application/json" },
           });
         }
+
         let daysBack = 1;
         try {
           const body = (await request.json()) as { daysBack?: number };

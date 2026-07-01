@@ -131,10 +131,22 @@ export function MfaCard() {
                   1. Escaneie o QR code com seu app autenticador.<br />
                   2. Digite o código de 6 dígitos exibido.
                 </p>
-                <div
-                  className="flex justify-center bg-white p-3 rounded"
-                  dangerouslySetInnerHTML={{ __html: enrollment.qr_code }}
-                />
+                <div className="flex justify-center bg-white p-3 rounded">
+                  {/*
+                    O Supabase retorna `qr_code` como data URL (ex.:
+                    `data:image/svg+xml;utf-8,<svg …>`). Renderizar via
+                    `<img>` mantém o SVG isolado do DOM da página — nenhum
+                    `<script>` embutido executa a partir de um `src`,
+                    diferente de `dangerouslySetInnerHTML` que injetaria o
+                    SVG inline no documento.
+                  */}
+                  <img
+                    src={enrollment.qr_code}
+                    alt="QR code para configurar o app autenticador"
+                    className="max-w-[200px] w-full h-auto"
+                    data-testid="mfa-qr-code"
+                  />
+                </div>
                 <div className="text-[11px] text-muted-foreground">
                   Ou digite manualmente:{" "}
                   <code className="font-mono">{enrollment.secret}</code>
