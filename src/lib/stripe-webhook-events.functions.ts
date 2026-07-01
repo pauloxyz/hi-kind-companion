@@ -226,11 +226,11 @@ type Summary = {
   amount_total?: number | null;
 };
 
-type SupabaseAdminClient = Awaited<
-  ReturnType<typeof import("@/integrations/supabase/client.server").then>
-> extends never
-  ? never
-  : Awaited<typeof import("@/integrations/supabase/client.server")>["supabaseAdmin"];
+// Tipo do client admin sem importar o módulo (que é server-only).
+type SupabaseAdminClient = Awaited<ReturnType<typeof loadAdmin>>["supabaseAdmin"];
+async function loadAdmin() {
+  return import("@/integrations/supabase/client.server");
+}
 
 async function replayOneEvent(
   supabaseAdmin: SupabaseAdminClient,
