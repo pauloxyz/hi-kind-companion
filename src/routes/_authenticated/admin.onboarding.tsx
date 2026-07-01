@@ -68,11 +68,6 @@ function AdminOnboardingPage() {
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
         </div>
-        <div className="grid sm:grid-cols-3 gap-4">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
       )}
 
       {q.error && (
