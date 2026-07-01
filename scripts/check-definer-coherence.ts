@@ -74,8 +74,8 @@ for (const { fn, args } of FORBIDDEN_ANON_RPCS) {
   const { error } = await anon.rpc(fn, args);
   if (!isPermissionErrorShape(error)) {
     failures.push(`  ❌ rpc(${fn}) is callable by anon (regression!) — error=${error?.message ?? "none"}`);
-  } else {
-    console.log(`  ✓ ${fn} denied`);
+  } else if (VERBOSE) {
+    console.log(`  ✓ ${fn} denied (${error?.code ?? "no-code"})`);
   }
 }
 
@@ -85,7 +85,7 @@ for (const { fn, args } of ALLOWED_ANON_RPCS) {
   const { error } = await anon.rpc(fn, args);
   if (error) {
     failures.push(`  ❌ rpc(${fn}) MUST remain anon-callable — error=${error.message}`);
-  } else {
+  } else if (VERBOSE) {
     console.log(`  ✓ ${fn} still allowed`);
   }
 }
@@ -98,10 +98,11 @@ for (const table of FORBIDDEN_ANON_TABLE_READS) {
     failures.push(`  ❌ ${table} returned unexpected error shape: ${error.message}`);
   } else if (!error && (data?.length ?? 0) > 0) {
     failures.push(`  ❌ ${table} leaked rows to anon (regression!)`);
-  } else {
+  } else if (VERBOSE) {
     console.log(`  ✓ ${table} not readable by anon`);
   }
 }
+
 
 console.log("");
 if (failures.length > 0) {
