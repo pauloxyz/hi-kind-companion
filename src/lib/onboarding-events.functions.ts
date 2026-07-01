@@ -182,31 +182,23 @@ export const getOnboardingFunnel = createServerFn({ method: "GET" })
 
     const dist = new Map<number, number>();
     let snapCompleted = 0;
-    // Impacto pós-troca de variante: entre quem trocou variante, quantos
-    // concluíram e onde estão parados os que não concluíram.
-    let completedAfterSwitch = 0;
-    const stuckAfterSwitch = new Map<number, number>();
     for (const row of snap ?? []) {
-      const r = row as {
-        owner_id?: string;
-        onboarding_step?: number | null;
-        onboarding_completed_at?: string | null;
-      };
+      const r = row as { onboarding_step?: number | null; onboarding_completed_at?: string | null };
       if (r.onboarding_completed_at) snapCompleted += 1;
       const s = typeof r.onboarding_step === "number" ? r.onboarding_step : 0;
       dist.set(s, (dist.get(s) ?? 0) + 1);
-      if (r.owner_id && variantUsers.has(r.owner_id)) {
-        if (r.onboarding_completed_at) {
-          completedAfterSwitch += 1;
-        } else {
-          stuckAfterSwitch.set(s, (stuckAfterSwitch.get(s) ?? 0) + 1);
-        }
-      }
     }
+
+    const { computeVariantSwitchImpact } = await import("./onboarding-funnel.helpers");
+    const impact = computeVariantSwitchImpact(
+      (snap ?? []) as Array<{ owner_id?: string | null; onboarding_step?: number | null; onboarding_completed_at?: string | null }>,
+      variantUsers,
+    );
 
     const totalCompleted = Math.max(completed.size, snapCompleted);
     const completionRate =
       totalStarted > 0 ? Math.round((totalCompleted / totalStarted) * 1000) / 10 : 0;
+
 
     // 3) recent events for the activity feed
     const { data: recent, error: recErr } = await context.supabase
@@ -240,10 +232,8 @@ export const getOnboardingFunnel = createServerFn({ method: "GET" })
         total_events: variantEvents,
         unique_users: variantUsers.size,
         unique_variants: variantIds.size,
-        completed_after_switch: completedAfterSwitch,
-        stuck_by_step: Array.from(stuckAfterSwitch.entries())
-          .sort((a, b) => a[0] - b[0])
-          .map(([step, users]) => ({ step, users })),
+        completed_after_switch: impact.completed_after_switch,
+        stuck_by_step: impact.stuck_by_step,
       },
       recent_events: (recent ?? []) as FunnelSnapshot["recent_events"],
     };

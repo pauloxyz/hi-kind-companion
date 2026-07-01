@@ -3,19 +3,40 @@
  *
  * Contract:
  *  - PT→EN dispara 1 chamada de tradução (ou 0 se a variante já tem EN pronto).
- *  - EN→PT→EN reutiliza cache: NENHUMA nova chamada de tradução.
- *  - Trocar variante ativa invalida cache: a próxima alternância p/ EN dispara 1 nova chamada.
+ *  - EN→PT→EN reutiliza cache: NENHUMA nova chamada de tradução E o evento
+ *    onboarding_lang_toggled sai com had_cached_en=true no segundo PT→EN.
+ *  - Trocar variante ativa invalida cache: a próxima alternância p/ EN dispara
+ *    1 nova chamada e o próximo lang toggle enxerga had_cached_en=false.
  *
  * Soft-skip quando usuário não tem auto_translate (Free) — nada pra medir.
  */
 import { test, expect, type Request } from "@playwright/test";
 import { ensureSignedIn } from "./_helpers/auth";
 
+type LangEvent = {
+  event: string;
+  props: { from?: string; to?: string; had_cached_en?: boolean; variant_id?: string | null };
+};
+
 function isTranslateCall(req: Request): boolean {
   if (req.method() !== "POST") return false;
   const url = req.url();
   const body = req.postData() ?? "";
   return /translate/i.test(url) || /translateToEnglish/.test(body);
+}
+
+function tryParseLangEvent(body: string): LangEvent | null {
+  if (!/onboarding_lang_toggled/.test(body)) return null;
+  try {
+    const parsed = JSON.parse(body);
+    const payload = parsed?.data ?? parsed?.[0]?.data ?? parsed?.[0] ?? parsed;
+    if (payload?.event === "onboarding_lang_toggled") {
+      return { event: payload.event, props: payload.props ?? {} };
+    }
+  } catch {
+    /* ignore */
+  }
+  return null;
 }
 
 test.describe("Onboarding · cache de tradução e invalidação por variante", () => {
@@ -34,8 +55,14 @@ test.describe("Onboarding · cache de tradução e invalidação por variante", 
     await expect(wa).toBeVisible();
 
     const calls: string[] = [];
+    const langEvents: LangEvent[] = [];
     page.on("request", (req) => {
       if (isTranslateCall(req)) calls.push(req.url());
+      const body = req.postData();
+      if (body) {
+        const ev = tryParseLangEvent(body);
+        if (ev) langEvents.push(ev);
+      }
     });
 
     // 1) PT→EN (pode gerar 1 chamada; ou 0 se variante ativa já tem EN)
@@ -50,6 +77,12 @@ test.describe("Onboarding · cache de tradução e invalidação por variante", 
     await langEn.click();
     await page.waitForTimeout(1500);
     expect(calls.length, "cache EN deve ser reutilizado").toBe(baselineCalls);
+
+    // Segundo PT→EN precisa carregar had_cached_en=true no payload do evento
+    const enTogglesCached = langEvents.filter((e) => e.props.to === "en");
+    if (enTogglesCached.length >= 2 && baselineCalls > 0) {
+      expect(enTogglesCached[enTogglesCached.length - 1].props.had_cached_en).toBe(true);
+    }
 
     // 3) Troca de variante ativa (se houver): invalida cache e força nova tradução
     const select = page.getByTestId("onb-variant-select");
@@ -69,6 +102,11 @@ test.describe("Onboarding · cache de tradução e invalidação por variante", 
         expect(calls.length, "trocar variante deve invalidar o cache").toBeGreaterThanOrEqual(
           baselineCalls + (baselineCalls === 0 ? 0 : 1),
         );
+        // Após invalidar, o próximo lang_toggled p/ EN deve reportar had_cached_en=false
+        const afterInvalidation = langEvents.filter((e) => e.props.to === "en").pop();
+        if (afterInvalidation) {
+          expect(afterInvalidation.props.had_cached_en).toBe(false);
+        }
       }
     }
   });

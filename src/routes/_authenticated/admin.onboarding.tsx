@@ -3,13 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import { getOnboardingFunnel } from "@/lib/onboarding-events.functions";
+import { buildFunnelCsv } from "@/lib/onboarding-funnel.helpers";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
-import { Users, CheckCircle2, TrendingDown } from "lucide-react";
+import { Users, CheckCircle2, TrendingDown, Download } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   beforeLoad: async () => {
@@ -35,6 +37,29 @@ function AdminOnboardingPage() {
       <PageHeader
         title="Funil de onboarding"
         description="Métricas agregadas dos eventos do servidor + snapshot atual dos perfis."
+        actions={
+          q.data ? (
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="funnel-export-csv"
+              onClick={() => {
+                const csv = buildFunnelCsv(q.data);
+                const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `onboarding-funnel-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                URL.revokeObjectURL(url);
+              }}
+            >
+              <Download className="mr-1.5 h-3.5 w-3.5" /> Exportar CSV
+            </Button>
+          ) : null
+        }
       />
 
       {q.isLoading && (
