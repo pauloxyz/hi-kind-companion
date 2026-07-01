@@ -166,11 +166,11 @@ export function buildFunnelCsv(data: FunnelForCsv, locale: CsvLocale = "pt"): st
     "",
     SUMMARY_HEADING[locale],
     `# lang=${locale}`,
-    `completed_pt,${data.by_lang.pt.completed_users}`,
-    `completed_en,${data.by_lang.en.completed_users}`,
-    `toggles_to_pt,${data.by_lang.pt.toggles_to}`,
-    `toggles_to_en,${data.by_lang.en.toggles_to}`,
-    `completed_after_variant_switch,${data.variant_switches.completed_after_switch}`,
+    `completed_pt,${formatCsvNumber(data.by_lang.pt.completed_users)}`,
+    `completed_en,${formatCsvNumber(data.by_lang.en.completed_users)}`,
+    `toggles_to_pt,${formatCsvNumber(data.by_lang.pt.toggles_to)}`,
+    `toggles_to_en,${formatCsvNumber(data.by_lang.en.toggles_to)}`,
+    `completed_after_variant_switch,${formatCsvNumber(data.variant_switches.completed_after_switch)}`,
   ];
   return [header.join(","), ...rows, ...summary].join("\n") + "\n";
 }
