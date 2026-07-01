@@ -165,25 +165,40 @@ function AdminOnboardingPage() {
           role="alert"
           aria-live="assertive"
           aria-atomic="true"
+          aria-labelledby="funnel-export-error-title"
+          aria-describedby="funnel-export-error-desc"
         >
           <CardContent className="p-4 flex items-start gap-3 text-sm">
             <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive shrink-0">
               <AlertCircle className="h-4 w-4" />
             </div>
             <div className="flex-1 space-y-2">
-              <p className="text-destructive">{exportError}</p>
+              <p
+                id="funnel-export-error-title"
+                className="font-semibold text-destructive"
+                data-testid="funnel-export-error-title"
+              >
+                {t("funnel_export_error_title")}
+              </p>
+              <p
+                id="funnel-export-error-desc"
+                className="text-destructive"
+                data-testid="funnel-export-error-desc"
+              >
+                {exportError}
+              </p>
               <Button
                 ref={dismissRef}
                 variant="ghost"
                 size="sm"
                 data-testid="funnel-export-error-dismiss"
-                aria-label="Fechar mensagem de erro do CSV"
+                aria-label={t("funnel_export_error_dismiss")}
                 onClick={() => {
                   setExportError(null);
                   queueMicrotask(() => lastExportBtnRef.current?.focus());
                 }}
               >
-                Fechar
+                {t("close")}
               </Button>
             </div>
           </CardContent>
