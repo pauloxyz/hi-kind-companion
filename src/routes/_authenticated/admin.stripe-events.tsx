@@ -39,9 +39,13 @@ import {
   Tooltip, TooltipContent, TooltipProvider, TooltipTrigger,
 } from "@/components/ui/tooltip";
 import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Activity, AlertCircle, ArrowDown, ArrowUp, ArrowUpDown, CheckCircle2, Check,
-  ChevronDown, ChevronLeft, ChevronRight, Circle, Clock, Copy, Download, FileJson,
-  RefreshCw, RotateCcw, Search, X, XCircle,
+  ChevronDown, ChevronLeft, ChevronRight, Circle, Clock, Copy, Download, ExternalLink,
+  FileJson, RefreshCw, RotateCcw, Search, X, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 
