@@ -210,7 +210,7 @@ function AdminStripeEventsPage() {
     queryFn: () => listTypes() as Promise<string[]>,
   });
 
-  const eventsBatchPending = false as boolean; // definido abaixo
+  
   const liveRefetch = autoRefresh || retryingFailures;
 
   const statsQuery = useQuery({
