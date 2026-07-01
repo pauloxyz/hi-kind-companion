@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
+import { useState } from "react";
 import { requireAdminAccess } from "@/lib/admin-guard.functions";
 import { getOnboardingFunnel } from "@/lib/onboarding-events.functions";
 import { buildFunnelCsv, type CsvLocale } from "@/lib/onboarding-funnel.helpers";
@@ -11,7 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { PageHeader } from "@/components/page-header";
-import { Users, CheckCircle2, TrendingDown, Download, Inbox, RefreshCw } from "lucide-react";
+import { Users, CheckCircle2, TrendingDown, Download, Inbox, RefreshCw, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   beforeLoad: async () => {
@@ -24,17 +25,24 @@ export const Route = createFileRoute("/_authenticated/admin/onboarding")({
   component: AdminOnboardingPage,
 });
 
+/**
+ * Encapsula a geração do CSV + trigger de download. Retorna `true` no sucesso
+ * e propaga qualquer exceção (blob/URL/DOM) — o caller mostra o erro.
+ */
 function downloadFunnelCsv(data: Parameters<typeof buildFunnelCsv>[0], locale: CsvLocale) {
   const csv = buildFunnelCsv(data, locale);
   const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `onboarding-funnel-${locale}-${new Date().toISOString().slice(0, 10)}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  try {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `onboarding-funnel-${locale}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(url);
+  }
 }
 
 function AdminOnboardingPage() {
@@ -50,6 +58,9 @@ function AdminOnboardingPage() {
     q.data.total_started === 0 &&
     q.data.total_completed === 0 &&
     q.data.recent_events.length === 0;
+
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportingLocale, setExportingLocale] = useState<CsvLocale | null>(null);
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -75,6 +86,7 @@ function AdminOnboardingPage() {
                   aria-disabled={disabled}
                   data-testid={loc === "pt" ? "funnel-export-csv" : `funnel-export-csv-${loc}`}
                   data-locale={loc}
+                  data-exporting={exportingLocale === loc ? "true" : "false"}
                   title={
                     q.isLoading
                       ? "Carregando dados do funil…"
@@ -84,7 +96,18 @@ function AdminOnboardingPage() {
                   }
                   onClick={() => {
                     if (disabled || !q.data) return;
-                    downloadFunnelCsv(q.data, loc);
+                    setExportError(null);
+                    setExportingLocale(loc);
+                    try {
+                      downloadFunnelCsv(q.data, loc);
+                    } catch (err) {
+                      const msg = err instanceof Error ? err.message : String(err);
+                      setExportError(
+                        `Não foi possível gerar o CSV agora (${msg || "erro desconhecido"}). Tente novamente em instantes.`,
+                      );
+                    } finally {
+                      setExportingLocale(null);
+                    }
                   }}
                 >
                   <Download className="mr-1.5 h-3.5 w-3.5" /> {loc.toUpperCase()}
@@ -94,6 +117,29 @@ function AdminOnboardingPage() {
           </div>
         }
       />
+
+      {exportError && (
+        <Card data-testid="funnel-export-error">
+          <CardContent className="p-4 flex items-start gap-3 text-sm">
+            <div className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-destructive/10 text-destructive shrink-0">
+              <AlertCircle className="h-4 w-4" />
+            </div>
+            <div className="flex-1 space-y-2">
+              <p className="text-destructive">{exportError}</p>
+              <Button
+                variant="ghost"
+                size="sm"
+                data-testid="funnel-export-error-dismiss"
+                onClick={() => setExportError(null)}
+              >
+                Fechar
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+
 
       {q.isLoading && (
         <div className="grid sm:grid-cols-3 gap-4" data-testid="funnel-loading" aria-busy="true" aria-live="polite">
