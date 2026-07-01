@@ -22,18 +22,34 @@ jobs:
         run: bunx vitest run src/lib/sitemap-entries.test.ts src/lib/seo-structured-data.test.ts --reporter=verbose
       - name: Unit tests
         run: bunx vitest run --reporter=verbose
-      - name: Security regression tests (column GRANTs + SECURITY DEFINER EXECUTE)
+      - name: Security regression tests (column GRANTs + SECURITY DEFINER EXECUTE + CRON_SECRET)
         # Dedicated gate: fails the build if any of the hardening applied on
         # 2026-07-01 has been reverted — sensitive anon column access on
-        # jobs/my_profile, or anon/authenticated EXECUTE on internal
-        # SECURITY DEFINER functions. Runs against the live Data API with
-        # the publishable (anon) key so the test observes real GRANT state.
-        run: bunx vitest run src/lib/security-regression.integration.test.ts --reporter=verbose
+        # jobs/my_profile, anon/authenticated EXECUTE on internal
+        # SECURITY DEFINER functions, anon read on email queue tables, or
+        # a public /api/public/hooks route that no longer enforces
+        # CRON_SECRET. JSON output is emitted for the report artifact.
+        run: |
+          mkdir -p security-report
+          bunx vitest run \
+            src/lib/security-regression.integration.test.ts \
+            src/lib/cron-auth.server.test.ts \
+            src/routes/api/public/hooks/cron-secret-regression.test.ts \
+            --reporter=verbose \
+            --reporter=json --outputFile=security-report/regression-results.json
         env:
+          CRON_SECRET: ci-regression-cron-secret-placeholder-do-not-use-in-prod
           VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
           VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
           SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
           SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+      - name: Upload security report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report-${{ github.run_number }}
+          path: security-report/
+          retention-days: 30
       - name: Build
         run: bun run build
         env:

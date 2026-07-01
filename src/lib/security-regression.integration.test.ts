@@ -90,6 +90,29 @@ const FORBIDDEN_ANON_RPCS: Array<{ fn: string; args: Record<string, unknown> }> 
   { fn: "read_email_batch", args: { queue_name: "regression", batch_size: 1, vt: 1 } },
 ];
 
+// Tables that MUST NOT be anon-readable at all (no column-level GRANT to
+// anon, RLS should not matter — the outer table GRANT is the cliff).
+// Covers the email queue / suppression surface plus my_profile writes.
+const FORBIDDEN_ANON_TABLE_READS = [
+  "email_send_log",
+  "email_send_state",
+  "suppressed_emails",
+  "email_unsubscribe_tokens",
+  "security_audit_log",
+  "security_scan_runs",
+  "rate_limit_buckets",
+  "user_roles",
+] as const;
+
+// my_profile: anon has SELECT on a narrow column allowlist only. Writes
+// (INSERT/UPDATE/DELETE) must be denied — regression would let a public
+// visitor mutate profile records.
+const MY_PROFILE_WRITE_PROBES = [
+  { op: "insert" as const, args: { owner_id: "00000000-0000-0000-0000-000000000000" } },
+  { op: "update" as const, args: { full_name: "regression" } },
+  { op: "delete" as const, args: undefined },
+];
+
 function isPermissionErrorShape(error: { code?: string; message?: string } | null | undefined): boolean {
   if (!error) return false;
   // PostgREST maps insufficient_privilege → 42501 and returns messages
@@ -183,6 +206,60 @@ describe.runIf(hasCreds)("security regression — SECURITY DEFINER EXECUTE grant
       `get_public_profile_whatsapp must remain anon-callable. Error: ${error?.message ?? ""}`,
     ).toBeNull();
   });
+});
+
+describe.runIf(hasCreds)("security regression — RLS/GRANT on internal tables", () => {
+  let anon: SupabaseClient;
+
+  beforeAll(() => {
+    anon = createClient(URL!, KEY!, {
+      auth: { persistSession: false, autoRefreshToken: false, storage: undefined },
+    });
+  });
+
+  for (const table of FORBIDDEN_ANON_TABLE_READS) {
+    it(`anon cannot SELECT * FROM ${table}`, async () => {
+      const { data, error } = await anon.from(table).select("*").limit(1);
+      // Two acceptable regression-safe shapes:
+      //   1) explicit permission error (GRANT stripped from anon)
+      //   2) empty rows with no error (RLS returns 0 rows despite GRANT)
+      // Anything else — a populated row for anon — is a regression.
+      if (error) {
+        expect(
+          isPermissionErrorShape(error),
+          `${table}: unexpected error shape: ${error.message}`,
+        ).toBe(true);
+      } else {
+        expect(
+          data ?? [],
+          `${table} leaked rows to anon (regression!)`,
+        ).toEqual([]);
+      }
+    });
+  }
+
+  for (const { op, args } of MY_PROFILE_WRITE_PROBES) {
+    it(`anon cannot ${op.toUpperCase()} my_profile`, async () => {
+      let error: { code?: string; message?: string } | null = null;
+      if (op === "insert") {
+        ({ error } = await anon.from("my_profile").insert(args!));
+      } else if (op === "update") {
+        ({ error } = await anon
+          .from("my_profile")
+          .update(args!)
+          .eq("public_slug", "___regression_probe___"));
+      } else {
+        ({ error } = await anon
+          .from("my_profile")
+          .delete()
+          .eq("public_slug", "___regression_probe___"));
+      }
+      expect(
+        error && isPermissionErrorShape(error),
+        `Expected permission-denied on my_profile ${op}. Got: ${error?.message ?? "no error (regression!)"}`,
+      ).toBe(true);
+    });
+  }
 });
 
 describe.runIf(!hasCreds)("security regression (SKIPPED — no Supabase creds)", () => {
