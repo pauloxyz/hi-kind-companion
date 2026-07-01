@@ -58,8 +58,39 @@ export type FunnelForCsv = {
 };
 
 function csvEscape(v: string | number): string {
-  const s = String(v);
+  const s = typeof v === "number" ? formatCsvNumber(v) : String(v);
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * Formata números para o CSV garantindo que:
+ *   - Nunca aparecem em notação científica (ex.: "1e+21").
+ *   - Nunca ganham separadores de milhar dependentes de locale
+ *     (ex.: "1,000" ou "1.000") — sempre `1000`.
+ *   - NaN / Infinity viram `"0"` para não corromper a coluna.
+ *   - Valores inteiros (ou muito próximos) são serializados sem casas decimais
+ *     — todo KPI e contagem por etapa do funil é inteiro por natureza.
+ *   - Não-inteiros preservam sua precisão em notação fixa (sem exponencial).
+ *
+ * Exposto para ser reutilizado por qualquer outro caminho de export/CSV.
+ */
+export function formatCsvNumber(n: number): string {
+  if (typeof n !== "number" || !Number.isFinite(n)) return "0";
+  // Inteiros (incluindo os que Number.isInteger considera fora do safe range
+  // mas ainda sem parte fracional) — usa toFixed(0) para nunca cair em
+  // notação científica que Number#toString usaria em |n| >= 1e21.
+  if (Number.isInteger(n) || Math.abs(n - Math.round(n)) < Number.EPSILON) {
+    // toFixed em números muito grandes ainda pode retornar exponencial em
+    // implementações antigas — normalizamos.
+    const s = Math.trunc(n).toLocaleString("en-US", {
+      useGrouping: false,
+      maximumFractionDigits: 0,
+    });
+    return /e/i.test(s) ? n.toFixed(0) : s;
+  }
+  // Não-inteiros: fixa até 12 casas, remove trailing zeros e o ponto solto.
+  const fixed = n.toFixed(12);
+  return fixed.replace(/\.?0+$/, "");
 }
 
 export type CsvLocale = "pt" | "en" | "es";
