@@ -1284,6 +1284,18 @@ function ReprocessLogSortableHead({
   );
 }
 
+const REPROCESS_LOG_CSV_COLUMNS: (keyof ReprocessLogEntry)[] = [
+  "created_at", "outcome", "environment", "event_type",
+  "stripe_event_id", "actor_user_id", "duration_ms", "message",
+  "event_row_id", "id",
+];
+
+function reprocessLogToCsv(rows: ReprocessLogEntry[]): string {
+  const header = REPROCESS_LOG_CSV_COLUMNS.join(",");
+  const lines = rows.map((r) => REPROCESS_LOG_CSV_COLUMNS.map((c) => csvEscape(r[c])).join(","));
+  return [header, ...lines].join("\n");
+}
+
 
 function buildReprocessLogFilename(
   filters: { outcome: string; stripe_event_id: string; actor_user_id: string },
