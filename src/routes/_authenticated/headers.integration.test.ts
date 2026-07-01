@@ -31,7 +31,12 @@ function countMatches(source: string, pattern: RegExp): number {
   return (source.match(pattern) ?? []).length;
 }
 
-const files = readdirSync(ROUTES_DIR).filter((f) => f.endsWith(".tsx"));
+// Só arquivos de rota — ignora .test.tsx / .integration.test.tsx que ficam
+// co-localizados nesta pasta (o Vite router-plugin também os ignora, mas
+// o teste estático precisa filtrar explicitamente).
+const files = readdirSync(ROUTES_DIR).filter(
+  (f) => f.endsWith(".tsx") && !/\.(test|spec|integration\.test|e2e)\.tsx?$/.test(f),
+);
 
 describe("rotas _authenticated — convenção de cabeçalho", () => {
   it.each(files)("%s tem no máximo um <h1> e usa PageHeader (ou hero exceção)", (file) => {

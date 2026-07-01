@@ -16,12 +16,14 @@ import { AuthEmailForm } from "@/components/auth/AuthEmailForm";
 import { AuthResetForm } from "@/components/auth/AuthResetForm";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (search: Record<string, unknown>) => ({
-    mode: (search.mode === "signup" || search.mode === "forgot" ? search.mode : undefined) as
-      | "signup"
-      | "forgot"
-      | undefined,
-  }),
+  // Só retorna `mode` quando ele veio como signup/forgot; caso contrário,
+  // devolve `{}` para que TanStack Router marque o search inteiro como
+  // opcional — assim <Link to="/auth"> e navigate({to:"/auth"}) não precisam
+  // passar `search` em cada call site.
+  validateSearch: (search: Record<string, unknown>): { mode?: "signup" | "forgot" } => {
+    if (search.mode === "signup" || search.mode === "forgot") return { mode: search.mode };
+    return {};
+  },
   head: () => ({
     meta: [
       { title: "Entrar ou criar conta — VaiPraLá" },
