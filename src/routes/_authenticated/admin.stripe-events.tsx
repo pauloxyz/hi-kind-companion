@@ -123,6 +123,26 @@ function AdminStripeEventsPage() {
     onError: (e) => toast.error(e instanceof Error ? e.message : "Falha ao reprocessar"),
   });
 
+  const batchMut = useMutation({
+    mutationFn: () =>
+      reprocessBatchFn({
+        data: { ...filterPayload, limit: 100 },
+      }) as Promise<BatchReprocessResult>,
+    onSuccess: async (res) => {
+      if (res.attempted === 0) {
+        toast.info("Nenhum evento com status=error nos filtros atuais.");
+      } else if (res.failed === 0) {
+        toast.success(`Lote reprocessado: ${res.succeeded}/${res.attempted} OK`);
+      } else {
+        toast.warning(
+          `Lote parcial: ${res.succeeded} OK · ${res.failed} falharam de ${res.attempted}`,
+        );
+      }
+      await qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] });
+    },
+    onError: (e) => toast.error(e instanceof Error ? e.message : "Falha no reprocessamento em lote"),
+  });
+
   const rows = eventsQuery.data?.rows ?? [];
   const total = eventsQuery.data?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
