@@ -61,6 +61,32 @@ function AdminOnboardingPage() {
 
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportingLocale, setExportingLocale] = useState<CsvLocale | null>(null);
+  const dismissRef = useRef<HTMLButtonElement | null>(null);
+  const lastExportBtnRef = useRef<HTMLButtonElement | null>(null);
+
+  // Quando um erro de export aparece, move o foco para "Fechar" para que
+  // usuários de teclado / leitores de tela consigam continuar imediatamente.
+  useEffect(() => {
+    if (exportError) {
+      // aguarda o card montar
+      queueMicrotask(() => dismissRef.current?.focus());
+    }
+  }, [exportError]);
+
+  // ESC fecha o card enquanto ele estiver aberto (sem depender do clique).
+  useEffect(() => {
+    if (!exportError) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setExportError(null);
+        // Devolve o foco para o último botão de export usado, mantendo o
+        // fluxo de teclado — o botão está habilitado, permitindo retry.
+        queueMicrotask(() => lastExportBtnRef.current?.focus());
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [exportError]);
 
   return (
     <div className="space-y-6 sm:space-y-8">
