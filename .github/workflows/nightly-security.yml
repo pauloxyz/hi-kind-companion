@@ -1,0 +1,127 @@
+name: Nightly Security Scan
+
+# Runs the same regression gate as CI every night at 06:00 UTC (03:00 BRT)
+# plus on-demand from the Actions tab. The five internal_ids hardened on
+# 2026-07-01 are all covered by src/lib/security-regression.integration.test.ts
+# and src/routes/api/public/hooks/cron-secret-regression.test.ts, so a nightly
+# failure here == one of those hardenings has regressed in production data.
+#
+# Alerting:
+#   1. On failure a GitHub Issue is opened (or reused) with the run URL and
+#      failed test list — this triggers the standard GitHub notifications
+#      (email + web + mobile) to repo watchers.
+#   2. Full JSON report + logs are uploaded as an artifact for post-mortem.
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install deps
+        run: bun install --frozen-lockfile
+
+      - name: Run security regression suite
+        id: scan
+        run: |
+          mkdir -p security-report
+          set +e
+          bunx vitest run \
+            src/lib/security-regression.integration.test.ts \
+            src/lib/cron-auth.server.test.ts \
+            src/routes/api/public/hooks/cron-secret-regression.test.ts \
+            --reporter=verbose \
+            --reporter=json --outputFile=security-report/regression-results.json \
+            2>&1 | tee security-report/regression.log
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+          exit 0
+        env:
+          CRON_SECRET: nightly-regression-placeholder
+          VITE_SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+          SUPABASE_URL: https://lkvfvriexuxlvrufbqbf.supabase.co
+          SUPABASE_PUBLISHABLE_KEY: sb_publishable_wq43mYCRgxQ11IfBOkHi7w_Ihw2O_A3
+
+      - name: Upload security report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-security-report-${{ github.run_number }}
+          path: security-report/
+          retention-days: 90
+
+      - name: Summarize into job summary
+        if: always()
+        run: |
+          {
+            echo "# Nightly Security Scan"
+            echo ""
+            echo "- Exit code: \`${{ steps.scan.outputs.exit_code }}\`"
+            echo "- Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+            echo ""
+            echo "## Log tail"
+            echo '```'
+            tail -n 80 security-report/regression.log || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Open / update alert issue on failure
+        if: steps.scan.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = "🔒 Nightly security regression detected";
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              "The nightly security regression suite failed.",
+              "",
+              "**One or more targeted findings may have reappeared:**",
+              "- `SUPA_anon_security_definer_function_executable`",
+              "- `SUPA_authenticated_security_definer_function_executable`",
+              "- `SUPA_function_search_path_mutable`",
+              "- `jobs_recruitment_contact_anon_exposure`",
+              "- `my_profile_anon_sensitive_columns`",
+              "- CRON_SECRET enforcement on `/api/public/hooks/*`",
+              "",
+              `Run: ${runUrl}`,
+              "",
+              "Download the `nightly-security-report-*` artifact for full logs + JSON.",
+            ].join("\n");
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: "open",
+              labels: "security,regression",
+              per_page: 20,
+            });
+            const match = existing.data.find((i) => i.title === title);
+            if (match) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: match.number,
+                body,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                body,
+                labels: ["security", "regression"],
+              });
+            }
+
+      - name: Fail the workflow if the scan failed
+        if: steps.scan.outputs.exit_code != '0'
+        run: exit 1
