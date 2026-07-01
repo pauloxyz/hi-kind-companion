@@ -1214,6 +1214,33 @@ function ReprocessLogPanel({
     }
   }
 
+  async function retryLastBatchFailures() {
+    if (!batchSummary) return;
+    const failedIds = batchSummary.results.filter((r) => !r.ok).map((r) => r.id);
+    if (failedIds.length === 0) {
+      toast.info("Não há falhas para reprocessar.");
+      return;
+    }
+    setRetryingFailures(true);
+    try {
+      const res = (await reprocessByIdsFn({ data: { ids: failedIds } })) as BatchReprocessResult;
+      setBatchSummary(res);
+      if (res.failed === 0) {
+        toast.success(`Falhas reprocessadas: ${res.succeeded}/${res.attempted} OK`);
+      } else {
+        toast.warning(`Retentativa parcial: ${res.succeeded} OK · ${res.failed} falharam`);
+      }
+      await Promise.all([
+        qc.invalidateQueries({ queryKey: ["admin", "stripe-events"] }),
+        query.refetch(),
+      ]);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Falha ao retentar as falhas");
+    } finally {
+      setRetryingFailures(false);
+    }
+  }
+
   return (
     <Card>
       <CardHeader>
