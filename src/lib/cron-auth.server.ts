@@ -47,7 +47,7 @@ export function verifyCronSecret(request: Request): CronAuthResult {
   return { ok: true, presented: presentedFrom };
 }
 
-export function unauthorizedCronResponse(reason: CronAuthResult extends { ok: false; reason: infer R } ? R : never): Response {
+export function unauthorizedCronResponse(reason: "missing_secret_env" | "missing_header" | "mismatch"): Response {
   // Mesma resposta pública para qualquer motivo de falha — evita distinguir
   // "segredo não configurado" de "segredo errado" para o caller.
   return new Response(JSON.stringify({ error: "unauthorized", reason }), {
