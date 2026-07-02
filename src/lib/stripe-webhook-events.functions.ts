@@ -32,10 +32,12 @@ const listSchema = baseFilters.extend({
   offset: z.number().int().min(0).default(0),
 });
 
-const exportSchema = baseFilters.extend({
+export const stripeEventsExportSchema = baseFilters.extend({
   sortBy: z.enum(sortColumns).default("received_at"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
+const exportSchema = stripeEventsExportSchema;
+
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
 
@@ -81,7 +83,7 @@ type SupabaseFilterable = {
   or: (expr: string) => SupabaseFilterable;
 };
 
-function applyFilters<T extends SupabaseFilterable>(
+export function applyStripeEventsFilters<T extends SupabaseFilterable>(
   q: T,
   data: z.infer<typeof baseFilters>,
 ): T {
@@ -111,6 +113,8 @@ function applyFilters<T extends SupabaseFilterable>(
   }
   return out;
 }
+const applyFilters = applyStripeEventsFilters;
+
 
 export const listStripeWebhookEvents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -659,7 +663,7 @@ export const reprocessFromLogFilteredBatch = createServerFn({ method: "POST" })
     return { attempted: results.length, succeeded, failed, results };
   });
 
-const exportReprocessLogSchema = z.object({
+export const reprocessLogExportSchema = z.object({
   stripe_event_id: z.string().trim().max(120).optional(),
   actor_user_id: z.string().trim().max(120).optional(),
   outcome: z.enum(["all", "success", "error"]).default("all"),
@@ -667,6 +671,8 @@ const exportReprocessLogSchema = z.object({
   until: z.string().datetime().optional(),
   limit: z.number().int().min(1).max(10000).default(10000),
 });
+const exportReprocessLogSchema = reprocessLogExportSchema;
+
 
 export const exportReprocessLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])

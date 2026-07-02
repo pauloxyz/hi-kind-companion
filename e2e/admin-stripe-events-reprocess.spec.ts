@@ -1939,4 +1939,138 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     const okT = await readLastToast(page);
     expect(okT).toMatch(T_OK_EXPORT_CSV);
   });
+
+  // ---------------------------------------------------------------- (37)
+  // Cliques quase-simultâneos em CSV e JSON: aria-busy/data-exporting
+  // impedem duplicação. Como só existe um estado `exporting` compartilhado,
+  // o botão do formato oposto vira disabled assim que o primeiro dispara —
+  // no máximo 1 request de export e 1 download acontece na primeira rodada.
+  test("(37) CSV e JSON quase simultâneos → apenas 1 request e 1 download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio — nada para exportar");
+
+    // Segura a resposta do primeiro export por 500ms para manter aria-busy=true.
+    let exportRequests = 0;
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      exportRequests += 1;
+      await new Promise((r) => setTimeout(r, 500));
+      await route.continue();
+    });
+
+    const downloads: string[] = [];
+    const onDl = (dl: import("@playwright/test").Download) =>
+      downloads.push(dl.suggestedFilename());
+    page.on("download", onDl);
+
+    // Cliques quase simultâneos: o 2º cai enquanto o 1º está exporting.
+    await Promise.all([
+      csvBtn.click(),
+      jsonBtn.click({ force: true }).catch(() => {}),
+    ]);
+
+    // O primeiro que ganhou vira busy; o outro fica disabled.
+    // Não sabemos qual venceu no race, então basta garantir ≥1 busy.
+    await expect(async () => {
+      const csvBusy = await csvBtn.getAttribute("aria-busy");
+      const jsonBusy = await jsonBtn.getAttribute("aria-busy");
+      expect(csvBusy === "true" || jsonBusy === "true").toBe(true);
+    }).toPass({ timeout: 2000 });
+
+    // Aguarda o handler concluir.
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(jsonBtn).toHaveAttribute("data-exporting", "false");
+    await page.waitForTimeout(400);
+    page.off("download", onDl);
+
+    expect(exportRequests, `esperava 1 request, recebi ${exportRequests}`).toBe(1);
+    expect(downloads, `esperava 1 download, recebi ${downloads.length}`).toHaveLength(1);
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+  });
+
+  // ---------------------------------------------------------------- (38)
+  // Export via teclado (Enter/Space) e transferência de foco enquanto
+  // aria-busy="true". Enquanto exportando, o botão fica disabled e perde
+  // o foco (ou o navegador skipa em Tab), mas o rótulo/testid permanecem.
+  test("(38) Export via Enter/Space mantém rótulos e move foco quando disabled", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    // Segura o request para inspecionar o estado busy.
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 400));
+      await route.continue();
+    });
+
+    // Enter no CSV
+    await csvBtn.focus();
+    await expect(csvBtn).toBeFocused();
+    const [dl1] = await Promise.all([
+      page.waitForEvent("download"),
+      page.keyboard.press("Enter"),
+    ]);
+    expect(dl1.suggestedFilename()).toMatch(/^stripe-reprocess-log.*\.csv$/);
+
+    // Aguarda idle e verifica que o rótulo do botão CSV segue igual.
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toHaveText(/CSV/);
+
+    // Space no JSON
+    await jsonBtn.focus();
+    await expect(jsonBtn).toBeFocused();
+    const [dl2] = await Promise.all([
+      page.waitForEvent("download"),
+      page.keyboard.press("Space"),
+    ]);
+    expect(dl2.suggestedFilename()).toMatch(/^stripe-reprocess-log.*\.json$/);
+    await expect(jsonBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(jsonBtn).toHaveText(/JSON/);
+
+    // Enquanto exportando: foco deve poder mover via Tab (botão focado fica disabled).
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 800));
+      await route.continue();
+    });
+    await csvBtn.focus();
+    await page.keyboard.press("Enter");
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true", { timeout: 2000 });
+    await page.keyboard.press("Tab");
+    // Enquanto busy, o foco NÃO deve estar mais no botão CSV (disabled não recebe foco em Tab).
+    await expect(csvBtn).not.toBeFocused();
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+  });
+
+  // ---------------------------------------------------------------- (39)
+  // Filenames determinísticos + únicos: dois downloads sequenciais no
+  // mesmo segundo (~150ms de intervalo) devem gerar nomes DIFERENTES,
+  // para o browser não sobrescrever o arquivo anterior.
+  test("(39) Downloads no mesmo segundo têm filenames distintos", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    // 1º download.
+    const [dl1] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    const name1 = dl1.suggestedFilename();
+    expect(name1).toMatch(/^stripe-reprocess-log.*\.csv$/);
+
+    // Aguarda o botão reabilitar e força 2º clique rápido — ainda dentro do mesmo segundo.
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toBeEnabled();
+
+    const [dl2] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    const name2 = dl2.suggestedFilename();
+    expect(name2).toMatch(/^stripe-reprocess-log.*\.csv$/);
+
+    // Nomes DEVEM diferir mesmo que a diferença seja só o sufixo -N ou os ms.
+    expect(name2, `filenames iguais quebrariam o download: ${name1}`).not.toBe(name1);
+  });
 });
+
