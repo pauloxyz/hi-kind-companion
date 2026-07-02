@@ -373,11 +373,26 @@ function AdminStripeEventsPage() {
                 <RotateCcw className={`mr-2 h-4 w-4 ${batchMut.isPending ? "animate-spin" : ""}`} />
                 Reprocessar erros ({stats?.error ?? 0})
               </Button>
-              <Button size="sm" onClick={() => handleExport("csv")} disabled={exporting !== null || total === 0}>
+              <Button
+                size="sm"
+                onClick={() => handleExport("csv")}
+                disabled={exporting !== null || total === 0}
+                data-testid="events-export-csv"
+                data-exporting={exporting === "csv" ? "true" : "false"}
+                aria-busy={exporting === "csv" ? true : false}
+              >
                 <Download className={`mr-2 h-4 w-4 ${exporting === "csv" ? "animate-pulse" : ""}`} />
                 Exportar CSV
               </Button>
-              <Button size="sm" variant="outline" onClick={() => handleExport("json")} disabled={exporting !== null || total === 0}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => handleExport("json")}
+                disabled={exporting !== null || total === 0}
+                data-testid="events-export-json"
+                data-exporting={exporting === "json" ? "true" : "false"}
+                aria-busy={exporting === "json" ? true : false}
+              >
                 <FileJson className={`mr-2 h-4 w-4 ${exporting === "json" ? "animate-pulse" : ""}`} />
                 Exportar JSON
               </Button>
