@@ -1371,7 +1371,21 @@ function ReprocessLogPanel({
               <FileJson className={`mr-2 h-4 w-4 ${exporting === "json" ? "animate-pulse" : ""}`} />
               Exportar JSON
             </Button>
+            <span
+              data-testid="log-export-status"
+              role="status"
+              aria-live="polite"
+              aria-atomic="true"
+              className="sr-only"
+            >
+              {exporting === "csv"
+                ? "Exportando CSV…"
+                : exporting === "json"
+                ? "Exportando JSON…"
+                : ""}
+            </span>
           </div>
+
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
