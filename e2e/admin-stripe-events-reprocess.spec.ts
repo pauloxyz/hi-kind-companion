@@ -448,4 +448,207 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
       `Requests individuais indevidas durante o lote:\n${reprocessCalls.join("\n")}`,
     ).toHaveLength(0);
   });
+
+  // ---------------------------------------------------------------- (12)
+  test("Export: payload não pagina (sem offset/limit) e toast bate com o total exportado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    // Força paginação l_ps=25 e navega até a página 2 se houver, pra provar que
+    // o export ignora a paginação atual e devolve o conjunto INTEIRO filtrado.
+    const url = new URL(page.url());
+    url.searchParams.set("l_ps", "25");
+    url.searchParams.set("l_p", "0");
+    await page.goto(url.pathname + "?" + url.searchParams.toString());
+    await page.waitForLoadState("domcontentloaded");
+
+    if (await page.getByRole("button", { name: /^Exportar CSV$/ }).isDisabled()) {
+      test.skip(true, "Sem registros para exportar");
+    }
+
+    const captured: Array<{ url: string; body: unknown }> = [];
+    const listener = (req: import("@playwright/test").Request) => {
+      const u = req.url();
+      if (!/\/n\//.test(u)) return;
+      let body: unknown = null;
+      try { body = req.postDataJSON(); } catch { body = req.postData(); }
+      captured.push({ url: u, body });
+    };
+    page.on("request", listener);
+
+    const [dl] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: /^Exportar JSON$/ }).click(),
+    ]);
+    const jsonText = await (await import("node:fs/promises")).readFile((await dl.path())!, "utf8");
+    page.off("request", listener);
+
+    const rows = JSON.parse(jsonText) as unknown[];
+    const toast = await readLastToast(page);
+    expect(toast).toMatch(T_OK_EXPORT_JSON);
+    const toastCount = Number(toast.match(/\((\d+) registros\)/)?.[1] ?? "-1");
+    expect(rows.length).toBe(toastCount);
+
+    // Nenhum request de export deve ter enviado offset paginado (>0) nem "limit"
+    // recortando o conjunto — o export cobre TODO o filtro.
+    for (const c of captured) {
+      const s = typeof c.body === "string" ? c.body : JSON.stringify(c.body ?? {});
+      if (!/outcome|stripe_event_id|actor_user_id|since|until/.test(s)) continue;
+      expect(s, `request suspeito com offset paginado: ${c.url}`).not.toMatch(/"offset"\s*:\s*[1-9]/);
+      // Se houver "limit", tem que ser >= o total retornado (i.e. não recorta a página)
+      const limitMatch = s.match(/"limit"\s*:\s*(\d+)/);
+      if (limitMatch) {
+        expect(Number(limitMatch[1])).toBeGreaterThanOrEqual(rows.length);
+      }
+    }
+  });
+
+  // ---------------------------------------------------------------- (13)
+  test("Retentar falhas: paginação/ordenação preservadas e toast só cobre os retentados", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    // Aplica sort e page-size explícitos para poder comparar depois
+    const durHead = page.getByRole("button", { name: /Duração/i }).first();
+    if (await durHead.isVisible().catch(() => false)) {
+      await durHead.click();
+      await page.waitForTimeout(200);
+    }
+
+    // Roda o lote pra gerar (possíveis) falhas
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    await expectToastMatchingAny(page, [T_OK_BATCH, T_PARTIAL_BATCH, T_EMPTY_BATCH, T_ERR_BATCH]);
+
+    const retry = panel.getByTestId("retry-failures-btn");
+    if (!(await retry.isVisible().catch(() => false))) {
+      test.skip(true, "Batch não produziu falhas para retentar");
+    }
+    // Extrai contador de falhas do rótulo do próprio botão: "Retentar falhas (N)"
+    const label = (await retry.innerText()).trim();
+    const failedBefore = Number(label.match(/\((\d+)\)/)?.[1] ?? "0");
+    expect(failedBefore).toBeGreaterThan(0);
+
+    const urlBefore = new URL(page.url());
+    const sb = urlBefore.searchParams.get("l_sb");
+    const sd = urlBefore.searchParams.get("l_sd");
+    const p  = urlBefore.searchParams.get("l_p") ?? "0";
+    const ps = urlBefore.searchParams.get("l_ps");
+
+    await retry.click();
+    await expect(panel).toHaveAttribute("data-pending", "true");
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    const retryToast = await expectToastMatchingAny(page, [T_OK_RETRY, T_PARTIAL_RETRY, T_ERR_RETRY]);
+
+    const urlAfter = new URL(page.url());
+    expect(urlAfter.searchParams.get("l_sb")).toBe(sb);
+    expect(urlAfter.searchParams.get("l_sd")).toBe(sd);
+    expect(urlAfter.searchParams.get("l_p") ?? "0").toBe(p);
+    expect(urlAfter.searchParams.get("l_ps")).toBe(ps);
+    expect(urlAfter.searchParams.get("tab")).toBe("reprocess-log");
+
+    // O toast da retentativa cobre APENAS o subconjunto de falhas do lote,
+    // então o denominador nunca deve exceder failedBefore.
+    const m = retryToast.match(/(\d+)\/(\d+)\s+OK$/) ?? retryToast.match(/de\s+(\d+)/);
+    if (m) {
+      const denom = Number(m[m.length - 1]);
+      expect(denom).toBeLessThanOrEqual(failedBefore);
+    }
+  });
+
+  // ---------------------------------------------------------------- (14)
+  test("Ao término do lote: export e reprocessamento reabilitam; modal individual volta a abrir", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const row = await firstRowOrSkip(page);
+    const rowBtn = row.getByTestId("reprocess-row-btn");
+
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toHaveAttribute("data-pending", "true");
+    // Enquanto pending: tudo bloqueado
+    await expect(rowBtn).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^Exportar CSV$/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /^Exportar JSON$/ })).toBeDisabled();
+    await expect(page.getByRole("button", { name: /Reprocessar filtrados/i })).toBeDisabled();
+
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    await expectToastMatchingAny(page, [T_OK_BATCH, T_PARTIAL_BATCH, T_EMPTY_BATCH, T_ERR_BATCH]);
+
+    // Após o lote: botões reabilitam
+    await expect(rowBtn).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Reprocessar filtrados/i })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /^Exportar CSV$/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /^Exportar JSON$/ })).toBeEnabled();
+    await expect(row).not.toHaveAttribute("aria-busy", "true");
+
+    // Modal individual volta a abrir e cancelar funciona
+    await rowBtn.click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog.getByText(/Reprocessar este evento\?/i)).toBeVisible();
+    await dialog.getByRole("button", { name: /^Cancelar$/i }).click();
+    await expect(dialog).toBeHidden();
+  });
+
+  // ---------------------------------------------------------------- (15)
+  test("Durante o lote: filtros e ordenação ficam travados; URL não muda", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toHaveAttribute("data-pending", "true");
+
+    // Snapshot da URL enquanto pending
+    const urlLocked = new URL(page.url());
+    const snapshot = urlLocked.searchParams.toString();
+
+    // Captura qualquer navegação/mudança de query enquanto pending
+    let navChanged = false;
+    const framenav = (frame: import("@playwright/test").Frame) => {
+      if (frame === page.mainFrame()) navChanged = true;
+    };
+    page.on("framenavigated", framenav);
+
+    // 1) Tentativa de mudar o Resultado (select) — deve estar disabled
+    const outcomeSelect = page.getByRole("combobox", { name: /Resultado/i });
+    if (await outcomeSelect.isVisible().catch(() => false)) {
+      await expect(outcomeSelect).toBeDisabled();
+      await outcomeSelect.click({ force: true }).catch(() => {});
+      await expect(page.getByRole("option", { name: /^Erro$/ })).toHaveCount(0);
+    }
+
+    // 2) Tentativa de digitar no input de stripe_event_id — deve estar disabled
+    const sid = page.getByPlaceholder(/evt_/).first();
+    if (await sid.isVisible().catch(() => false)) {
+      await expect(sid).toBeDisabled();
+      await sid.fill("evt_should_be_blocked", { force: true }).catch(() => {});
+    }
+
+    // 3) Tentativa de reordenar clicando no header "Duração"
+    const durHead = page.getByRole("button", { name: /Duração/i }).first();
+    if (await durHead.isVisible().catch(() => false)) {
+      await durHead.click({ force: true }).catch(() => {});
+    }
+
+    // 4) Reset filters também deve estar bloqueado
+    const reset = page.getByRole("button", { name: /^Limpar$|^Resetar|Reset/ }).first();
+    if (await reset.isVisible().catch(() => false)) {
+      await expect(reset).toBeDisabled();
+    }
+
+    // Nada disso pode ter mudado a URL enquanto pending
+    expect(new URL(page.url()).searchParams.toString()).toBe(snapshot);
+
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    page.off("framenavigated", framenav);
+    // Se navegou, precisa ter sido pra mesma URL (framenavigated dispara em pushState)
+    if (navChanged) {
+      expect(new URL(page.url()).searchParams.toString()).toBe(snapshot);
+    }
+  });
 });
