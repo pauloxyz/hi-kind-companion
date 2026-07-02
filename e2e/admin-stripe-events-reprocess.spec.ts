@@ -1447,4 +1447,274 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
 
     await page.unroute(/\/n\//);
   });
+
+  // ---------------------------------------------------------------- (29)
+  // Nome de arquivo, content-type e charset corretos para CSV e JSON
+  test("Filename, content-type e charset do download batem com o export solicitado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    // Intercepta URL.createObjectURL para capturar o Blob real usado no download
+    await page.exposeBinding("__lvblobMeta", (_src, meta: { type: string; size: number }) => meta);
+    await page.addInitScript(() => {
+      const orig = URL.createObjectURL.bind(URL);
+      (URL as any).createObjectURL = (blob: Blob) => {
+        try { (window as any).__lvblobMeta({ type: blob.type, size: blob.size }); } catch {}
+        (window as any).__lastBlobType = blob.type;
+        (window as any).__lastBlobSize = blob.size;
+        return orig(blob);
+      };
+    });
+
+    async function checkOne(kind: "csv" | "json") {
+      const btn = kind === "csv"
+        ? page.getByTestId("log-export-csv")
+        : page.getByTestId("log-export-json");
+      if (await btn.isDisabled()) test.skip(true, `Export ${kind} desabilitado`);
+
+      const [dl] = await Promise.all([page.waitForEvent("download"), btn.click()]);
+      const filename = dl.suggestedFilename();
+      // Prefixo do log de reprocessamento e sufixo com data/hora ISO sanitizada
+      expect(filename).toMatch(new RegExp(`^stripe-webhook-reprocess-log.*\\.${kind}$`));
+      expect(filename).toMatch(/\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.(csv|json)$/);
+
+      const blobType = await page.evaluate(() => (window as any).__lastBlobType as string);
+      const blobSize = await page.evaluate(() => (window as any).__lastBlobSize as number);
+      if (kind === "csv") {
+        // Deve ter charset=utf-8 e MIME text/csv (com BOM UTF-8 no início)
+        expect(blobType).toBe("text/csv;charset=utf-8");
+        const fs = await import("node:fs/promises");
+        const buf = await fs.readFile((await dl.path())!);
+        expect(buf[0]).toBe(0xef);
+        expect(buf[1]).toBe(0xbb);
+        expect(buf[2]).toBe(0xbf);
+      } else {
+        expect(blobType).toBe("application/json");
+      }
+      expect(blobSize).toBeGreaterThan(0);
+      const t = await readLastToast(page);
+      expect(t).toMatch(kind === "csv" ? T_OK_EXPORT_CSV : T_OK_EXPORT_JSON);
+    }
+
+    await checkOne("csv");
+    // Pequena espera para o toast anterior desmontar
+    await page.waitForTimeout(200);
+    await checkOne("json");
+  });
+
+  // ---------------------------------------------------------------- (30)
+  // Última página: total < limit — arquivo contém exatamente os últimos sids
+  test("Export da última página: arquivo contém os últimos sids e toast reflete a contagem final", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    // Cria dataset determinístico: 7 linhas; pageSize=5 => last page com 2
+    const total = 7;
+    const dataset = Array.from({ length: total }, (_, i) => ({
+      id: `id_${i + 1}`,
+      event_row_id: `row_${i + 1}`,
+      stripe_event_id: `evt_last_${String(i + 1).padStart(2, "0")}`,
+      event_type: "checkout.session.completed",
+      environment: "test",
+      actor_user_id: null,
+      outcome: i % 2 === 0 ? "success" : "error",
+      message: null,
+      duration_ms: 42,
+      created_at: new Date(2026, 0, i + 1).toISOString(),
+    }));
+
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      const isExport = /"outcome"|"since"|"until"/.test(body) && /"limit"/.test(body) && !/"ids"/.test(body) && !/"id"\s*:\s*"/.test(body);
+      if (isExport) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ result: { data: dataset }, data: dataset }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    if (await csvBtn.isDisabled()) test.skip(true, "Export CSV desabilitado");
+
+    const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    const fs = await import("node:fs/promises");
+    const text = (await fs.readFile((await dl.path())!, "utf8")).replace(/^\uFEFF/, "");
+    const lines = text.split("\n").filter((l) => l.length > 0);
+    // header + total rows
+    expect(lines.length).toBe(1 + total);
+
+    // Últimos 2 sids esperados na última página
+    const expectedLastSids = ["evt_last_06", "evt_last_07"];
+    for (const sid of expectedLastSids) {
+      expect(text).toContain(sid);
+    }
+
+    const toast = await readLastToast(page);
+    expect(toast).toMatch(T_OK_EXPORT_CSV);
+    expect(toast).toMatch(new RegExp(`\\(${total} registros\\)`));
+
+    await page.unroute(/\/n\//);
+  });
+
+  // ---------------------------------------------------------------- (31)
+  // Escaping RFC-4180 avançado: combinações extremas de aspas + vírgula + \n
+  test("CSV escape: aspas duplas + vírgulas + \\n preservam sids e integridade das linhas", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    if (await csvBtn.isDisabled()) test.skip(true, "Export CSV desabilitado");
+
+    // Campos com combinações mais duras: só aspas, só vírgula, só \n, misturado
+    const evil = [
+      { stripe_event_id: 'evt_q1', event_row_id: 'r_q1', outcome: 'error', created_at: '2026-02-01T00:00:00Z', error_message: '"""triple quoted"""', raw: '' },
+      { stripe_event_id: 'evt_q2', event_row_id: 'r_q2', outcome: 'error', created_at: '2026-02-02T00:00:00Z', error_message: ',,,', raw: '' },
+      { stripe_event_id: 'evt_q3', event_row_id: 'r_q3', outcome: 'error', created_at: '2026-02-03T00:00:00Z', error_message: '\n\n\n', raw: '' },
+      { stripe_event_id: 'evt_q4', event_row_id: 'r_q4', outcome: 'error', created_at: '2026-02-04T00:00:00Z', error_message: 'a"b,c\nd"e,f\n"g', raw: '' },
+    ];
+
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      const isExport = /"outcome"|"limit"|"since"|"until"/.test(body) && !/"ids"/.test(body) && !/"id"\s*:\s*"/.test(body);
+      if (isExport) {
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ result: { data: evil }, data: evil }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    const fs = await import("node:fs/promises");
+    const text = (await fs.readFile((await dl.path())!, "utf8")).replace(/^\uFEFF/, "");
+
+    function parseCSV(input: string): string[][] {
+      const rows: string[][] = [];
+      let row: string[] = [];
+      let field = "";
+      let inQuotes = false;
+      for (let i = 0; i < input.length; i++) {
+        const ch = input[i];
+        if (inQuotes) {
+          if (ch === '"' && input[i + 1] === '"') { field += '"'; i++; }
+          else if (ch === '"') { inQuotes = false; }
+          else { field += ch; }
+        } else {
+          if (ch === '"') inQuotes = true;
+          else if (ch === ",") { row.push(field); field = ""; }
+          else if (ch === "\n" || ch === "\r") {
+            if (ch === "\r" && input[i + 1] === "\n") i++;
+            row.push(field); rows.push(row); row = []; field = "";
+          } else field += ch;
+        }
+      }
+      if (field.length > 0 || row.length > 0) { row.push(field); rows.push(row); }
+      return rows.filter((r) => r.length > 1 || (r[0] ?? "").length > 0);
+    }
+
+    const rows = parseCSV(text);
+    // header + exatamente evil.length
+    expect(rows.length).toBe(1 + evil.length);
+    const header = rows[0];
+    const sidIdx = header.findIndex((h) => h === "stripe_event_id");
+    expect(sidIdx).toBeGreaterThanOrEqual(0);
+
+    // Todas as linhas com o mesmo número de colunas do header
+    for (const r of rows.slice(1)) {
+      expect(r.length, `row com colunas erradas: ${JSON.stringify(r)}`).toBe(header.length);
+    }
+    const foundSids = rows.slice(1).map((r) => r[sidIdx]);
+    for (const e of evil) expect(foundSids).toContain(e.stripe_event_id);
+
+    const toast = await readLastToast(page);
+    expect(toast).toMatch(T_OK_EXPORT_CSV);
+    expect(toast).toMatch(new RegExp(`\\(${evil.length} registros\\)`));
+
+    await page.unroute(/\/n\//);
+  });
+
+  // ---------------------------------------------------------------- (32)
+  // Ciclo de aria-busy: idle → true durante export → false ao concluir/falhar
+  test("aria-busy dos botões de export cicla corretamente durante e após o download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    if (await csvBtn.isDisabled()) test.skip(true, "Export desabilitado");
+
+    // Estado inicial
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false");
+    await expect(jsonBtn).toHaveAttribute("aria-busy", "false");
+
+    // Atrasa o request de export para dar uma janela observável de aria-busy=true
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      const isExport = /"outcome"|"limit"|"since"|"until"/.test(body) && !/"ids"/.test(body) && !/"id"\s*:\s*"/.test(body);
+      if (isExport) {
+        await new Promise((r) => setTimeout(r, 900));
+        await route.continue();
+        return;
+      }
+      await route.continue();
+    });
+
+    const dlP = page.waitForEvent("download");
+    await csvBtn.click();
+
+    // Durante o export: aria-busy=true, data-exporting=csv, botão CSR desabilitado,
+    // e o botão JSON também trava (mesma flag `exporting !== null`)
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true", { timeout: 3000 });
+    await expect(csvBtn).toHaveAttribute("data-exporting", "true");
+    await expect(csvBtn).toBeDisabled();
+    await expect(jsonBtn).toBeDisabled();
+
+    const dl = await dlP;
+    expect(dl.suggestedFilename()).toMatch(/^stripe-webhook-reprocess-log.*\.csv$/);
+
+    // Ao concluir: volta ao idle
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false", { timeout: 5000 });
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false");
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+
+    await page.unroute(/\/n\//);
+
+    // Agora simula falha e valida que aria-busy volta a false mesmo em erro
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      const isExport = /"outcome"|"limit"|"since"|"until"/.test(body) && !/"ids"/.test(body) && !/"id"\s*:\s*"/.test(body);
+      if (isExport) {
+        await new Promise((r) => setTimeout(r, 400));
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "boom-aria" }) });
+        return;
+      }
+      await route.continue();
+    });
+
+    await jsonBtn.click();
+    await expect(jsonBtn).toHaveAttribute("aria-busy", "true", { timeout: 3000 });
+    await expect(jsonBtn).toHaveAttribute("data-exporting", "true");
+    // Falha propaga → toast de erro + botões reabilitam com aria-busy=false
+    const errT = await readLastToast(page);
+    expect(/boom-aria|Falha/i.test(errT), `toast inesperado: "${errT}"`).toBe(true);
+    await expect(jsonBtn).toHaveAttribute("aria-busy", "false", { timeout: 5000 });
+    await expect(jsonBtn).toHaveAttribute("data-exporting", "false");
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+
+    await page.unroute(/\/n\//);
+  });
 });
