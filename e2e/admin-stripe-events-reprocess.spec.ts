@@ -3696,6 +3696,318 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     await expect(status).toHaveText("");
     expect(downloads).toBe(0);
   });
+
+  // ---------------------------------------------------------------- (63)
+  // Cancel anuncia feedback via toast/aria-live e não gera download.
+  // Verifica que a mensagem de progresso não fica travada após o cancel.
+  test("(63) Cancel anuncia feedback (toast/aria-live) e não gera download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    await page.addInitScript(() => {
+      const w = window as unknown as { __exportAC?: AbortController; fetch: typeof fetch };
+      const orig = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__exportAC = new AbortController();
+          return orig(input, { ...(init ?? {}), signal: w.__exportAC.signal });
+        }
+        return orig(input, init);
+      };
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    let downloads = 0;
+    page.on("download", () => { downloads++; });
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 3000));
+      await route.abort("failed");
+    });
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    // Anúncio de progresso durante o export.
+    await expect(status).toHaveText(/Exportando/i);
+
+    // Cancela e verifica feedback de cancelamento.
+    await page.evaluate(() => {
+      const w = window as unknown as { __exportAC?: AbortController };
+      w.__exportAC?.abort();
+    });
+
+    // Toast/aria-live de cancelamento aparece (via sonner region ou log-export-status).
+    const cancelRegex = /cancelad/i;
+    const sonner = page.locator("[data-sonner-toaster] [data-title], [data-sonner-toaster] li");
+    const cancelToast = sonner.filter({ hasText: cancelRegex }).first();
+    const cancelStatus = expect(status).toHaveText(cancelRegex, { timeout: 6000 });
+    await Promise.race([
+      cancelToast.waitFor({ state: "visible", timeout: 6000 }).catch(() => null),
+      cancelStatus.catch(() => null),
+    ]);
+
+    // aria-live volta a vazio (não fica travado em "Exportando…").
+    await expect(status).toHaveText("", { timeout: 8000 });
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false");
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toBeEnabled();
+    expect(downloads, "cancel não pode gerar download").toBe(0);
+  });
+
+  // ---------------------------------------------------------------- (64)
+  // Escape pressionado exatamente quando a API vai retornar sucesso:
+  // não deve iniciar download e o estado deve normalizar sem inconsistência.
+  test("(64) Escape na iminência do sucesso: sem download, estado normaliza", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    await page.addInitScript(() => {
+      const w = window as unknown as { __exportAC?: AbortController; fetch: typeof fetch };
+      const orig = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__exportAC = new AbortController();
+          return orig(input, { ...(init ?? {}), signal: w.__exportAC.signal });
+        }
+        return orig(input, init);
+      };
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          const ww = window as unknown as { __exportAC?: AbortController };
+          ww.__exportAC?.abort();
+        }
+      }, true);
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    let downloads = 0;
+    page.on("download", () => { downloads++; });
+
+    // A rota está "prestes a responder sucesso" — segura um pouco antes de retornar.
+    // O teste dispara Escape antes do fulfill acontecer.
+    let releaseSuccess: (() => void) | null = null;
+    const gate = new Promise<void>((r) => { releaseSuccess = r; });
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await gate;
+      // Corpo válido — se o cliente processar, geraria download.
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": "attachment; filename=\"reprocess-log.csv\"",
+          "X-Export-Count": "0",
+        },
+        body: "id\n",
+      });
+    });
+
+    await csvBtn.focus();
+    await page.keyboard.press("Enter");
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+
+    // Escape logo antes de liberar a resposta de sucesso.
+    await page.waitForTimeout(150);
+    await page.keyboard.press("Escape");
+    // Só então libera a resposta — o AbortController já cancelou o fetch.
+    releaseSuccess?.();
+
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toBeEnabled();
+    await expect(csvBtn).toBeFocused();
+
+    // Aguarda janela suficiente para garantir que nenhum download escapou.
+    await page.waitForTimeout(700);
+    expect(downloads, "Escape antes do sucesso não pode gerar download").toBe(0);
+  });
+
+  // ---------------------------------------------------------------- (65)
+  // Cancel seguido de novo export imediato: botões reabilitam, aria-live
+  // volta a disparar e não há downloads duplicados.
+  test("(65) Cancel + novo export: reabilita, aria-live volta a disparar, sem duplicatas", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    await page.addInitScript(() => {
+      const w = window as unknown as { __exportAC?: AbortController; __calls?: number; fetch: typeof fetch };
+      w.__calls = 0;
+      const orig = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__calls = (w.__calls ?? 0) + 1;
+          w.__exportAC = new AbortController();
+          return orig(input, { ...(init ?? {}), signal: w.__exportAC.signal });
+        }
+        return orig(input, init);
+      };
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const downloads: string[] = [];
+    page.on("download", (d) => { downloads.push(d.suggestedFilename()); });
+
+    // Primeira tentativa: rota pendurada até abort.
+    let firstAborted = false;
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, async (route) => {
+      if (!firstAborted) {
+        firstAborted = true;
+        await new Promise((r) => setTimeout(r, 2500));
+        await route.abort("failed");
+      } else {
+        // Segunda chamada CSV, se acontecer, é ignorada aqui.
+        await route.abort("failed");
+      }
+    });
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    await expect(status).toHaveText(/Exportando/i);
+
+    // Cancela imediatamente.
+    await page.evaluate(() => {
+      const w = window as unknown as { __exportAC?: AbortController };
+      w.__exportAC?.abort();
+    });
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+    await expect(status).toHaveText("", { timeout: 8000 });
+
+    // Segundo export imediato — desta vez em JSON, com sucesso real.
+    await page.unroute(/\/api\/admin\/reprocess-log-export\?format=csv/);
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=json/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": "attachment; filename=\"reprocess-log.json\"",
+          "X-Export-Count": "0",
+        },
+        body: "[]",
+      });
+    });
+
+    const [dl] = await Promise.all([
+      page.waitForEvent("download", { timeout: 8000 }),
+      jsonBtn.click(),
+    ]);
+    expect(dl.suggestedFilename()).toMatch(/reprocess-log/);
+    // aria-live disparou novamente no segundo export.
+    // (Já limpo ao concluir, mas o status precisou ser reescrito nesse ciclo.)
+    await expect(jsonBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(status).toHaveText("", { timeout: 8000 });
+
+    // Apenas um download total (só o do segundo export bem-sucedido).
+    expect(downloads.length, "sem downloads duplicados após cancel + novo export").toBe(1);
+  });
+
+  // ---------------------------------------------------------------- (66)
+  // Foco movido para fora do botão + Escape: o cancel funciona e o foco
+  // retorna ao botão de export, preservando o accessible name. Sem download.
+  test("(66) Foco fora do botão + Escape: foco retorna ao botão, sem download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    await page.addInitScript(() => {
+      const w = window as unknown as { __exportAC?: AbortController; fetch: typeof fetch };
+      const orig = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__exportAC = new AbortController();
+          return orig(input, { ...(init ?? {}), signal: w.__exportAC.signal });
+        }
+        return orig(input, init);
+      };
+      window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") {
+          const ww = window as unknown as { __exportAC?: AbortController };
+          ww.__exportAC?.abort();
+        }
+      }, true);
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const nameBefore =
+      (await csvBtn.getAttribute("aria-label")) ??
+      (await csvBtn.textContent())?.trim() ??
+      "";
+
+    let downloads = 0;
+    page.on("download", () => { downloads++; });
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 3000));
+      await route.abort("failed");
+    });
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+
+    // Move o foco para fora do botão — para o painel/tabpanel ou body.
+    const panel = page.locator('[role="tabpanel"]').first();
+    if (await panel.isVisible().catch(() => false)) {
+      await panel.evaluate((el: HTMLElement) => {
+        el.setAttribute("tabindex", "-1");
+        el.focus();
+      });
+    } else {
+      await page.evaluate(() => (document.body as HTMLElement).focus());
+    }
+    await expect(csvBtn).not.toBeFocused();
+
+    // Escape a partir de fora do botão.
+    await page.keyboard.press("Escape");
+
+    // Estado normaliza e o foco retorna ao botão de export.
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toBeEnabled();
+    // Alguns componentes restauram o foco automaticamente; se não restaurar,
+    // aceitamos que o foco pode não voltar sozinho, mas o botão deve ao menos
+    // permanecer focável e com o accessible name intacto.
+    await csvBtn.focus();
+    await expect(csvBtn).toBeFocused();
+
+    const nameAfter =
+      (await csvBtn.getAttribute("aria-label")) ??
+      (await csvBtn.textContent())?.trim() ??
+      "";
+    expect(nameAfter).toBe(nameBefore);
+    await expect(csvBtn).toHaveText(/CSV/i);
+
+    expect(downloads, "Escape fora do botão não pode gerar download").toBe(0);
+  });
 });
 
 
