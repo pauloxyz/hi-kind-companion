@@ -1717,4 +1717,226 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
 
     await page.unroute(/\/n\//);
   });
+
+  // ---------------------------------------------------------------- (33)
+  // Filename entregue ao browser: `dl.suggestedFilename()` reflete o nome
+  // gerado pelo cliente para CSV e JSON. Nota de arquitetura: o export do
+  // Log de Reprocessamento é um server-fn (RPC/Seroval) que devolve o
+  // dataset serializado; o download em si é montado no cliente com Blob +
+  // <a download>. Não há `Content-Disposition` do lado do servidor — o
+  // nome vem do atributo `download`, que o browser respeita. Validamos
+  // isso ponta-a-ponta via `suggestedFilename()`.
+  test("Browser respeita o filename do export (CSV e JSON) via atributo download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    if (await csvBtn.isDisabled()) test.skip(true, "Export desabilitado");
+
+    const [dlCsv] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    const csvName = dlCsv.suggestedFilename();
+    expect(csvName).toMatch(/^stripe-webhook-reprocess-log.*\.csv$/);
+    expect(csvName).toMatch(/\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.csv$/);
+    // O nome do arquivo salvo em disco também bate.
+    const csvPath = await dlCsv.path();
+    expect(csvPath, "path do download indefinido").toBeTruthy();
+
+    await page.waitForTimeout(200);
+
+    const [dlJson] = await Promise.all([page.waitForEvent("download"), jsonBtn.click()]);
+    const jsonName = dlJson.suggestedFilename();
+    expect(jsonName).toMatch(/^stripe-webhook-reprocess-log.*\.json$/);
+    expect(jsonName).toMatch(/\d{4}-\d{2}-\d{2}-\d{2}-\d{2}-\d{2}\.json$/);
+    const jsonPath = await dlJson.path();
+    expect(jsonPath, "path do download indefinido").toBeTruthy();
+  });
+
+  // ---------------------------------------------------------------- (34)
+  // Cliques múltiplos enquanto aria-busy=true não disparam requests extras.
+  test("Múltiplos cliques em Exportar CSV com aria-busy=true → apenas 1 request", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    if (await csvBtn.isDisabled()) test.skip(true, "Export desabilitado");
+
+    let exportRequests = 0;
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      const isExport = /"outcome"|"limit"|"since"|"until"/.test(body) && !/"ids"/.test(body) && !/"id"\s*:\s*"/.test(body);
+      if (isExport) {
+        exportRequests++;
+        // Segura o request um tempo para dar janela de aria-busy=true
+        await new Promise((r) => setTimeout(r, 700));
+      }
+      await route.continue();
+    });
+
+    let downloads = 0;
+    const onDl = () => { downloads++; };
+    page.on("download", onDl);
+
+    // 1º clique inicia o export.
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true", { timeout: 3000 });
+
+    // Cliques adicionais com aria-busy=true — button está `disabled`, então
+    // usamos `force: true` para provar que mesmo assim nada dispara.
+    await csvBtn.click({ force: true }).catch(() => {});
+    await csvBtn.click({ force: true }).catch(() => {});
+    await csvBtn.click({ force: true }).catch(() => {});
+
+    // Espera o ciclo terminar
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false", { timeout: 8000 });
+    await page.waitForTimeout(200);
+    page.off("download", onDl);
+
+    expect(exportRequests, `esperava 1 request de export, recebi ${exportRequests}`).toBe(1);
+    expect(downloads, `esperava 1 download, recebi ${downloads}`).toBe(1);
+    await expect(csvBtn).toBeEnabled();
+
+    await page.unroute(/\/n\//);
+  });
+
+  // ---------------------------------------------------------------- (35)
+  // Request body do export: contém os filtros vigentes; toast confere a
+  // contagem retornada. Contrato atual (docado em cenários 20/26): o export
+  // cobre o conjunto filtrado inteiro e NÃO envia offset da página, mas
+  // sim um `limit` (default do server) — validamos ambos.
+  test("Body do export inclui filtros vigentes; toast reflete a contagem do payload", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    // Aplica um filtro conhecido (outcome=error) via UI se o select existir.
+    const outcomeSel = page.getByRole("combobox").filter({ hasText: /Outcome|Todos/i }).first();
+    if (await outcomeSel.isVisible().catch(() => false)) {
+      await outcomeSel.click().catch(() => {});
+      const opt = page.getByRole("option", { name: /error/i }).first();
+      if (await opt.isVisible().catch(() => false)) await opt.click().catch(() => {});
+    }
+    await page.waitForTimeout(300);
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    if (await csvBtn.isDisabled()) test.skip(true, "Export desabilitado");
+
+    const fakePayload = Array.from({ length: 3 }, (_, i) => ({
+      id: `id_${i}`, event_row_id: `row_${i}`, stripe_event_id: `evt_body_${i}`,
+      event_type: "checkout.session.completed", environment: "test",
+      actor_user_id: null, outcome: "error", message: null,
+      duration_ms: 10, created_at: new Date().toISOString(),
+    }));
+
+    const bodies: Record<string, unknown>[] = [];
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      let body: Record<string, unknown> | null = null;
+      try { body = req.postDataJSON() as Record<string, unknown>; } catch {}
+      const isExport =
+        !!body &&
+        ("outcome" in body || "since" in body || "until" in body) &&
+        !("ids" in body) &&
+        !("id" in body) &&
+        // exports levam limit; listagens paginadas levam também `sortBy`/`sortDir`
+        !("sortBy" in body);
+      if (isExport) {
+        bodies.push(body!);
+        await route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ result: { data: fakePayload }, data: fakePayload }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    // CSV
+    const [, ] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    const tC = await readLastToast(page);
+    expect(tC).toMatch(T_OK_EXPORT_CSV);
+    expect(tC).toMatch(new RegExp(`\\(${fakePayload.length} registros\\)`));
+
+    // JSON
+    await page.waitForTimeout(200);
+    const [, ] = await Promise.all([page.waitForEvent("download"), jsonBtn.click()]);
+    const tJ = await readLastToast(page);
+    expect(tJ).toMatch(T_OK_EXPORT_JSON);
+    expect(tJ).toMatch(new RegExp(`\\(${fakePayload.length} registros\\)`));
+
+    expect(bodies.length, "esperava 2 requests de export").toBeGreaterThanOrEqual(2);
+    for (const b of bodies) {
+      // outcome presente e refletindo a UI (quando filtro foi aplicado)
+      expect("outcome" in b, `body sem outcome: ${JSON.stringify(b)}`).toBe(true);
+      // limit presente (contrato de "conjunto filtrado inteiro" respeita o teto do servidor)
+      expect("limit" in b, `body sem limit: ${JSON.stringify(b)}`).toBe(true);
+      // NÃO envia paginação da tabela nem ordenação da tabela
+      expect("offset" in b, `body não deveria conter offset: ${JSON.stringify(b)}`).toBe(false);
+      expect("sortBy" in b, `body não deveria conter sortBy: ${JSON.stringify(b)}`).toBe(false);
+      expect("sortDir" in b, `body não deveria conter sortDir: ${JSON.stringify(b)}`).toBe(false);
+    }
+
+    await page.unroute(/\/n\//);
+  });
+
+  // ---------------------------------------------------------------- (36)
+  // Aborto do request de export: aria-busy/data-exporting resetam e nenhum
+  // download é disparado. Simulamos abort de rede via `route.abort()`.
+  test("Abort do request de export: aria-busy/data-exporting resetam e sem download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    if (await csvBtn.isDisabled()) test.skip(true, "Export desabilitado");
+
+    let abortCount = 0;
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      const isExport = /"outcome"|"limit"|"since"|"until"/.test(body) && !/"ids"/.test(body) && !/"id"\s*:\s*"/.test(body);
+      if (isExport) {
+        abortCount++;
+        // Dá uma janela observável para aria-busy=true, então aborta.
+        await new Promise((r) => setTimeout(r, 400));
+        await route.abort("aborted");
+        return;
+      }
+      await route.continue();
+    });
+
+    let downloads = 0;
+    const onDl = () => { downloads++; };
+    page.on("download", onDl);
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true", { timeout: 3000 });
+    await expect(csvBtn).toHaveAttribute("data-exporting", "true");
+    await expect(jsonBtn).toBeDisabled();
+
+    // Toast de erro após o abort (handler cai no catch)
+    const errT = await readLastToast(page);
+    expect(/Falha ao exportar|abort/i.test(errT), `toast inesperado: "${errT}"`).toBe(true);
+
+    // Estado retorna ao normal
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false", { timeout: 5000 });
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false");
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+
+    // Nenhum download foi disparado
+    await page.waitForTimeout(200);
+    page.off("download", onDl);
+    expect(downloads, `esperava 0 downloads, recebi ${downloads}`).toBe(0);
+    expect(abortCount).toBeGreaterThanOrEqual(1);
+
+    // Após o abort, um novo clique volta a funcionar normalmente
+    await page.unroute(/\/n\//);
+    const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    expect(dl.suggestedFilename()).toMatch(/^stripe-webhook-reprocess-log.*\.csv$/);
+    const okT = await readLastToast(page);
+    expect(okT).toMatch(T_OK_EXPORT_CSV);
+  });
 });
