@@ -49,6 +49,13 @@ import {
   FileJson, RefreshCw, RotateCcw, Search, X, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  buildReprocessLogFilename as buildReprocessLogFilenameFallback,
+  buildStripeEventsFilename as buildStripeEventsFilenameFallback,
+  parseFilenameFromContentDisposition,
+} from "@/lib/export-filename";
+
 
 type EnvFilter = "all" | "sandbox" | "live";
 type StatusFilter = "all" | "processed" | "ignored" | "error";
