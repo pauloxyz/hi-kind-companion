@@ -663,7 +663,7 @@ export const reprocessFromLogFilteredBatch = createServerFn({ method: "POST" })
     return { attempted: results.length, succeeded, failed, results };
   });
 
-const exportReprocessLogSchema = z.object({
+export const reprocessLogExportSchema = z.object({
   stripe_event_id: z.string().trim().max(120).optional(),
   actor_user_id: z.string().trim().max(120).optional(),
   outcome: z.enum(["all", "success", "error"]).default("all"),
@@ -671,6 +671,8 @@ const exportReprocessLogSchema = z.object({
   until: z.string().datetime().optional(),
   limit: z.number().int().min(1).max(10000).default(10000),
 });
+const exportReprocessLogSchema = reprocessLogExportSchema;
+
 
 export const exportReprocessLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
