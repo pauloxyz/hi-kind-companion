@@ -1187,29 +1187,39 @@ function ReprocessLogPanel({
   async function handleExport(format: "csv" | "json") {
     setExporting(format);
     try {
-      const data = (await exportLog({ data: filterPayload })) as ReprocessLogEntry[];
-      const filename = buildReprocessLogFilename(
-        { outcome, stripe_event_id: stripeEventId, actor_user_id: actorUserId },
-        format,
-      );
-      if (format === "csv") {
-        downloadBlob(
-          new Blob(["\uFEFF" + reprocessLogToCsv(data)], { type: "text/csv;charset=utf-8" }),
-          filename,
-        );
-      } else {
-        downloadBlob(
-          new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }),
-          filename,
-        );
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error("Sessão expirada");
+      const res = await fetch(`/api/admin/reprocess-log-export?format=${format}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(filterPayload),
+      });
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "");
+        throw new Error(msg || `Falha ao exportar ${format.toUpperCase()}`);
       }
-      toast.success(`${format.toUpperCase()} exportado (${data.length} registros)`);
+      const cd = res.headers.get("content-disposition");
+      const filename =
+        parseFilenameFromContentDisposition(cd) ??
+        buildReprocessLogFilenameFallback(
+          { outcome, stripe_event_id: stripeEventId, actor_user_id: actorUserId },
+          format,
+        );
+      const count = Number(res.headers.get("x-export-count") ?? "0");
+      const blob = await res.blob();
+      downloadBlob(blob, filename);
+      toast.success(`${format.toUpperCase()} exportado (${count} registros)`);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : `Falha ao exportar ${format.toUpperCase()}`);
     } finally {
       setExporting(null);
     }
   }
+
 
   async function runReprocessRow(row: ReprocessLogEntry) {
     setReprocessingId(row.id);
