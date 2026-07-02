@@ -871,4 +871,216 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
       expect(hit, `Nenhuma chamada com id=${expectedEventRowId}. Bodies: ${calls.map((c) => c.body).join(" | ")}`).toBe(true);
     }
   });
+
+  // ---------------------------------------------------------------- (20)
+  test("Exportar JSON: cabeçalhos/campos e stripe_event_id batem com o toast e a página atual", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const jsonBtn = page.getByRole("button", { name: /^Exportar JSON$/ });
+    if (await jsonBtn.isDisabled()) test.skip(true, "Export JSON desabilitado neste ambiente");
+
+    // stripe_event_id visíveis na página atual (para conferir depois)
+    const rows = page.getByTestId("reprocess-log-row");
+    const rowCount = await rows.count();
+    const pageSids = new Set<string>();
+    for (let i = 0; i < rowCount; i++) {
+      const sid = await rows.nth(i).getAttribute("data-stripe-event-id");
+      if (sid) pageSids.add(sid);
+    }
+
+    const [dl] = await Promise.all([
+      page.waitForEvent("download"),
+      jsonBtn.click(),
+    ]);
+    const fs = await import("node:fs/promises");
+    const text = await fs.readFile((await dl.path())!, "utf8");
+    const parsed = JSON.parse(text) as Array<Record<string, unknown>>;
+    expect(Array.isArray(parsed)).toBe(true);
+
+    // Campos/cabeçalhos esperados presentes em cada item
+    const EXPECTED_KEYS = ["stripe_event_id", "outcome", "created_at", "event_row_id"];
+    for (const item of parsed) {
+      for (const k of EXPECTED_KEYS) {
+        expect(item, `Item sem campo "${k}": ${JSON.stringify(item)}`).toHaveProperty(k);
+      }
+    }
+
+    // Toast mostra a mesma contagem do JSON
+    const toast = await readLastToast(page);
+    expect(toast).toMatch(T_OK_EXPORT_JSON);
+    const toastCount = Number(toast.match(/\((\d+) registros\)/)?.[1] ?? "-1");
+    expect(parsed.length).toBe(toastCount);
+
+    // Todos os stripe_event_id visíveis na página atual devem estar presentes no JSON
+    const jsonSids = new Set(parsed.map((r) => String(r.stripe_event_id)));
+    for (const sid of pageSids) {
+      expect(jsonSids.has(sid), `stripe_event_id ${sid} da página não está no JSON exportado`).toBe(true);
+    }
+  });
+
+  // ---------------------------------------------------------------- (21)
+  test("Durante o lock: 'Retentar falhas' e reprocessar individual bloqueados, sem chamadas de API", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const row = await firstRowOrSkip(page);
+    const rowBtn = row.getByTestId("reprocess-row-btn");
+
+    // Dispara o batch
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toBeVisible();
+    await expect(panel).toHaveAttribute("data-pending", "true");
+
+    // Captura qualquer request /n/ (server functions) durante o lock
+    const captured: string[] = [];
+    const listener = (req: import("@playwright/test").Request) => {
+      const u = req.url();
+      if (!/\/n\//.test(u)) return;
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      captured.push(body);
+    };
+    page.on("request", listener);
+    const baseline = captured.length;
+
+    // (a) Botão individual: bloqueado, aria-busy, sem abrir modal
+    await expect(rowBtn).toBeDisabled();
+    await rowBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(200);
+    await expect(page.getByRole("alertdialog")).toHaveCount(0);
+
+    // (b) Retentar falhas: se aparecer, deve estar disabled durante pending
+    const retryBtn = page.getByRole("button", { name: /Retentar falhas/i });
+    if (await retryBtn.isVisible().catch(() => false)) {
+      await expect(retryBtn).toBeDisabled();
+      await retryBtn.click({ force: true }).catch(() => {});
+      await page.waitForTimeout(200);
+    }
+
+    // Nenhuma chamada individual (payload com "id" e sem "ids") disparou durante o lock
+    const individualCalls = captured.slice(baseline).filter(
+      (b) => /"id"\s*:\s*"/.test(b) && !/"ids"/.test(b),
+    );
+    expect(individualCalls, `Chamadas individuais durante o lock:\n${individualCalls.join("\n")}`).toHaveLength(0);
+
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    page.off("request", listener);
+  });
+
+  // ---------------------------------------------------------------- (22)
+  test("Falha no reprocessamento individual: toast de erro, aria-busy limpa, paginação intacta", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const row = await firstRowOrSkip(page);
+    const rowBtn = row.getByTestId("reprocess-row-btn");
+    const urlBefore = new URL(page.url()).searchParams.toString();
+
+    // Intercepta a chamada individual e força 500 (payload tem "id" mas não "ids"/"outcome"/"limit")
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      if (/"id"\s*:\s*"/.test(body) && !/"ids"|"outcome"|"limit"/.test(body)) {
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "boom-single-reprocess" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await rowBtn.click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog.getByText(/Reprocessar este evento\?/i)).toBeVisible();
+    await dialog.getByRole("button", { name: /^Reprocessar$/ }).click();
+
+    // Enquanto pending: linha aria-busy
+    await expect(row).toHaveAttribute("aria-busy", "true");
+
+    // Toast de erro
+    const toast = await readLastToast(page);
+    expect(
+      T_ERR_ROW.test(toast) || /boom-single-reprocess/i.test(toast),
+      `Toast inesperado: "${toast}"`,
+    ).toBe(true);
+
+    // Estado final: aria-busy limpo, botão reabilitado
+    await expect(row).not.toHaveAttribute("aria-busy", "true");
+    await expect(rowBtn).toBeEnabled();
+
+    // Paginação/ordenação intactas
+    expect(new URL(page.url()).searchParams.toString()).toBe(urlBefore);
+
+    await page.unroute(/\/n\//);
+  });
+
+  // ---------------------------------------------------------------- (23)
+  test("Export CSV: retry após falha produz download correto e reabilita botões", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const csvBtn = page.getByRole("button", { name: /^Exportar CSV$/ });
+    const jsonBtn = page.getByRole("button", { name: /^Exportar JSON$/ });
+    if (await csvBtn.isDisabled()) test.skip(true, "Export CSV desabilitado neste ambiente");
+
+    // 1ª tentativa: força falha (apenas o request de export sem "id"/"ids")
+    let failOnce = true;
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      const isExport = /"outcome"|"limit"|"since"|"until"/.test(body) && !/"id"\s*:\s*"|"ids"/.test(body);
+      if (isExport && failOnce) {
+        failOnce = false;
+        await route.fulfill({
+          status: 500,
+          contentType: "application/json",
+          body: JSON.stringify({ error: "boom-export-once" }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    let downloadFired = false;
+    const onDl = () => { downloadFired = true; };
+    page.on("download", onDl);
+
+    await csvBtn.click();
+    const errToast = await readLastToast(page);
+    expect(
+      /boom-export-once/i.test(errToast) || /Falha ao exportar CSV/i.test(errToast) || /Falha/i.test(errToast),
+      `Toast de erro inesperado: "${errToast}"`,
+    ).toBe(true);
+    expect(downloadFired).toBe(false);
+
+    // Botões devem reabilitar após a falha
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+
+    // 2ª tentativa: deve passar normal e produzir download válido
+    const [dl] = await Promise.all([
+      page.waitForEvent("download"),
+      csvBtn.click(),
+    ]);
+    page.off("download", onDl);
+
+    const fs = await import("node:fs/promises");
+    const text = await fs.readFile((await dl.path())!, "utf8");
+    const lines = text.replace(/^\uFEFF/, "").trim().split("\n");
+    expect(lines.length).toBeGreaterThanOrEqual(1);
+    expect(lines[0]).toContain("stripe_event_id");
+    expect(lines[0]).toContain("outcome");
+
+    const okToast = await readLastToast(page);
+    expect(okToast).toMatch(T_OK_EXPORT_CSV);
+    const count = Number(okToast.match(/\((\d+) registros\)/)?.[1] ?? "-1");
+    expect(lines.length - 1).toBe(count);
+
+    // Botões continuam habilitados após sucesso
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+
+    await page.unroute(/\/n\//);
+  });
 });
