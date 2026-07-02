@@ -2072,5 +2072,228 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     // Nomes DEVEM diferir mesmo que a diferença seja só o sufixo -N ou os ms.
     expect(name2, `filenames iguais quebrariam o download: ${name1}`).not.toBe(name1);
   });
+
+  // ---------------------------------------------------------------- (40)
+  // Cada export (CSV e JSON) deve responder com Content-Disposition
+  // contendo filename correto + Content-Type com charset, e o browser
+  // deve salvar EXATAMENTE com esse nome.
+  test("(40) Export CSV e JSON: Content-Disposition/Content-Type/charset + filename respeitado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    // CSV
+    const [csvResp, csvDl] = await Promise.all([
+      page.waitForResponse((r) => /\/api\/admin\/reprocess-log-export/.test(r.url()) && r.request().method() === "POST"),
+      page.waitForEvent("download"),
+      csvBtn.click(),
+    ]);
+    const csvCT = csvResp.headers()["content-type"] ?? "";
+    const csvCD = csvResp.headers()["content-disposition"] ?? "";
+    expect(csvCT).toMatch(/text\/csv/i);
+    expect(csvCT).toMatch(/charset=utf-8/i);
+    expect(csvCD).toMatch(/attachment/i);
+    const csvHeaderName = /filename\*=UTF-8''([^;]+)/i.exec(csvCD)?.[1] ?? /filename="([^"]+)"/i.exec(csvCD)?.[1];
+    expect(csvHeaderName, `Content-Disposition sem filename: ${csvCD}`).toBeTruthy();
+    const csvExpected = decodeURIComponent(csvHeaderName!);
+    expect(csvDl.suggestedFilename()).toBe(csvExpected);
+    expect(csvExpected).toMatch(/^stripe-reprocess-log.*\.csv$/);
+
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+
+    // JSON
+    const [jsonResp, jsonDl] = await Promise.all([
+      page.waitForResponse((r) => /\/api\/admin\/reprocess-log-export/.test(r.url()) && r.request().method() === "POST"),
+      page.waitForEvent("download"),
+      jsonBtn.click(),
+    ]);
+    const jsonCT = jsonResp.headers()["content-type"] ?? "";
+    const jsonCD = jsonResp.headers()["content-disposition"] ?? "";
+    expect(jsonCT).toMatch(/application\/json/i);
+    expect(jsonCT).toMatch(/charset=utf-8/i);
+    expect(jsonCD).toMatch(/attachment/i);
+    const jsonHeaderName = /filename\*=UTF-8''([^;]+)/i.exec(jsonCD)?.[1] ?? /filename="([^"]+)"/i.exec(jsonCD)?.[1];
+    expect(jsonHeaderName).toBeTruthy();
+    const jsonExpected = decodeURIComponent(jsonHeaderName!);
+    expect(jsonDl.suggestedFilename()).toBe(jsonExpected);
+    expect(jsonExpected).toMatch(/^stripe-reprocess-log.*\.json$/);
+  });
+
+  // ---------------------------------------------------------------- (41)
+  // Enquanto aria-busy/data-exporting=true, os dois botões ficam
+  // desabilitados (aria-disabled ou disabled), o foco não regride para
+  // o botão busy via Tab, e os accessible names permanecem intactos.
+  test("(41) aria-busy → aria-disabled/disabled + foco + accessible name preservado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const nameBefore = { csv: await csvBtn.textContent(), json: await jsonBtn.textContent() };
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 700));
+      await route.continue();
+    });
+
+    await csvBtn.focus();
+    await page.keyboard.press("Enter");
+
+    // busy=true → ambos ficam disabled (nativo) ou aria-disabled=true.
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true", { timeout: 2000 });
+    await expect(async () => {
+      const csvDisabled = (await csvBtn.isDisabled()) || (await csvBtn.getAttribute("aria-disabled")) === "true";
+      const jsonDisabled = (await jsonBtn.isDisabled()) || (await jsonBtn.getAttribute("aria-disabled")) === "true";
+      expect(csvDisabled).toBe(true);
+      expect(jsonDisabled).toBe(true);
+    }).toPass({ timeout: 2000 });
+
+    // Accessible name/rótulo continua o mesmo mesmo com busy.
+    expect((await csvBtn.textContent())?.trim()).toBe((nameBefore.csv ?? "").trim());
+    expect((await jsonBtn.textContent())?.trim()).toBe((nameBefore.json ?? "").trim());
+    await expect(csvBtn).toHaveText(/CSV/);
+    await expect(jsonBtn).toHaveText(/JSON/);
+
+    // Tab não deixa o foco no botão busy (ou porque disabled não recebe foco,
+    // ou porque o browser skipou; qualquer um dos dois é aceitável).
+    await page.keyboard.press("Tab");
+    await expect(csvBtn).not.toBeFocused();
+
+    // Ao terminar, tudo reabilita.
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+  });
+
+  // ---------------------------------------------------------------- (42)
+  // O servidor deve SEMPRE mandar X-Export-Count, e o toast/estado da
+  // UI deve refletir esse número exatamente ("(N registros)").
+  test("(42) X-Export-Count sempre presente e refletido no toast", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const [resp] = await Promise.all([
+      page.waitForResponse((r) => /\/api\/admin\/reprocess-log-export/.test(r.url()) && r.request().method() === "POST"),
+      page.waitForEvent("download"),
+      csvBtn.click(),
+    ]);
+    const headers = resp.headers();
+    const count = headers["x-export-count"];
+    expect(count, `X-Export-Count ausente. Headers: ${JSON.stringify(headers)}`).toBeDefined();
+    expect(count).toMatch(/^\d+$/);
+
+    const text = await readLastToast(page);
+    expect(text).toMatch(T_OK_EXPORT_CSV);
+    const m = /\((\d+) registros\)/.exec(text);
+    expect(m, `toast sem "(N registros)": ${text}`).toBeTruthy();
+    expect(m![1]).toBe(count);
+  });
+
+  // ---------------------------------------------------------------- (43)
+  // RFC-4180: interceptamos a resposta CSV e injetamos linhas com
+  // combinações complexas (aspas duplas consecutivas, vírgula, quebras
+  // de linha CRLF/LF, "" iniciais). Validamos que o parser respeita:
+  //   - linhas dentro de aspas não quebram a linha lógica
+  //   - "" vira " literal
+  //   - a correspondência stripe_event_id ↔ linha permanece 1:1
+  test("(43) CSV com aspas/quebras de linha segue RFC-4180 e mantém stripe_event_id por linha", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const header = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+    // Casos de teste — coluna "message" é a que carrega texto complexo.
+    const rows = [
+      // simples
+      ["2026-07-02T12:00:00Z","success","live","checkout.session.completed","evt_alpha","u1","10","ok","row_a","id_a"],
+      // aspas duplas consecutivas + vírgula
+      ["2026-07-02T12:00:01Z","error","live","checkout.session.completed","evt_bravo","u1","20",
+        `He said ""hi, there"" and left`,"row_b","id_b"],
+      // quebras de linha LF dentro do campo
+      ["2026-07-02T12:00:02Z","error","test","invoice.paid","evt_charlie","u2","30",
+        "line1\nline2\nline3","row_c","id_c"],
+      // quebras CRLF + aspa inicial
+      ["2026-07-02T12:00:03Z","success","live","customer.subscription.updated","evt_delta","u3","40",
+        `""leading quote""\r\nafter crlf`,"row_d","id_d"],
+      // vírgula + quebra + aspas juntas
+      ["2026-07-02T12:00:04Z","error","live","charge.failed","evt_echo","u4","50",
+        `a,b\n"c",d ""e""`,"row_e","id_e"],
+    ];
+    const esc = (v: string) => (/[",\n\r]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
+    const csvBody = "\uFEFF" + [header, ...rows.map((r) => r.map(esc).join(","))].join("\n");
+    const expectedIds = rows.map((r) => r[4]);
+
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, async (route) => {
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="stripe-reprocess-log_synthetic.csv"; filename*=UTF-8''stripe-reprocess-log_synthetic.csv`,
+          "X-Export-Count": String(rows.length),
+        },
+        body: csvBody,
+      });
+    });
+
+    const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    const path = await dl.path();
+    expect(path).toBeTruthy();
+    const fs = await import("node:fs/promises");
+    const raw = (await fs.readFile(path!, "utf8")).replace(/^\uFEFF/, "");
+
+    // Parser RFC-4180 minimalista para verificar a integridade.
+    function parseCsv(input: string): string[][] {
+      const out: string[][] = [];
+      let cur: string[] = [];
+      let field = "";
+      let i = 0;
+      let inQ = false;
+      while (i < input.length) {
+        const c = input[i];
+        if (inQ) {
+          if (c === '"') {
+            if (input[i + 1] === '"') { field += '"'; i += 2; continue; }
+            inQ = false; i++; continue;
+          }
+          field += c; i++; continue;
+        }
+        if (c === '"') { inQ = true; i++; continue; }
+        if (c === ",") { cur.push(field); field = ""; i++; continue; }
+        if (c === "\r") { i++; continue; }
+        if (c === "\n") { cur.push(field); out.push(cur); cur = []; field = ""; i++; continue; }
+        field += c; i++;
+      }
+      if (field.length > 0 || cur.length > 0) { cur.push(field); out.push(cur); }
+      return out;
+    }
+
+    const parsed = parseCsv(raw);
+    // 1 header + 5 linhas de dados = 6 linhas lógicas
+    expect(parsed.length, `esperava 6 linhas lógicas, recebi ${parsed.length}`).toBe(1 + expectedIds.length);
+    // Header intacto
+    expect(parsed[0].join(",")).toBe(header);
+    // stripe_event_id (col index 4) por linha na ordem exata
+    const gotIds = parsed.slice(1).map((r) => r[4]);
+    expect(gotIds).toEqual(expectedIds);
+    // Verifica que aspas duplas foram desescapadas corretamente na linha "bravo".
+    expect(parsed[2][7]).toBe(`He said "hi, there" and left`);
+    // Verifica quebras de linha preservadas dentro do campo (linha charlie).
+    expect(parsed[3][7]).toBe("line1\nline2\nline3");
+    // Linha delta: "" inicial vira " literal
+    expect(parsed[4][7]).toContain(`"leading quote"`);
+    expect(parsed[4][7]).toContain("after crlf");
+    // Linha echo: vírgula + aspas
+    expect(parsed[5][7]).toBe(`a,b\n"c",d "e"`);
+  });
 });
+
 
