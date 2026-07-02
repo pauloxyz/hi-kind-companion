@@ -5060,7 +5060,314 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     expect(counts.json, "JSON não pode disparar enquanto CSV está busy").toBe(0);
     expect(downloads.length, "sem downloads duplicados").toBe(0);
   });
+
+  test("(78) Escape na iminência do sucesso: sem toast 'concluído' e sem download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    // Captura anúncios do aria-live via MutationObserver.
+    await page.evaluate(() => {
+      const w = window as unknown as { __ann?: string[] };
+      w.__ann = [];
+      const node = document.querySelector('[data-testid="log-export-status"]');
+      if (!node) return;
+      const push = () => {
+        const t = (node.textContent ?? "").trim();
+        if (t) (w.__ann as string[]).push(t);
+      };
+      push();
+      new MutationObserver(push).observe(node, { childList: true, characterData: true, subtree: true });
+    });
+
+    const downloads: string[] = [];
+    page.on("download", (d) => { downloads.push(d.suggestedFilename()); });
+
+    // Segura a resposta o suficiente para pressionar Escape antes que o handler resolva.
+    let release: (() => void) | null = null;
+    const held = new Promise<void>((r) => { release = r; });
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await held;
+      await route.abort("failed");
+    });
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    await expect(status).toHaveText(/Exportando/i);
+
+    // Escape "bem perto" do retorno: dispara abort, depois libera a rota.
+    await csvBtn.focus();
+    await page.keyboard.press("Escape");
+    release?.();
+
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(status).toHaveText("", { timeout: 8000 });
+
+    // Confere que nenhum anúncio de conclusão vazou.
+    const anns = await page.evaluate(() => {
+      const w = window as unknown as { __ann?: string[] };
+      return w.__ann ?? [];
+    });
+    for (const a of anns) {
+      expect(a).not.toMatch(/conclu[ií]d|sucesso|exportad|baixad/i);
+    }
+    expect(downloads.length, "Escape não pode produzir download").toBe(0);
+  });
+
+  test("(79) Escape → retry imediato → Escape no 2º export: estados normalizam e nada é reutilizado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    // Instrumenta fetch: conta chamadas e expõe o AbortController atual.
+    await page.addInitScript(() => {
+      const w = window as unknown as {
+        __calls?: number;
+        __exportAC?: AbortController;
+        fetch: typeof fetch;
+      };
+      w.__calls = 0;
+      const orig = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__calls = (w.__calls ?? 0) + 1;
+          w.__exportAC = new AbortController();
+          return orig(input, { ...(init ?? {}), signal: w.__exportAC.signal });
+        }
+        return orig(input, init);
+      };
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+    await expect(csvBtn).toBeVisible();
+
+    const downloads: string[] = [];
+    page.on("download", (d) => { downloads.push(d.suggestedFilename()); });
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 2500));
+      await route.abort("failed");
+    });
+
+    // 1º export: cancela com Escape.
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    await csvBtn.focus();
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => {
+      const w = window as unknown as { __exportAC?: AbortController };
+      w.__exportAC?.abort();
+    });
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toBeEnabled();
+
+    // Retry imediato.
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    await expect(status).toHaveText(/Exportando/i);
+
+    // 2º Escape.
+    await csvBtn.focus();
+    await page.keyboard.press("Escape");
+    await page.evaluate(() => {
+      const w = window as unknown as { __exportAC?: AbortController };
+      w.__exportAC?.abort();
+    });
+
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toBeEnabled();
+    await expect(status).toHaveText("", { timeout: 8000 });
+
+    // Duas chamadas distintas; zero downloads reutilizados.
+    const calls = await page.evaluate(() => {
+      const w = window as unknown as { __calls?: number };
+      return w.__calls ?? 0;
+    });
+    expect(calls, "cada retry deve criar sua própria requisição").toBeGreaterThanOrEqual(2);
+    expect(downloads.length, "cancels não podem produzir download").toBe(0);
+  });
+
+  test("(80) Cancel → Tab → Enter no botão: accessible name preservado e aria-live reanuncia", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    await expect(jsonBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const nameBefore = {
+      csv: (await csvBtn.getAttribute("aria-label")) ?? (await csvBtn.innerText()),
+      json: (await jsonBtn.getAttribute("aria-label")) ?? (await jsonBtn.innerText()),
+    };
+
+    // Segura a resposta para permitir Escape + retry por teclado.
+    let release: (() => void) | null = null;
+    let held = new Promise<void>((r) => { release = r; });
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await held;
+      held = new Promise<void>((r) => { release = r; });
+      await route.abort("failed");
+    });
+
+    const downloads: string[] = [];
+    page.on("download", (d) => { downloads.push(d.suggestedFilename()); });
+
+    // 1) Dispara export do CSV com clique e cancela com Escape.
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    await expect(status).toHaveText(/Exportando/i);
+    await csvBtn.focus();
+    await page.keyboard.press("Escape");
+    release?.();
+
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(status).toHaveText("", { timeout: 8000 });
+    await expect(csvBtn).toBeEnabled();
+
+    // 2) Foco em outro elemento, depois Tab até o CSV.
+    await jsonBtn.focus();
+    // Shift+Tab volta para o CSV (ordem visual CSV → JSON).
+    await page.keyboard.press("Shift+Tab");
+    await expect(csvBtn).toBeFocused();
+
+    // 3) Enter dispara o retry.
+    await page.keyboard.press("Enter");
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    await expect(status).toHaveText(/Exportando/i);
+
+    // Accessible name não mudou durante a transição.
+    const nameDuring = {
+      csv: (await csvBtn.getAttribute("aria-label")) ?? (await csvBtn.innerText()),
+      json: (await jsonBtn.getAttribute("aria-label")) ?? (await jsonBtn.innerText()),
+    };
+    expect(nameDuring.csv).toBe(nameBefore.csv);
+    expect(nameDuring.json).toBe(nameBefore.json);
+
+    // Encerra o 2º export com Escape (para não deixar pendente).
+    await csvBtn.focus();
+    await page.keyboard.press("Escape");
+    release?.();
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(status).toHaveText("", { timeout: 8000 });
+
+    const nameAfter = {
+      csv: (await csvBtn.getAttribute("aria-label")) ?? (await csvBtn.innerText()),
+      json: (await jsonBtn.getAttribute("aria-label")) ?? (await jsonBtn.innerText()),
+    };
+    expect(nameAfter.csv).toBe(nameBefore.csv);
+    expect(nameAfter.json).toBe(nameBefore.json);
+    expect(downloads.length, "cancels não podem produzir download").toBe(0);
+  });
+
+  test("(81) Cancel+retry repetidos: AbortController e handlers descartados, sem disparos duplicados", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    // Instrumenta fetch e histórico de ACs.
+    await page.addInitScript(() => {
+      const w = window as unknown as {
+        __acs?: { aborted: boolean }[];
+        __calls?: number;
+        __successHandlers?: number;
+        fetch: typeof fetch;
+      };
+      w.__acs = [];
+      w.__calls = 0;
+      w.__successHandlers = 0;
+      const orig = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__calls = (w.__calls ?? 0) + 1;
+          const ac = new AbortController();
+          (w.__acs as { aborted: boolean }[]).push(ac.signal as unknown as { aborted: boolean });
+          const p = orig(input, { ...(init ?? {}), signal: ac.signal });
+          // Intercepta o then de sucesso: se o AC foi abortado, não deve rodar.
+          return p.then((res) => {
+            if (!ac.signal.aborted) w.__successHandlers = (w.__successHandlers ?? 0) + 1;
+            return res;
+          });
+        }
+        return orig(input, init);
+      };
+      // Expõe abort do AC ativo (último push).
+      (w as unknown as { __abortLast?: () => void }).__abortLast = () => {
+        const list = w.__acs ?? [];
+        const last = list[list.length - 1] as unknown as AbortController | undefined;
+        last?.abort();
+      };
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 2000));
+      await route.abort("failed");
+    });
+
+    const downloads: string[] = [];
+    page.on("download", (d) => { downloads.push(d.suggestedFilename()); });
+
+    // 3 ciclos de cancel+retry.
+    for (let i = 0; i < 3; i++) {
+      await csvBtn.click();
+      await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+      await expect(status).toHaveText(/Exportando/i);
+      await csvBtn.focus();
+      await page.keyboard.press("Escape");
+      // Garante abort determinístico.
+      await page.evaluate(() => {
+        const w = window as unknown as { __abortLast?: () => void };
+        w.__abortLast?.();
+      });
+      await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+      await expect(status).toHaveText("", { timeout: 8000 });
+      await expect(csvBtn).toBeEnabled();
+    }
+
+    // Espera janela extra para respostas atrasadas.
+    await page.waitForTimeout(2500);
+
+    const metrics = await page.evaluate(() => {
+      const w = window as unknown as {
+        __acs?: { aborted: boolean }[];
+        __calls?: number;
+        __successHandlers?: number;
+      };
+      return {
+        calls: w.__calls ?? 0,
+        acs: (w.__acs ?? []).length,
+        aborted: (w.__acs ?? []).filter((s) => s.aborted).length,
+        successHandlers: w.__successHandlers ?? 0,
+      };
+    });
+
+    // 1 request por ciclo → 3 chamadas; 3 ACs; todos abortados; nenhum handler de sucesso rodou.
+    expect(metrics.calls, "1 fetch por retry").toBe(3);
+    expect(metrics.acs, "1 AbortController por retry").toBe(3);
+    expect(metrics.aborted, "todos os ACs devem ser abortados").toBe(3);
+    expect(metrics.successHandlers, "nenhum handler de sucesso pode rodar após abort").toBe(0);
+    expect(downloads.length, "sem downloads extras entre retries").toBe(0);
+  });
 });
+
 
 
 
