@@ -270,4 +270,182 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     expect(u2.searchParams.get("l_oc")).toBe("error");
     expect(u2.searchParams.get("l_sid")).toBe("evt_abc");
   });
+
+  // ---------------------------------------------------------------- (8)
+  test("Export: body/params da requisição refletem o filtro atual", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    // Aplica filtro específico: outcome=error + sid parcial "evt_"
+    const sid = page.getByPlaceholder(/evt_/).first();
+    if (await sid.isVisible().catch(() => false)) {
+      await sid.fill("evt_");
+      await sid.blur();
+    }
+    const outcomeSelect = page.getByRole("combobox", { name: /Resultado/i });
+    if (await outcomeSelect.isVisible().catch(() => false)) {
+      await outcomeSelect.click();
+      await page.getByRole("option", { name: /^Erro$/ }).click();
+    }
+    await page.waitForTimeout(400);
+
+    if (await page.getByRole("button", { name: /^Exportar CSV$/ }).isDisabled()) {
+      test.skip(true, "Filtro não retorna registros para validar body");
+    }
+
+    // Captura requests de server-fn (base `/n/`) durante o export
+    const captured: Array<{ url: string; body: unknown }> = [];
+    const listener = (req: import("@playwright/test").Request) => {
+      const u = req.url();
+      if (!/\/n\//.test(u)) return;
+      let body: unknown = null;
+      try { body = req.postDataJSON(); } catch { body = req.postData(); }
+      captured.push({ url: u, body });
+    };
+    page.on("request", listener);
+
+    const [dl] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: /^Exportar CSV$/ }).click(),
+    ]);
+    await dl.path();
+    page.off("request", listener);
+
+    const exportReq = captured.find((c) => {
+      const s = typeof c.body === "string" ? c.body : JSON.stringify(c.body ?? {});
+      return /outcome/.test(s) && /error/.test(s);
+    });
+    expect(
+      exportReq,
+      `Nenhum request de export capturado com o filtro. URLs: ${captured.map((c) => c.url).join(", ")}`,
+    ).toBeTruthy();
+    const serialized = JSON.stringify(exportReq!.body ?? {});
+    expect(serialized).toContain("\"outcome\"");
+    expect(serialized).toContain("error");
+    expect(serialized).toContain("evt_");
+    // Export retorna o conjunto INTEIRO — não deve enviar offset paginado
+    expect(serialized).not.toMatch(/"offset"\s*:\s*[1-9]/);
+  });
+
+  // ---------------------------------------------------------------- (9)
+  test("Após lote: paginação/ordenação preservadas e toast bate com a página", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    // Toggle explícito na coluna "Duração" pra registrar sort na URL
+    const durHead = page.getByRole("button", { name: /Duração/i }).first();
+    if (await durHead.isVisible().catch(() => false)) {
+      await durHead.click();
+      await page.waitForTimeout(300);
+    }
+    const beforeUrl = new URL(page.url());
+    const beforeSb = beforeUrl.searchParams.get("l_sb");
+    const beforeSd = beforeUrl.searchParams.get("l_sd");
+    const beforeP  = beforeUrl.searchParams.get("l_p") ?? "0";
+
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    const toastText = await expectToastMatchingAny(page, [T_OK_BATCH, T_PARTIAL_BATCH, T_EMPTY_BATCH, T_ERR_BATCH]);
+
+    const afterUrl = new URL(page.url());
+    expect(afterUrl.searchParams.get("l_sb")).toBe(beforeSb);
+    expect(afterUrl.searchParams.get("l_sd")).toBe(beforeSd);
+    expect(afterUrl.searchParams.get("l_p") ?? "0").toBe(beforeP);
+    expect(afterUrl.searchParams.get("tab")).toBe("reprocess-log");
+
+    // Toast N/N ou "de N" nunca deve exceder o total do filtro visível
+    const m = toastText.match(/(\d+)\/(\d+)\s+OK/) ?? toastText.match(/de\s+(\d+)/);
+    if (m) {
+      const attempted = Number(m[m.length - 1]);
+      const counter = await page.getByText(/\d+ registro\(s\)/).first().innerText().catch(() => "");
+      const total = Number(counter.replace(/\D+/g, ""));
+      if (!Number.isNaN(total) && total > 0) {
+        expect(attempted).toBeLessThanOrEqual(total);
+      }
+    }
+  });
+
+  // ---------------------------------------------------------------- (10)
+  test("Filtro sem resultados: botões de export desabilitados; nenhum download", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    const sid = page.getByPlaceholder(/evt_/).first();
+    if (!(await sid.isVisible().catch(() => false))) {
+      test.skip(true, "Input de stripe_event_id ausente");
+    }
+    await sid.fill("evt_zzz_no_match_xyz_123");
+    await sid.blur();
+    await page.waitForTimeout(700);
+
+    await expect(page.getByText(/Nenhum registro com os filtros atuais\.|^0 registro/i).first())
+      .toBeVisible({ timeout: 5_000 });
+
+    const csvBtn  = page.getByRole("button", { name: /^Exportar CSV$/ });
+    const jsonBtn = page.getByRole("button", { name: /^Exportar JSON$/ });
+    await expect(csvBtn).toBeDisabled();
+    await expect(jsonBtn).toBeDisabled();
+
+    let downloadFired = false;
+    const onDl = () => { downloadFired = true; };
+    page.on("download", onDl);
+    await csvBtn.click({ force: true }).catch(() => {});
+    await jsonBtn.click({ force: true }).catch(() => {});
+    await page.waitForTimeout(1_000);
+    page.off("download", onDl);
+    expect(downloadFired).toBe(false);
+    const toasts = await page.locator("[data-sonner-toast]").allInnerTexts();
+    for (const t of toasts) expect(t).not.toMatch(/exportado \(0 registros\)/);
+  });
+
+  // ---------------------------------------------------------------- (11)
+  test("Durante o lote: tentar abrir/cancelar/confirmar modal individual repetidamente segue bloqueado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const row = await firstRowOrSkip(page);
+    const rowBtn = row.getByTestId("reprocess-row-btn");
+
+    // Contador de chamadas ao server-fn individual (payload tem "id" mas não outcome/limit)
+    const reprocessCalls: string[] = [];
+    const listener = (req: import("@playwright/test").Request) => {
+      const u = req.url();
+      if (!/\/n\//.test(u)) return;
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      if (/"id"\s*:\s*"/.test(body) && !/outcome|limit|"ids"/.test(body)) {
+        reprocessCalls.push(u);
+      }
+    };
+    page.on("request", listener);
+
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toHaveAttribute("data-pending", "true");
+
+    for (let i = 0; i < 3; i++) {
+      await expect(rowBtn).toBeDisabled();
+      await rowBtn.click({ force: true }).catch(() => {});
+      // Nenhum modal individual pode abrir
+      await expect(
+        page.getByRole("alertdialog").filter({ hasText: /Reprocessar este evento\?/ }),
+      ).toHaveCount(0);
+      // Tenta um ESC + segundo force-click "cancelar/confirmar" mesmo sem modal
+      await page.keyboard.press("Escape").catch(() => {});
+      await rowBtn.click({ force: true }).catch(() => {});
+      await expect(
+        page.getByRole("alertdialog").filter({ hasText: /Reprocessar este evento\?/ }),
+      ).toHaveCount(0);
+      await page.waitForTimeout(120);
+    }
+
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    page.off("request", listener);
+
+    expect(
+      reprocessCalls,
+      `Requests individuais indevidas durante o lote:\n${reprocessCalls.join("\n")}`,
+    ).toHaveLength(0);
+  });
 });
