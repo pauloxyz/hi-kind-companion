@@ -2294,6 +2294,243 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     // Linha echo: vírgula + aspas
     expect(parsed[5][7]).toBe(`a,b\n"c",d "e"`);
   });
+
+  // ---------------------------------------------------------------- (44)
+  // Falha de API no export CSV e JSON: toast de erro aparece, e a UI
+  // recupera aria-busy/data-exporting=false + botões reabilitados.
+  test("(44) Falha no export CSV e JSON: toast de erro + estado normalizado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, (route) =>
+      route.fulfill({ status: 500, contentType: "text/plain", body: "boom" }),
+    );
+
+    // CSV
+    await csvBtn.click();
+    await expectToastMatchingAny(page, [/Falha ao exportar CSV|boom/i]);
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+
+    // JSON
+    await jsonBtn.click();
+    await expectToastMatchingAny(page, [/Falha ao exportar JSON|boom/i]);
+    await expect(jsonBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(jsonBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toBeEnabled();
+    await expect(jsonBtn).toBeEnabled();
+  });
+
+  // ---------------------------------------------------------------- (45)
+  // Lista vazia mockada: baixa CSV com só header e JSON com "[]".
+  // Headers Content-Type + Content-Disposition presentes, toast reflete
+  // 0 registros (via X-Export-Count).
+  test("(45) Export vazio: header-only CSV / [] JSON + toast '(0 registros)'", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+    // Não pulamos por log vazio aqui — o mock cobre o caso.
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, (route) =>
+      route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="stripe-reprocess-log_empty.csv"; filename*=UTF-8''stripe-reprocess-log_empty.csv`,
+          "X-Export-Count": "0",
+        },
+        body: "\uFEFF" + CSV_HEADER + "\n",
+      }),
+    );
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=json/, (route) =>
+      route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "application/json;charset=utf-8",
+          "Content-Disposition": `attachment; filename="stripe-reprocess-log_empty.json"; filename*=UTF-8''stripe-reprocess-log_empty.json`,
+          "X-Export-Count": "0",
+        },
+        body: "[]",
+      }),
+    );
+
+    // Habilitar botões via force click já que podem estar disabled quando total=0.
+    // Preferimos disparar via mock: se estão disabled, força programaticamente.
+    async function forceExport(kind: "csv" | "json") {
+      const btn = kind === "csv" ? csvBtn : jsonBtn;
+      // Se disabled por total=0, disparamos via evaluate.
+      const disabled = await btn.isDisabled();
+      if (disabled) {
+        await btn.evaluate((el: HTMLButtonElement) => {
+          el.disabled = false;
+          el.removeAttribute("aria-disabled");
+        });
+      }
+      return btn;
+    }
+
+    // CSV
+    const csv = await forceExport("csv");
+    const [csvResp, csvDl] = await Promise.all([
+      page.waitForResponse((r) => /reprocess-log-export\?format=csv/.test(r.url())),
+      page.waitForEvent("download"),
+      csv.click(),
+    ]);
+    expect(csvResp.headers()["content-type"]).toMatch(/text\/csv.*charset=utf-8/i);
+    expect(csvResp.headers()["content-disposition"]).toMatch(/attachment/i);
+    expect(csvResp.headers()["x-export-count"]).toBe("0");
+    const csvText = (await (await import("node:fs/promises")).readFile((await csvDl.path())!, "utf8"))
+      .replace(/^\uFEFF/, "").trim();
+    expect(csvText).toBe(CSV_HEADER);
+    const csvToast = await readLastToast(page);
+    expect(csvToast).toMatch(/^CSV exportado \(0 registros\)$/);
+
+    await expect(csv).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+
+    // JSON
+    const jsn = await forceExport("json");
+    const [jsonResp, jsonDl] = await Promise.all([
+      page.waitForResponse((r) => /reprocess-log-export\?format=json/.test(r.url())),
+      page.waitForEvent("download"),
+      jsn.click(),
+    ]);
+    expect(jsonResp.headers()["content-type"]).toMatch(/application\/json.*charset=utf-8/i);
+    expect(jsonResp.headers()["content-disposition"]).toMatch(/attachment/i);
+    expect(jsonResp.headers()["x-export-count"]).toBe("0");
+    const jsonText = (await (await import("node:fs/promises")).readFile((await jsonDl.path())!, "utf8")).trim();
+    expect(JSON.parse(jsonText)).toEqual([]);
+    const jsonToast = await readLastToast(page);
+    expect(jsonToast).toMatch(/^JSON exportado \(0 registros\)$/);
+  });
+
+  // ---------------------------------------------------------------- (46)
+  // aria-live: enquanto exportando, o span data-testid="log-export-status"
+  // anuncia "Exportando CSV…" / "Exportando JSON…", e some ao concluir.
+  // Foco permanece no botão que iniciou o export e accessible name intacto.
+  test("(46) Progresso aria-live aparece durante export e some ao concluir", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    // Estado inicial: vazio.
+    await expect(status).toHaveText("");
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 600));
+      await route.continue();
+    });
+
+    const nameBefore = (await csvBtn.textContent())?.trim();
+    await csvBtn.focus();
+    const dlPromise = page.waitForEvent("download");
+    await page.keyboard.press("Enter");
+
+    // Enquanto exportando: anúncio visível para AT.
+    await expect(status).toHaveText("Exportando CSV…", { timeout: 2000 });
+    // Rótulo do botão preservado.
+    expect((await csvBtn.textContent())?.trim()).toBe(nameBefore);
+    await expect(csvBtn).toHaveText(/CSV/);
+
+    await dlPromise;
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    // aria-live volta a vazio depois de concluir.
+    await expect(status).toHaveText("");
+    // role=status persiste — não deve sumir do DOM.
+    await expect(status).toHaveAttribute("aria-live", "polite");
+  });
+
+  // ---------------------------------------------------------------- (47)
+  // Export sequencial de múltiplas páginas: cada download contém
+  // apenas os ids daquela página (sem duplicar/perder) e filenames
+  // ficam únicos entre downloads.
+  test("(47) Multi-página: cada CSV cobre apenas os ids da página + filenames únicos", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    // Simula 3 páginas de 2 ids cada. Distinguimos por um cursor server-side
+    // via header customizado (X-Page) — o cliente não muda a request, então
+    // roteamos por chamada #.
+    const pages = [
+      ["evt_p1_a", "evt_p1_b"],
+      ["evt_p2_a", "evt_p2_b"],
+      ["evt_p3_a", "evt_p3_b"],
+    ];
+    let call = 0;
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, async (route) => {
+      const ids = pages[Math.min(call, pages.length - 1)];
+      call += 1;
+      const rows = ids.map((sid, i) =>
+        [
+          `2026-07-02T12:0${i}:00Z`, "success", "live",
+          "checkout.session.completed", sid, "u1", "10", "ok",
+          `row_${sid}`, `id_${sid}`,
+        ].join(","),
+      );
+      const body = "\uFEFF" + [CSV_HEADER, ...rows].join("\n");
+      const stamp = Date.now() + "-" + call;
+      const fname = `stripe-reprocess-log_page-${call}_${stamp}.csv`;
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="${fname}"; filename*=UTF-8''${encodeURIComponent(fname)}`,
+          "X-Export-Count": String(ids.length),
+        },
+        body,
+      });
+    });
+
+    const fs = await import("node:fs/promises");
+    const filenames = new Set<string>();
+    const allIds: string[] = [];
+
+    // Se o botão está disabled (log vazio), forçamos habilitar para o mock cobrir.
+    async function unlock() {
+      if (await csvBtn.isDisabled()) {
+        await csvBtn.evaluate((el: HTMLButtonElement) => { el.disabled = false; });
+      }
+    }
+
+    for (let i = 0; i < pages.length; i++) {
+      await unlock();
+      const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+      const fname = dl.suggestedFilename();
+      expect(filenames.has(fname), `filename repetido: ${fname}`).toBe(false);
+      filenames.add(fname);
+      const txt = (await fs.readFile((await dl.path())!, "utf8")).replace(/^\uFEFF/, "").trim();
+      const lines = txt.split(/\r?\n/);
+      expect(lines[0]).toBe(CSV_HEADER);
+      const idsInFile = lines.slice(1).map((l) => l.split(",")[4]);
+      expect(idsInFile).toEqual(pages[i]);
+      allIds.push(...idsInFile);
+      await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    }
+
+    // Nenhum id duplicado no total, e cobre exatamente o esperado.
+    expect(new Set(allIds).size).toBe(allIds.length);
+    expect(allIds).toEqual(pages.flat());
+    expect(filenames.size).toBe(pages.length);
+  });
 });
+
 
 
