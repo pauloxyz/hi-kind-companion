@@ -36,6 +36,8 @@ import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as AuthenticatedAppIndexRouteImport } from './routes/_authenticated/app.index'
 import { Route as LovableEmailSuppressionRouteImport } from './routes/lovable/email/suppression'
 import { Route as ApiPublicHealthRouteImport } from './routes/api/public/health'
+import { Route as ApiAdminStripeEventsExportRouteImport } from './routes/api/admin/stripe-events-export'
+import { Route as ApiAdminReprocessLogExportRouteImport } from './routes/api/admin/reprocess-log-export'
 import { Route as AuthenticatedAppVistoRouteImport } from './routes/_authenticated/app.visto'
 import { Route as AuthenticatedAppVideoRouteImport } from './routes/_authenticated/app.video'
 import { Route as AuthenticatedAppVagasRouteImport } from './routes/_authenticated/app.vagas'
@@ -210,6 +212,18 @@ const ApiPublicHealthRoute = ApiPublicHealthRouteImport.update({
   path: '/api/public/health',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiAdminStripeEventsExportRoute =
+  ApiAdminStripeEventsExportRouteImport.update({
+    id: '/api/admin/stripe-events-export',
+    path: '/api/admin/stripe-events-export',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiAdminReprocessLogExportRoute =
+  ApiAdminReprocessLogExportRouteImport.update({
+    id: '/api/admin/reprocess-log-export',
+    path: '/api/admin/reprocess-log-export',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthenticatedAppVistoRoute = AuthenticatedAppVistoRouteImport.update({
   id: '/app/visto',
   path: '/app/visto',
@@ -470,6 +484,8 @@ export interface FileRoutesByFullPath {
   '/app/vagas': typeof AuthenticatedAppVagasRoute
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
+  '/api/admin/reprocess-log-export': typeof ApiAdminReprocessLogExportRoute
+  '/api/admin/stripe-events-export': typeof ApiAdminStripeEventsExportRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app/': typeof AuthenticatedAppIndexRoute
@@ -535,6 +551,8 @@ export interface FileRoutesByTo {
   '/app/vagas': typeof AuthenticatedAppVagasRoute
   '/app/video': typeof AuthenticatedAppVideoRoute
   '/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
+  '/api/admin/reprocess-log-export': typeof ApiAdminReprocessLogExportRoute
+  '/api/admin/stripe-events-export': typeof ApiAdminStripeEventsExportRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/app': typeof AuthenticatedAppIndexRoute
@@ -602,6 +620,8 @@ export interface FileRoutesById {
   '/_authenticated/app/vagas': typeof AuthenticatedAppVagasRoute
   '/_authenticated/app/video': typeof AuthenticatedAppVideoRoute
   '/_authenticated/app/visto': typeof AuthenticatedAppVistoRouteWithChildren
+  '/api/admin/reprocess-log-export': typeof ApiAdminReprocessLogExportRoute
+  '/api/admin/stripe-events-export': typeof ApiAdminStripeEventsExportRoute
   '/api/public/health': typeof ApiPublicHealthRoute
   '/lovable/email/suppression': typeof LovableEmailSuppressionRoute
   '/_authenticated/app/': typeof AuthenticatedAppIndexRoute
@@ -670,6 +690,8 @@ export interface FileRouteTypes {
     | '/app/vagas'
     | '/app/video'
     | '/app/visto'
+    | '/api/admin/reprocess-log-export'
+    | '/api/admin/stripe-events-export'
     | '/api/public/health'
     | '/lovable/email/suppression'
     | '/app/'
@@ -735,6 +757,8 @@ export interface FileRouteTypes {
     | '/app/vagas'
     | '/app/video'
     | '/app/visto'
+    | '/api/admin/reprocess-log-export'
+    | '/api/admin/stripe-events-export'
     | '/api/public/health'
     | '/lovable/email/suppression'
     | '/app'
@@ -801,6 +825,8 @@ export interface FileRouteTypes {
     | '/_authenticated/app/vagas'
     | '/_authenticated/app/video'
     | '/_authenticated/app/visto'
+    | '/api/admin/reprocess-log-export'
+    | '/api/admin/stripe-events-export'
     | '/api/public/health'
     | '/lovable/email/suppression'
     | '/_authenticated/app/'
@@ -850,6 +876,8 @@ export interface RootRouteChildren {
   VagasH2aEmpresasRoute: typeof VagasH2aEmpresasRoute
   VagasH2aTabacoRoute: typeof VagasH2aTabacoRoute
   VagasH2aIndexRoute: typeof VagasH2aIndexRoute
+  ApiAdminReprocessLogExportRoute: typeof ApiAdminReprocessLogExportRoute
+  ApiAdminStripeEventsExportRoute: typeof ApiAdminStripeEventsExportRoute
   ApiPublicHealthRoute: typeof ApiPublicHealthRoute
   LovableEmailSuppressionRoute: typeof LovableEmailSuppressionRoute
   ApiPublicHooksCheckRepliesRoute: typeof ApiPublicHooksCheckRepliesRoute
@@ -1055,6 +1083,20 @@ declare module '@tanstack/react-router' {
       path: '/api/public/health'
       fullPath: '/api/public/health'
       preLoaderRoute: typeof ApiPublicHealthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/stripe-events-export': {
+      id: '/api/admin/stripe-events-export'
+      path: '/api/admin/stripe-events-export'
+      fullPath: '/api/admin/stripe-events-export'
+      preLoaderRoute: typeof ApiAdminStripeEventsExportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/admin/reprocess-log-export': {
+      id: '/api/admin/reprocess-log-export'
+      path: '/api/admin/reprocess-log-export'
+      fullPath: '/api/admin/reprocess-log-export'
+      preLoaderRoute: typeof ApiAdminReprocessLogExportRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated/app/visto': {
@@ -1466,6 +1508,8 @@ const rootRouteChildren: RootRouteChildren = {
   VagasH2aEmpresasRoute: VagasH2aEmpresasRoute,
   VagasH2aTabacoRoute: VagasH2aTabacoRoute,
   VagasH2aIndexRoute: VagasH2aIndexRoute,
+  ApiAdminReprocessLogExportRoute: ApiAdminReprocessLogExportRoute,
+  ApiAdminStripeEventsExportRoute: ApiAdminStripeEventsExportRoute,
   ApiPublicHealthRoute: ApiPublicHealthRoute,
   LovableEmailSuppressionRoute: LovableEmailSuppressionRoute,
   ApiPublicHooksCheckRepliesRoute: ApiPublicHooksCheckRepliesRoute,
