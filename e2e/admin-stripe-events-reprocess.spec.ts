@@ -2921,7 +2921,305 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     const jsonToast = await readLastToast(page);
     expect(jsonToast).toBe("JSON exportado (2 registros)");
   });
+
+  // ---------------------------------------------------------------- (53)
+  // Cancelar enquanto a request ainda está em andamento (sem resposta):
+  // não deve iniciar download e aria-busy/data-exporting voltam ao normal.
+  //
+  // Implementação: interceptamos a rota e nunca resolvemos; disparamos o
+  // export e, enquanto ele está pendente, chamamos AbortController via
+  // page.evaluate para abortar TODAS as requests em curso na aba (o app
+  // usa fetch, então injetamos um wrap prévio que expõe o controller).
+  test("(53) Cancel em request em andamento: sem download, aria-busy/data-exporting normalizam", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    // Injeta um AbortController compartilhado antes da navegação/click.
+    await page.addInitScript(() => {
+      const w = window as unknown as { __exportAC?: AbortController; fetch: typeof fetch };
+      const origFetch = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__exportAC = new AbortController();
+          return origFetch(input, { ...(init ?? {}), signal: w.__exportAC.signal });
+        }
+        return origFetch(input, init);
+      };
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    let downloads = 0;
+    page.on("download", () => { downloads++; });
+
+    // Route "pendura" a resposta — nunca resolve, forçando cancelamento client-side.
+    let unblock: (() => void) | null = null;
+    const blocked = new Promise<void>((r) => { unblock = r; });
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await blocked; // permanece pendente até o teste liberar
+      await route.abort("failed");
+    });
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+
+    // Cancela a request em curso.
+    await page.evaluate(() => {
+      const w = window as unknown as { __exportAC?: AbortController };
+      w.__exportAC?.abort();
+    });
+
+    // UI normaliza mesmo com a request ainda "presa" no route handler.
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toBeEnabled();
+    expect(downloads, "cancel em request em andamento não pode gerar download").toBe(0);
+
+    // Libera o route handler pra não vazar.
+    unblock?.();
+  });
+
+  // ---------------------------------------------------------------- (54)
+  // Cancel aborta o fetch: mesmo que o servidor responda depois, nenhum
+  // processamento adicional acontece (sem download novo, sem toast extra).
+  test("(54) Cancel aborta fetch: resposta tardia não gera download nem toast duplicado", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    await page.addInitScript(() => {
+      const w = window as unknown as { __exportAC?: AbortController; fetch: typeof fetch };
+      const origFetch = w.fetch.bind(w);
+      w.fetch = (input: RequestInfo | URL, init?: RequestInit) => {
+        const url = typeof input === "string" ? input : (input as Request).url ?? String(input);
+        if (/\/api\/admin\/reprocess-log-export/.test(url)) {
+          w.__exportAC = new AbortController();
+          return origFetch(input, { ...(init ?? {}), signal: w.__exportAC.signal });
+        }
+        return origFetch(input, init);
+      };
+    });
+    await page.reload();
+    await page.waitForLoadState("domcontentloaded");
+    const logTab = page.getByRole("tab", { name: /Log de Reprocessamento/i });
+    if (await logTab.isVisible().catch(() => false)) await logTab.click();
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    let downloads = 0;
+    page.on("download", () => { downloads++; });
+
+    // Servidor responde OK, porém DEPOIS do cancel — o fetch já estará abortado.
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      await new Promise((r) => setTimeout(r, 1200));
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="late.csv"; filename*=UTF-8''late.csv`,
+          "X-Export-Count": "1",
+        },
+        body: "\uFEFF" + CSV_HEADER + "\n2026-07-01T00:00:00Z,success,live,x,evt_late,u,1,ok,r,l\n",
+      });
+    });
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+
+    // Cancela antes da resposta chegar.
+    await page.waitForTimeout(200);
+    await page.evaluate(() => {
+      const w = window as unknown as { __exportAC?: AbortController };
+      w.__exportAC?.abort();
+    });
+
+    // UI já normalizou; captura o toast de erro/cancel (se houver).
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    const toastsAfterAbort = await page.locator("[data-sonner-toast]").count();
+
+    // Aguarda a resposta tardia do servidor chegar (fetch já abortado).
+    await page.waitForTimeout(1500);
+
+    // Nenhum download extra e nenhum toast novo depois da resposta tardia.
+    expect(downloads, "fetch abortado não pode consumir a resposta tardia").toBe(0);
+    const toastsFinal = await page.locator("[data-sonner-toast]").count();
+    expect(toastsFinal).toBe(toastsAfterAbort);
+
+    // Estado do botão continua estável (não voltou a "exporting" por causa da resposta).
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false");
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+  });
+
+  // ---------------------------------------------------------------- (55)
+  // Após falha + retry, filenames dos downloads permanecem únicos mesmo
+  // quando as duas tentativas caem no mesmo segundo — o navegador não
+  // sobrescreve o arquivo anterior.
+  test("(55) Filenames únicos entre tentativas (falha + retry no mesmo segundo)", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    let call = 0;
+    // Congela o timestamp de forma que ambas as respostas usem o mesmo segundo,
+    // forçando o gerador de filename do cliente a garantir unicidade via
+    // contador/ms — validamos que os nomes finais são distintos.
+    const FIXED = "2026-07-02-12-34-56";
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, async (route) => {
+      call++;
+      if (call === 1) {
+        await route.fulfill({ status: 500, body: "err" });
+        return;
+      }
+      // 2ª e 3ª chamada retornam sucesso com filename baseado no MESMO segundo.
+      const rows = [
+        `2026-07-01T10:00:00Z,success,live,checkout.session.completed,evt_try_${call},u,10,ok,r_${call},l_${call}`,
+      ];
+      // Servidor devolve um nome "genérico" — cliente deve suffixar com contador ms/unique.
+      const fname = `stripe-reprocess-log_${FIXED}.csv`;
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="${fname}"; filename*=UTF-8''${encodeURIComponent(fname)}`,
+          "X-Export-Count": "1",
+        },
+        body: "\uFEFF" + [CSV_HEADER, ...rows].join("\n"),
+      });
+    });
+
+    const seen: string[] = [];
+
+    // Tentativa 1: falha.
+    await csvBtn.click();
+    const errToast = await readLastToast(page);
+    expect(errToast).toMatch(/(Falha|erro)/i);
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+
+    // Retry #2 (sucesso) — no MESMO segundo.
+    const [dl2] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    seen.push(dl2.suggestedFilename());
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+
+    // Retry #3 (sucesso, também mesmo segundo) — mais uma prova de unicidade.
+    const [dl3] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    seen.push(dl3.suggestedFilename());
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+
+    // Ambos os filenames devem ser distintos (sem sobrescrita).
+    expect(new Set(seen).size).toBe(seen.length);
+    // Sanity: base compartilhada com o segundo fixo, mas sufixos diferentes.
+    for (const name of seen) expect(name).toMatch(new RegExp(FIXED));
+    expect(seen[0]).not.toBe(seen[1]);
+  });
+
+  // ---------------------------------------------------------------- (56)
+  // aria-live durante tentativas com falha + recuperação:
+  // Ordem esperada: "Exportando CSV…" → (limpa) → toast erro → nova tentativa
+  // "Exportando CSV…" → (limpa) → toast sucesso.
+  // Não deve haver sobreposição (progresso + resultado ao mesmo tempo).
+  test("(56) aria-live não sobrepõe progresso e resultado entre falha e sucesso", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    const status = page.getByTestId("log-export-status");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    // Grava sequência de estados do aria-live para validar ordem.
+    const timeline: Array<{ t: number; text: string }> = [];
+    const startedAt = Date.now();
+    const stop = setInterval(async () => {
+      try {
+        const txt = (await status.textContent())?.trim() ?? "";
+        const last = timeline[timeline.length - 1]?.text;
+        if (txt !== last) timeline.push({ t: Date.now() - startedAt, text: txt });
+      } catch { /* ignore */ }
+    }, 60);
+
+    let call = 0;
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, async (route) => {
+      call++;
+      await new Promise((r) => setTimeout(r, 400)); // dá tempo do "Exportando CSV…" aparecer
+      if (call === 1) {
+        await route.fulfill({ status: 500, body: "err" });
+        return;
+      }
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="retry_ok.csv"; filename*=UTF-8''retry_ok.csv`,
+          "X-Export-Count": "1",
+        },
+        body: "\uFEFF" + CSV_HEADER + "\n2026-07-01T00:00:00Z,success,live,x,evt_rec,u,1,ok,r,l\n",
+      });
+    });
+
+    // Estado inicial vazio.
+    await expect(status).toHaveText("");
+
+    // Tentativa 1 (falha).
+    await csvBtn.click();
+    await expect(status).toHaveText("Exportando CSV…", { timeout: 2000 });
+    // Quando o toast de erro aparecer, o aria-live já deve estar limpo — sem sobreposição.
+    const errToast = page.locator("[data-sonner-toast]").last();
+    await expect(errToast).toBeVisible({ timeout: 8000 });
+    await expect(status).toHaveText("");
+    expect((await errToast.innerText()).trim()).toMatch(/(Falha|erro)/i);
+
+    // Tentativa 2 (sucesso).
+    const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    await expect(status).toHaveText("Exportando CSV…", { timeout: 2000 });
+    await dl.path();
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(status).toHaveText("");
+    const okToast = page.locator("[data-sonner-toast]").last();
+    await expect(okToast).toBeVisible();
+    expect((await okToast.innerText()).trim()).toMatch(/^CSV exportado \(1 registros\)$/);
+
+    clearInterval(stop);
+
+    // Ordem esperada: "" (baseline) → "Exportando CSV…" → "" → "Exportando CSV…" → "".
+    const sequence = timeline.map((e) => e.text);
+    // Remove duplicações consecutivas por segurança (o filtro já garante, mas defensivo).
+    const dedup = sequence.filter((v, i) => v !== sequence[i - 1]);
+    // Aceita "" como estado inicial opcional.
+    const trimmed = dedup[0] === "" ? dedup.slice(1) : dedup;
+    expect(trimmed.slice(0, 4)).toEqual([
+      "Exportando CSV…",
+      "",
+      "Exportando CSV…",
+      "",
+    ]);
+    // Nenhum ponto da timeline deve conter o texto do toast — provando não-sobreposição.
+    for (const step of trimmed) {
+      expect(step).not.toMatch(/CSV exportado/);
+      expect(step).not.toMatch(/Falha/i);
+    }
+  });
 });
+
 
 
 
