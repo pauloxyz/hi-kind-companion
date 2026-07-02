@@ -32,10 +32,12 @@ const listSchema = baseFilters.extend({
   offset: z.number().int().min(0).default(0),
 });
 
-const exportSchema = baseFilters.extend({
+export const stripeEventsExportSchema = baseFilters.extend({
   sortBy: z.enum(sortColumns).default("received_at"),
   sortDir: z.enum(["asc", "desc"]).default("desc"),
 });
+const exportSchema = stripeEventsExportSchema;
+
 
 type JsonValue = string | number | boolean | null | JsonValue[] | { [k: string]: JsonValue };
 
