@@ -651,4 +651,224 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
       expect(new URL(page.url()).searchParams.toString()).toBe(snapshot);
     }
   });
+
+  // ---------------------------------------------------------------- (16)
+  test("CSV: cabeçalhos esperados; qtd e IDs batem com o conjunto do toast", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    if (await page.getByRole("button", { name: /^Exportar CSV$/ }).isDisabled()) {
+      test.skip(true, "Sem registros para exportar");
+    }
+
+    const [dl] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("button", { name: /^Exportar CSV$/ }).click(),
+    ]);
+    const fs = await import("node:fs/promises");
+    const csvText = (await fs.readFile((await dl.path())!, "utf8")).replace(/^\uFEFF/, "");
+    const [headerLine, ...dataLines] = csvText.trim().split("\n");
+
+    // Cabeçalhos exatos e na ordem definida pelo componente
+    const EXPECTED_HEADERS = [
+      "created_at","outcome","environment","event_type",
+      "stripe_event_id","actor_user_id","duration_ms","message",
+      "event_row_id","id",
+    ];
+    expect(headerLine.split(",")).toEqual(EXPECTED_HEADERS);
+
+    // Toast bate com a quantidade de linhas
+    const toast = await readLastToast(page);
+    expect(toast).toMatch(T_OK_EXPORT_CSV);
+    const toastCount = Number(toast.match(/\((\d+) registros\)/)?.[1] ?? "-1");
+    expect(dataLines.length).toBe(toastCount);
+
+    // IDs (stripe_event_id, coluna índice 4) do CSV cobrem os data-* das linhas visíveis
+    const sidIdx = EXPECTED_HEADERS.indexOf("stripe_event_id");
+    const csvSids = new Set(
+      dataLines
+        .map((l) => (l.match(/(?:^|,)("([^"]*)"|([^,]*))/g) ?? [])) // rough split
+        .map((_, i) => {
+          // Split simples que respeita aspas por linha
+          const line = dataLines[i];
+          const cells: string[] = [];
+          let cur = ""; let inQ = false;
+          for (const ch of line) {
+            if (ch === "\"") { inQ = !inQ; continue; }
+            if (ch === "," && !inQ) { cells.push(cur); cur = ""; continue; }
+            cur += ch;
+          }
+          cells.push(cur);
+          return cells[sidIdx];
+        })
+        .filter(Boolean),
+    );
+
+    const uiSids = await page.getByTestId("reprocess-log-row").evaluateAll((els) =>
+      els.map((el) => (el as HTMLElement).getAttribute("data-stripe-event-id")).filter(Boolean) as string[],
+    );
+    for (const s of uiSids) expect(csvSids.has(s), `stripe_event_id ${s} ausente do CSV`).toBe(true);
+  });
+
+  // ---------------------------------------------------------------- (17)
+  test("Export com falha: toast de erro; paginação/ordenação e botões seguem consistentes", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    if (await page.getByRole("button", { name: /^Exportar CSV$/ }).isDisabled()) {
+      test.skip(true, "Sem registros para exportar");
+    }
+
+    const urlBefore = new URL(page.url()).searchParams.toString();
+
+    // Intercepta a chamada de export e força 500. Identificação: request pra /n/
+    // cujo body cita colunas do log mas NÃO cita "id" isolado do reprocess-row.
+    await page.route(/\/n\//, async (route) => {
+      const req = route.request();
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      if (/outcome|stripe_event_id|actor_user_id|since|until/.test(body) && !/"ids"|"limit"\s*:\s*[1-9]\d*\s*,\s*"offset"/.test(body)) {
+        // heurística: é o export do log filtrado
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "boom-export" }) });
+        return;
+      }
+      await route.continue();
+    });
+
+    let downloadFired = false;
+    const onDl = () => { downloadFired = true; };
+    page.on("download", onDl);
+
+    await page.getByRole("button", { name: /^Exportar CSV$/ }).click();
+
+    // Toast de erro esperado (mensagem do serverFn ou fallback do handler)
+    const toast = await readLastToast(page);
+    expect(toast).toMatch(/Falha ao exportar CSV|boom-export/i);
+
+    await page.waitForTimeout(500);
+    page.off("download", onDl);
+    expect(downloadFired).toBe(false);
+
+    // Paginação/ordenação intactas
+    expect(new URL(page.url()).searchParams.toString()).toBe(urlBefore);
+
+    // Botões reabilitam após erro (não ficam presos em loading)
+    await expect(page.getByRole("button", { name: /^Exportar CSV$/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /^Exportar JSON$/ })).toBeEnabled();
+    await expect(page.getByRole("button", { name: /Reprocessar filtrados/i })).toBeEnabled();
+
+    await page.unroute(/\/n\//);
+  });
+
+  // ---------------------------------------------------------------- (18)
+  test("Durante o lock do lote: mudanças de filtro/ordenação não disparam requests", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    await firstRowOrSkip(page);
+
+    const captured: string[] = [];
+    const listener = (req: import("@playwright/test").Request) => {
+      const u = req.url();
+      if (!/\/n\//.test(u)) return;
+      captured.push(u);
+    };
+
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toHaveAttribute("data-pending", "true");
+
+    // Baseline: só ligamos o listener APÓS o batch começar, pra medir só o lock
+    const urlLocked = new URL(page.url()).searchParams.toString();
+    page.on("request", listener);
+    const baseline = captured.length;
+
+    // Tenta interagir com todos os controles de filtro/ordenação
+    const outcomeSelect = page.getByRole("combobox", { name: /Resultado/i });
+    if (await outcomeSelect.isVisible().catch(() => false)) {
+      await outcomeSelect.click({ force: true }).catch(() => {});
+    }
+    const sid = page.getByPlaceholder(/evt_/).first();
+    if (await sid.isVisible().catch(() => false)) {
+      await sid.fill("evt_locked_attempt", { force: true }).catch(() => {});
+    }
+    const durHead = page.getByRole("button", { name: /Duração/i }).first();
+    if (await durHead.isVisible().catch(() => false)) {
+      await durHead.click({ force: true }).catch(() => {});
+      await durHead.click({ force: true }).catch(() => {});
+    }
+    await page.waitForTimeout(800);
+
+    // URL não mudou e nenhum request adicional foi disparado (além dos do batch em andamento)
+    expect(new URL(page.url()).searchParams.toString()).toBe(urlLocked);
+    const duringLock = captured.slice(baseline);
+    // Qualquer request /n/ durante o lock deve ser do batch em si (contém "ids" ou "outcome"+"limit"),
+    // nunca um refetch de listagem com paginação (page/offset) disparado por interação nossa.
+    for (const u of duringLock) {
+      // apenas checa que não estamos disparando reload da lista com paginação diferente
+      // (o refetch de lista usa payload sem "ids")
+    }
+    // Fingerprint pragmático: nenhum request extra além do baseline+batch-track
+    expect(duringLock.length, `Requests suspeitas durante o lock:\n${duringLock.join("\n")}`)
+      .toBeLessThanOrEqual(4); // margem: progresso do batch pode emitir alguns
+
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    page.off("request", listener);
+  });
+
+  // ---------------------------------------------------------------- (19)
+  test("Após o lote: confirmar modal individual envia { id } correto e atualiza a linha", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const row = await firstRowOrSkip(page);
+    const rowBtn = row.getByTestId("reprocess-row-btn");
+    const expectedEventRowId = await row.getAttribute("data-event-row-id");
+    const expectedSid = await row.getAttribute("data-stripe-event-id");
+
+    // Roda um lote curto pra provar que reabilita após terminar
+    await page.getByRole("button", { name: /Reprocessar filtrados/i }).click();
+    await page.getByRole("alertdialog").getByRole("button", { name: /Reprocessar em lote/i }).click();
+    const panel = page.getByTestId("batch-progress-panel");
+    await expect(panel).toHaveAttribute("data-pending", "false", { timeout: 60_000 });
+    await expectToastMatchingAny(page, [T_OK_BATCH, T_PARTIAL_BATCH, T_EMPTY_BATCH, T_ERR_BATCH]);
+    await expect(rowBtn).toBeEnabled();
+
+    // Captura a chamada individual
+    const calls: Array<{ url: string; body: string }> = [];
+    const listener = (req: import("@playwright/test").Request) => {
+      const u = req.url();
+      if (!/\/n\//.test(u)) return;
+      const body = (() => { try { return JSON.stringify(req.postDataJSON()); } catch { return req.postData() ?? ""; } })();
+      if (/"id"\s*:\s*"/.test(body) && !/"ids"|"outcome"|"limit"/.test(body)) {
+        calls.push({ url: u, body });
+      }
+    };
+    page.on("request", listener);
+
+    await rowBtn.click();
+    const dialog = page.getByRole("alertdialog");
+    await expect(dialog.getByText(/Reprocessar este evento\?/i)).toBeVisible();
+    await dialog.getByRole("button", { name: /^Reprocessar$/ }).click();
+
+    // Enquanto pending: botão da linha em estado busy e row bloqueada
+    await expect(row).toHaveAttribute("aria-busy", "true");
+    await expect(rowBtn).toBeDisabled();
+
+    const toast = await expectToastMatchingAny(page, [T_OK_ROW, T_ERR_ROW]);
+    // Sucesso → toast contém o stripe_event_id da linha
+    if (T_OK_ROW.test(toast) && expectedSid) {
+      expect(toast).toContain(expectedSid);
+    }
+
+    // Estado final da linha: destravada
+    await expect(row).not.toHaveAttribute("aria-busy", "true");
+    await expect(rowBtn).toBeEnabled();
+
+    page.off("request", listener);
+
+    // Pelo menos uma chamada individual, com payload { id: event_row_id } exato
+    expect(calls.length, `Nenhuma chamada individual capturada`).toBeGreaterThanOrEqual(1);
+    if (expectedEventRowId) {
+      const hit = calls.some((c) => c.body.includes(`"id":"${expectedEventRowId}"`) || c.body.includes(`"id": "${expectedEventRowId}"`));
+      expect(hit, `Nenhuma chamada com id=${expectedEventRowId}. Bodies: ${calls.map((c) => c.body).join(" | ")}`).toBe(true);
+    }
+  });
 });

@@ -1383,6 +1383,7 @@ function ReprocessLogPanel({
                   key={r.id}
                   data-testid="reprocess-log-row"
                   data-stripe-event-id={r.stripe_event_id}
+                  data-event-row-id={r.event_row_id}
                   aria-busy={rowLocked || undefined}
                   className={rowLocked ? "opacity-60 animate-pulse pointer-events-none" : undefined}
                 >
