@@ -83,7 +83,7 @@ type SupabaseFilterable = {
   or: (expr: string) => SupabaseFilterable;
 };
 
-function applyFilters<T extends SupabaseFilterable>(
+export function applyStripeEventsFilters<T extends SupabaseFilterable>(
   q: T,
   data: z.infer<typeof baseFilters>,
 ): T {
@@ -113,6 +113,8 @@ function applyFilters<T extends SupabaseFilterable>(
   }
   return out;
 }
+const applyFilters = applyStripeEventsFilters;
+
 
 export const listStripeWebhookEvents = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
