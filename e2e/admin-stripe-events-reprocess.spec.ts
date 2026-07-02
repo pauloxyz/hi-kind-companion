@@ -2530,7 +2530,399 @@ test.describe("Admin · Stripe Events · reprocess log", () => {
     expect(allIds).toEqual(pages.flat());
     expect(filenames.size).toBe(pages.length);
   });
+
+  // ---------------------------------------------------------------- (48)
+  // 1ª tentativa falha (500) → toast de erro, sem download, botão volta ao normal.
+  // 2ª tentativa (usuário aciona de novo) responde OK → 1 único download,
+  // toast de sucesso com contagem correta, aria-busy/data-exporting refletem
+  // cada tentativa de forma independente (sem "grudar" do request anterior).
+  test("(48) Retry manual após falha: sem downloads duplicados; toast/aria-busy por tentativa", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    let call = 0;
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, async (route) => {
+      call++;
+      // pequena latência pra observar aria-busy=true em ambas as tentativas
+      await new Promise((r) => setTimeout(r, 250));
+      if (call === 1) {
+        await route.fulfill({
+          status: 500,
+          headers: { "Content-Type": "application/json;charset=utf-8" },
+          body: JSON.stringify({ error: "boom" }),
+        });
+        return;
+      }
+      const rows = [
+        `2026-07-01T10:00:00Z,success,live,checkout.session.completed,evt_retry_1,user_a,42,ok,row_1,log_1`,
+        `2026-07-01T10:00:01Z,success,live,checkout.session.completed,evt_retry_2,user_a,50,ok,row_2,log_2`,
+      ];
+      const fname = `stripe-reprocess-log_retry_${Date.now()}.csv`;
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="${fname}"; filename*=UTF-8''${encodeURIComponent(fname)}`,
+          "X-Export-Count": "2",
+        },
+        body: "\uFEFF" + [CSV_HEADER, ...rows].join("\n"),
+      });
+    });
+
+    // Contador de downloads reais — não pode ter 2 na 1ª tentativa.
+    let downloads = 0;
+    page.on("download", () => { downloads++; });
+
+    // 1ª tentativa (falha)
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+    const errToast = await readLastToast(page);
+    expect(errToast).toMatch(/(Falha|erro).*(export|CSV)/i);
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    expect(downloads, "não deve haver download na falha").toBe(0);
+
+    // 2ª tentativa (sucesso) — usuário reclica.
+    const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    const okToast = await readLastToast(page);
+    expect(okToast).toMatch(/^CSV exportado \(2 registros\)$/);
+    expect(downloads).toBe(1);
+    const txt = (await (await import("node:fs/promises")).readFile((await dl.path())!, "utf8"))
+      .replace(/^\uFEFF/, "").trim();
+    const ids = txt.split(/\r?\n/).slice(1).map((l) => l.split(",")[4]);
+    expect(ids).toEqual(["evt_retry_1", "evt_retry_2"]);
+    expect(call).toBe(2);
+  });
+
+  // ---------------------------------------------------------------- (49)
+  // Usuário "cancela" um export em andamento no exato instante do erro da API.
+  // O route abort() simula a interrupção da request. Não deve sair download
+  // e aria-busy/data-exporting devem voltar ao estado normal.
+  test("(49) Cancelamento no meio do erro: sem download; aria-busy/data-exporting normalizam", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    let downloads = 0;
+    page.on("download", () => { downloads++; });
+
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      // Espera pra deixar aria-busy=true visível, depois aborta como se o
+      // usuário cancelasse exatamente quando a API retornaria erro.
+      await new Promise((r) => setTimeout(r, 400));
+      await route.abort("failed");
+    });
+
+    await csvBtn.click();
+    await expect(csvBtn).toHaveAttribute("aria-busy", "true");
+
+    // Após aborto, UI deve normalizar e mostrar toast de erro (sem download).
+    const t = await readLastToast(page);
+    expect(t).toMatch(/(Falha|erro|cancel)/i);
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    await expect(csvBtn).toHaveAttribute("aria-busy", "false");
+    await expect(csvBtn).toBeEnabled();
+    expect(downloads, "abort não pode gerar download").toBe(0);
+  });
+
+  // ---------------------------------------------------------------- (50)
+  // aria-live: toasts de erro e sucesso devem ser anunciáveis (region live),
+  // permanecer legíveis por tempo suficiente após o download e o foco NÃO
+  // deve ser roubado do botão que iniciou o export.
+  test("(50) Toasts erro/sucesso: aria-live correto, legíveis e sem perder foco", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+    const csvBtn = page.getByTestId("log-export-csv");
+    await expect(csvBtn).toBeVisible();
+    if (await csvBtn.isDisabled()) test.skip(true, "Log vazio");
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    let n = 0;
+    await page.route(/\/api\/admin\/reprocess-log-export\?format=csv/, async (route) => {
+      n++;
+      if (n === 1) {
+        await route.fulfill({ status: 500, body: "err" });
+        return;
+      }
+      const body = "\uFEFF" + CSV_HEADER + "\n" +
+        "2026-07-01T10:00:00Z,success,live,checkout.session.completed,evt_live_ok,u,10,ok,r,l\n";
+      await route.fulfill({
+        status: 200,
+        headers: {
+          "Content-Type": "text/csv;charset=utf-8",
+          "Content-Disposition": `attachment; filename="stripe-reprocess-log_live.csv"; filename*=UTF-8''stripe-reprocess-log_live.csv`,
+          "X-Export-Count": "1",
+        },
+        body,
+      });
+    });
+
+    // 1) Erro: toast em region live e foco preservado no botão.
+    await csvBtn.focus();
+    await csvBtn.click();
+    const errToast = page.locator("[data-sonner-toast]").last();
+    await expect(errToast).toBeVisible();
+    // Sonner monta um wrapper com aria-live/role region — validamos a região "ol/section".
+    const liveRegion = page.locator('[aria-live], [role="status"], [role="region"][aria-label*="Notifi" i]').first();
+    await expect(liveRegion).toBeAttached();
+    expect(await errToast.innerText()).toMatch(/(Falha|erro)/i);
+    // Foco permanece no botão.
+    await expect(csvBtn).toBeFocused();
+
+    // 2) Sucesso: toast permanece legível por >= 800ms após término.
+    const [dl] = await Promise.all([page.waitForEvent("download"), csvBtn.click()]);
+    await dl.path();
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    const okToast = page.locator("[data-sonner-toast]").last();
+    await expect(okToast).toBeVisible();
+    const initial = (await okToast.innerText()).trim();
+    expect(initial).toMatch(/^CSV exportado \(1 registros\)$/);
+    await page.waitForTimeout(800);
+    // Ainda visível/legível após o download concluir.
+    await expect(okToast).toBeVisible();
+    expect((await okToast.innerText()).trim()).toBe(initial);
+    // Foco preservado no botão de origem.
+    await expect(csvBtn).toBeFocused();
+  });
+
+  // ---------------------------------------------------------------- (51)
+  // Export com filtros + ordenação complexos: request deve refletir os
+  // parâmetros; CSV/JSON só contêm os ids esperados e a contagem no toast
+  // bate exatamente com X-Export-Count.
+  test("(51) Filtros + sort complexos: request refletido, ids esperados, toast==X-Export-Count", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    // Aplica filtros + sort via URL (evita depender de UI específica de filtro).
+    const u = new URL(page.url());
+    u.pathname = ROUTE;
+    u.searchParams.set("tab", "reprocess-log");
+    u.searchParams.set("l_oc", "error");
+    u.searchParams.set("l_uid", "user_x");
+    u.searchParams.set("l_sid", "evt_flt_");
+    u.searchParams.set("l_since", "2026-06-01");
+    u.searchParams.set("l_until", "2026-06-30");
+    u.searchParams.set("l_sb", "duration_ms");
+    u.searchParams.set("l_sd", "desc");
+    u.searchParams.set("l_ps", "25");
+    u.searchParams.set("l_p", "0");
+    await page.goto(u.pathname + "?" + u.searchParams.toString());
+    await page.waitForLoadState("domcontentloaded");
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+    const expectedIds = ["evt_flt_c", "evt_flt_b", "evt_flt_a"]; // desc por duração
+    const rows = [
+      `2026-06-15T10:00:00Z,error,live,checkout.session.completed,evt_flt_c,user_x,900,timeout,r3,l3`,
+      `2026-06-14T10:00:00Z,error,live,checkout.session.completed,evt_flt_b,user_x,600,timeout,r2,l2`,
+      `2026-06-13T10:00:00Z,error,live,checkout.session.completed,evt_flt_a,user_x,300,timeout,r1,l1`,
+    ];
+
+    let observed: any = null;
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      const req = route.request();
+      try { observed = req.postDataJSON(); } catch { observed = null; }
+      const isCsv = /format=csv/.test(req.url());
+      if (isCsv) {
+        await route.fulfill({
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv;charset=utf-8",
+            "Content-Disposition": `attachment; filename="stripe-reprocess-log_filt.csv"; filename*=UTF-8''stripe-reprocess-log_filt.csv`,
+            "X-Export-Count": String(expectedIds.length),
+          },
+          body: "\uFEFF" + [CSV_HEADER, ...rows].join("\n"),
+        });
+      } else {
+        const arr = expectedIds.map((id) => ({ stripe_event_id: id, outcome: "error" }));
+        await route.fulfill({
+          status: 200,
+          headers: {
+            "Content-Type": "application/json;charset=utf-8",
+            "Content-Disposition": `attachment; filename="stripe-reprocess-log_filt.json"; filename*=UTF-8''stripe-reprocess-log_filt.json`,
+            "X-Export-Count": String(arr.length),
+          },
+          body: JSON.stringify(arr),
+        });
+      }
+    });
+
+    // Se botões desabilitados pelo total local, force-habilita para permitir chamada.
+    for (const b of [csvBtn, jsonBtn]) {
+      if (await b.isDisabled()) {
+        await b.evaluate((el: HTMLButtonElement) => { el.disabled = false; el.removeAttribute("aria-disabled"); });
+      }
+    }
+
+    // CSV
+    const [csvResp, csvDl] = await Promise.all([
+      page.waitForResponse((r) => /reprocess-log-export\?format=csv/.test(r.url())),
+      page.waitForEvent("download"),
+      csvBtn.click(),
+    ]);
+    expect(observed, "server deve receber payload").toBeTruthy();
+    expect(observed.sortBy).toBe("duration_ms");
+    expect(observed.sortDir).toBe("desc");
+    // Filtros refletidos (aceita subset — nomes podem variar entre stripeEventId/eventId).
+    const asStr = JSON.stringify(observed);
+    expect(asStr).toContain("evt_flt_");
+    expect(asStr).toContain("user_x");
+    expect(asStr).toMatch(/error/);
+    const csvCount = csvResp.headers()["x-export-count"];
+    const csvText = (await (await import("node:fs/promises")).readFile((await csvDl.path())!, "utf8"))
+      .replace(/^\uFEFF/, "").trim();
+    const csvIds = csvText.split(/\r?\n/).slice(1).map((l) => l.split(",")[4]);
+    expect(csvIds).toEqual(expectedIds);
+    const csvToast = await readLastToast(page);
+    expect(csvToast).toBe(`CSV exportado (${csvCount} registros)`);
+
+    // JSON
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+    const [jsonResp, jsonDl] = await Promise.all([
+      page.waitForResponse((r) => /reprocess-log-export\?format=json/.test(r.url())),
+      page.waitForEvent("download"),
+      jsonBtn.click(),
+    ]);
+    const jsonCount = jsonResp.headers()["x-export-count"];
+    const parsed = JSON.parse(
+      await (await import("node:fs/promises")).readFile((await jsonDl.path())!, "utf8"),
+    );
+    expect(parsed.map((r: any) => r.stripe_event_id)).toEqual(expectedIds);
+    const jsonToast = await readLastToast(page);
+    expect(jsonToast).toBe(`JSON exportado (${jsonCount} registros)`);
+  });
+
+  // ---------------------------------------------------------------- (52)
+  // Última página com menos itens do que o limit: offset correto,
+  // sem duplicar registros anteriores e arquivo com exatamente N linhas.
+  test("(52) Última página parcial: offset correto, sem duplicatas, N linhas exatas", async ({ page }) => {
+    if (!(await gotoLog(page))) test.skip(true, "Sem acesso admin");
+
+    const PAGE_SIZE = 25;
+    // Simula 27 registros: página 0 (25) e página 1 (2).
+    const allIds = Array.from({ length: 27 }, (_, i) => `evt_p_${String(i).padStart(3, "0")}`);
+    const CSV_HEADER = [
+      "created_at","outcome","environment","event_type","stripe_event_id",
+      "actor_user_id","duration_ms","message","event_row_id","id",
+    ].join(",");
+
+    // Navegar direto para a última página via URL.
+    const u = new URL(page.url());
+    u.pathname = ROUTE;
+    u.searchParams.set("tab", "reprocess-log");
+    u.searchParams.set("l_ps", String(PAGE_SIZE));
+    u.searchParams.set("l_p", "1");
+    await page.goto(u.pathname + "?" + u.searchParams.toString());
+    await page.waitForLoadState("domcontentloaded");
+
+    const csvBtn = page.getByTestId("log-export-csv");
+    const jsonBtn = page.getByTestId("log-export-json");
+    await expect(csvBtn).toBeVisible();
+
+    let capturedOffset: number | undefined;
+    let capturedLimit: number | undefined;
+    await page.route(/\/api\/admin\/reprocess-log-export/, async (route) => {
+      const req = route.request();
+      const payload = (() => { try { return req.postDataJSON(); } catch { return {}; } })();
+      capturedOffset = payload.offset;
+      capturedLimit = payload.limit;
+      const offset = Number.isFinite(payload.offset) ? payload.offset : 0;
+      const limit = Number.isFinite(payload.limit) ? payload.limit : PAGE_SIZE;
+      const slice = allIds.slice(offset, offset + limit);
+      const isCsv = /format=csv/.test(req.url());
+      if (isCsv) {
+        const rows = slice.map(
+          (id, i) => `2026-07-01T10:00:${String(i).padStart(2, "0")}Z,success,live,checkout.session.completed,${id},u,10,ok,r_${i},l_${i}`,
+        );
+        await route.fulfill({
+          status: 200,
+          headers: {
+            "Content-Type": "text/csv;charset=utf-8",
+            "Content-Disposition": `attachment; filename="stripe-reprocess-log_lastpage_${offset}.csv"; filename*=UTF-8''stripe-reprocess-log_lastpage_${offset}.csv`,
+            "X-Export-Count": String(slice.length),
+          },
+          body: "\uFEFF" + [CSV_HEADER, ...rows].join("\n"),
+        });
+      } else {
+        const arr = slice.map((id) => ({ stripe_event_id: id }));
+        await route.fulfill({
+          status: 200,
+          headers: {
+            "Content-Type": "application/json;charset=utf-8",
+            "Content-Disposition": `attachment; filename="stripe-reprocess-log_lastpage_${offset}.json"; filename*=UTF-8''stripe-reprocess-log_lastpage_${offset}.json`,
+            "X-Export-Count": String(arr.length),
+          },
+          body: JSON.stringify(arr),
+        });
+      }
+    });
+
+    for (const b of [csvBtn, jsonBtn]) {
+      if (await b.isDisabled()) {
+        await b.evaluate((el: HTMLButtonElement) => { el.disabled = false; el.removeAttribute("aria-disabled"); });
+      }
+    }
+
+    // CSV
+    const [csvResp, csvDl] = await Promise.all([
+      page.waitForResponse((r) => /reprocess-log-export\?format=csv/.test(r.url())),
+      page.waitForEvent("download"),
+      csvBtn.click(),
+    ]);
+    expect(capturedLimit).toBe(PAGE_SIZE);
+    expect(capturedOffset).toBe(PAGE_SIZE); // página 1 → offset=25
+    expect(csvResp.headers()["x-export-count"]).toBe("2");
+    const csvTxt = (await (await import("node:fs/promises")).readFile((await csvDl.path())!, "utf8"))
+      .replace(/^\uFEFF/, "").trim();
+    const lines = csvTxt.split(/\r?\n/);
+    // 1 header + 2 rows exatos.
+    expect(lines.length).toBe(3);
+    const csvIds = lines.slice(1).map((l) => l.split(",")[4]);
+    expect(csvIds).toEqual(allIds.slice(PAGE_SIZE));
+    // Nenhum id anterior escapou pra esta página.
+    for (const prev of allIds.slice(0, PAGE_SIZE)) expect(csvIds).not.toContain(prev);
+    // Sem duplicatas.
+    expect(new Set(csvIds).size).toBe(csvIds.length);
+    const csvToast = await readLastToast(page);
+    expect(csvToast).toBe("CSV exportado (2 registros)");
+
+    await expect(csvBtn).toHaveAttribute("data-exporting", "false", { timeout: 8000 });
+
+    // JSON
+    const [jsonResp, jsonDl] = await Promise.all([
+      page.waitForResponse((r) => /reprocess-log-export\?format=json/.test(r.url())),
+      page.waitForEvent("download"),
+      jsonBtn.click(),
+    ]);
+    expect(capturedLimit).toBe(PAGE_SIZE);
+    expect(capturedOffset).toBe(PAGE_SIZE);
+    expect(jsonResp.headers()["x-export-count"]).toBe("2");
+    const parsed = JSON.parse(
+      await (await import("node:fs/promises")).readFile((await jsonDl.path())!, "utf8"),
+    );
+    expect(parsed.map((r: any) => r.stripe_event_id)).toEqual(allIds.slice(PAGE_SIZE));
+    const jsonToast = await readLastToast(page);
+    expect(jsonToast).toBe("JSON exportado (2 registros)");
+  });
 });
+
 
 
 
